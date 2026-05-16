@@ -1,5 +1,6 @@
 "use client";
 
+import type { Prisma } from "@prisma/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -9,36 +10,12 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
 
-interface SetData {
-  id: string;
-  setNumber: number;
-  type: string;
-  weight?: number | null;
-  reps?: number | null;
-  volume?: number;
-}
-
-interface ExerciseData {
-  id: string;
-  exercise?: { name: string; primaryMuscle?: string };
-  sets: SetData[];
-}
-
-interface PersonalRecord {
-  id: string;
-  recordType: string;
-  value: number;
-  exercise?: { name: string };
-}
-
-interface WorkoutDetail {
-  personalRecords?: PersonalRecord[];
-  startedAt: string | Date;
-  endedAt: Date | null;
-  totalVolume: number;
-  totalSets: number;
-  exercises: ExerciseData[];
-}
+type WorkoutDetail = Prisma.WorkoutSessionGetPayload<{
+  include: {
+    personalRecords: { include: { exercise: true } };
+    exercises: { include: { exercise: true; sets: true } };
+  };
+}>;
 
 interface Props {
   workout: WorkoutDetail;
@@ -78,12 +55,12 @@ export function SessionDetail({ workout }: Props) {
             </div>
             <div className="text-center">
               <Weight className="h-4 w-4 text-muted-foreground mx-auto mb-1" />
-              <p className="text-lg font-bold tabular-nums">{formatVolume(workout.totalVolume)}</p>
+              <p className="text-lg font-bold tabular-nums">{formatVolume(workout.totalVolume ?? 0)}</p>
               <p className="text-[10px] text-muted-foreground">Volume</p>
             </div>
             <div className="text-center">
               <Repeat className="h-4 w-4 text-muted-foreground mx-auto mb-1" />
-              <p className="text-lg font-bold tabular-nums">{workout.totalSets}</p>
+              <p className="text-lg font-bold tabular-nums">{workout.totalSets ?? 0}</p>
               <p className="text-[10px] text-muted-foreground">Serie</p>
             </div>
           </div>
@@ -99,7 +76,7 @@ export function SessionDetail({ workout }: Props) {
               <p className="font-semibold text-sm">Nuovi Personal Records! 🎉</p>
             </div>
             <div className="space-y-1">
-              {prs.map((pr: PersonalRecord) => (
+              {prs.map((pr) => (
                 <div key={pr.id} className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">{pr.exercise?.name}</span>
                   <Badge variant="success">{pr.recordType}: {pr.value.toFixed(1)}</Badge>
@@ -112,13 +89,20 @@ export function SessionDetail({ workout }: Props) {
 
       {/* Exercises */}
       <div className="space-y-3">
-        {workout.exercises.map((ex: ExerciseData) => (
+        {workout.exercises.map((ex) => (
           <Card key={ex.id} className="border-border/50">
             <CardHeader className="pb-2 pt-4 px-4">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm">{ex.exercise?.name}</CardTitle>
                 {ex.exercise?.primaryMuscle && (
-                  <Badge style={{ background: `${getMuscleColor(ex.exercise.primaryMuscle)}20`, color: getMuscleColor(ex.exercise.primaryMuscle), borderColor: `${getMuscleColor(ex.exercise.primaryMuscle)}40` }} className="border text-[10px]">
+                  <Badge
+                    style={{
+                      background: `${getMuscleColor(ex.exercise.primaryMuscle)}20`,
+                      color: getMuscleColor(ex.exercise.primaryMuscle),
+                      borderColor: `${getMuscleColor(ex.exercise.primaryMuscle)}40`,
+                    }}
+                    className="border text-[10px]"
+                  >
                     {getMuscleLabel(ex.exercise.primaryMuscle)}
                   </Badge>
                 )}
@@ -134,7 +118,7 @@ export function SessionDetail({ workout }: Props) {
                   <span className="text-right">Volume</span>
                 </div>
                 <Separator />
-                {ex.sets.map((set: SetData) => (
+                {ex.sets.map((set) => (
                   <div key={set.id} className="grid grid-cols-5 gap-2 text-xs">
                     <span className="tabular-nums">{set.setNumber}</span>
                     <span className="text-muted-foreground text-[10px]">
@@ -143,7 +127,7 @@ export function SessionDetail({ workout }: Props) {
                     <span className="text-right tabular-nums">{set.weight ? `${set.weight}kg` : "-"}</span>
                     <span className="text-right tabular-nums">{set.reps ?? "-"}</span>
                     <span className="text-right tabular-nums text-muted-foreground">
-                      {set.volume > 0 ? `${set.volume.toFixed(0)}kg` : "-"}
+                      {(set.volume ?? 0) > 0 ? `${set.volume!.toFixed(0)}kg` : "-"}
                     </span>
                   </div>
                 ))}
