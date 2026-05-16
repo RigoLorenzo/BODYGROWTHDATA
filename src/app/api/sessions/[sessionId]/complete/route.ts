@@ -12,7 +12,7 @@ export async function POST(_req: Request, { params }: Params) {
   try {
     const result = await finalizeSession(sessionId, session.user.id);
     return NextResponse.json(result);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: "Failed to finalize session" }, { status: 500 });
   }
 }
