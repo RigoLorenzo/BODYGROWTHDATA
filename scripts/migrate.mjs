@@ -7,16 +7,16 @@ if (!originalUrl) {
 }
 
 const fixedUrl = originalUrl.replace(/^postgres:/, "postgresql:");
+const directUrl = (process.env.DIRECT_URL ?? originalUrl).replace(/^postgres:/, "postgresql:");
 
-console.log("🔄 Running prisma migrate deploy...");
+const env = { ...process.env, DATABASE_URL: fixedUrl, DIRECT_URL: directUrl };
+
+console.log("🔄 Pushing schema to database (prisma db push)...");
 
 try {
-  execSync("npx prisma migrate deploy", {
-    env: { ...process.env, DATABASE_URL: fixedUrl, DIRECT_URL: fixedUrl },
-    stdio: "inherit",
-  });
-  console.log("✅ Migration completed!");
+  execSync("npx prisma db push --skip-generate", { env, stdio: "inherit" });
+  console.log("✅ Schema pushed successfully!");
 } catch (error) {
-  console.error("❌ Migration failed:", error.message);
+  console.error("❌ Schema push failed:", error.message);
   process.exit(1);
 }
