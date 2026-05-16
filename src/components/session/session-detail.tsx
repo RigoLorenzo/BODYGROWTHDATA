@@ -34,7 +34,7 @@ interface PersonalRecord {
 interface WorkoutDetail {
   personalRecords?: PersonalRecord[];
   startedAt: string | Date;
-  endedAt?: string | Date;
+  endedAt: Date | null;
   totalVolume: number;
   totalSets: number;
   exercises: ExerciseData[];
