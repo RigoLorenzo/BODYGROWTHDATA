@@ -130,7 +130,10 @@ async function main() {
   for (const achievement of achievements) {
     await prisma.achievement.upsert({
       where: { slug: achievement.slug },
-      update: achievement,
+      update: {
+        ...achievement,
+        tier: achievement.tier as never,
+      },
       create: {
         ...achievement,
         tier: achievement.tier as any,
