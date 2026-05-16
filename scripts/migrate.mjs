@@ -1,26 +1,30 @@
 import { execSync } from "child_process";
 
-// Vercel/Neon generate postgres:// but Prisma CLI requires postgresql://
 const normalize = (url) => url?.replace(/^postgres(?!ql):\/\//, "postgresql://");
+const isPostgresUrl = (url) => /^postgres(ql)?:\/\//.test(url ?? "");
 
-const poolerUrl = normalize(process.env.DATABASE_URL);
-const directUrl = normalize(process.env.DIRECT_URL) ?? poolerUrl;
-
-if (!poolerUrl) {
+// ── DATABASE_URL ────────────────────────────────────────────────────────────
+const rawDbUrl = process.env.DATABASE_URL;
+if (!rawDbUrl) {
   console.error("❌ DATABASE_URL is not defined");
   process.exit(1);
 }
+process.env.DATABASE_URL = normalize(rawDbUrl);
 
-// Log scheme only (never log credentials)
-console.log(`🔗 DATABASE_URL scheme: ${poolerUrl.split("://")[0]}`);
-console.log(`🔗 DIRECT_URL scheme:   ${directUrl.split("://")[0]}`);
-
-// Mutate process.env directly — more reliable than passing { env } to execSync
-// because Prisma CLI's own dotenv loader can override a child-process env object.
-// Use DIRECT_URL for schema operations: pgbouncer/pooler connections
-// don't support DDL statements required by db push.
-process.env.DATABASE_URL = directUrl;
-process.env.DIRECT_URL = directUrl;
+// ── DIRECT_URL ──────────────────────────────────────────────────────────────
+// Only use DIRECT_URL if it's actually a postgres URL.
+// If it's missing or holds a non-URL value (endpoint name, placeholder, etc.)
+// delete it so Prisma falls back to DATABASE_URL for everything.
+const rawDirectUrl = process.env.DIRECT_URL;
+if (rawDirectUrl && isPostgresUrl(rawDirectUrl)) {
+  process.env.DIRECT_URL = normalize(rawDirectUrl);
+  console.log(`🔗 DATABASE_URL: ${process.env.DATABASE_URL.split("://")[0]}://***`);
+  console.log(`🔗 DIRECT_URL:   ${process.env.DIRECT_URL.split("://")[0]}://***`);
+} else {
+  delete process.env.DIRECT_URL;
+  console.log(`🔗 DATABASE_URL: ${process.env.DATABASE_URL.split("://")[0]}://***`);
+  console.log(`⚠️  DIRECT_URL not set or not a postgres URL — Prisma will use DATABASE_URL`);
+}
 
 console.log("🔄 Running prisma db push...");
 
