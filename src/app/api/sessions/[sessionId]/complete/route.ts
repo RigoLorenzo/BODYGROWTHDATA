@@ -7,7 +7,7 @@ interface Params { params: Promise<{ sessionId: string }> }
 
 export async function POST(_req: Request, { params }: Params) {
   const { sessionId } = await params;
-  const session = await auth();
+  const session = await auth().catch(() => null);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {

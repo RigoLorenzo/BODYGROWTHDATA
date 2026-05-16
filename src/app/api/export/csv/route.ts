@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { format } from "date-fns";
 
 export async function GET() {
-  const session = await auth();
+  const session = await auth().catch(() => null);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const workouts = await prisma.workoutSession.findMany({

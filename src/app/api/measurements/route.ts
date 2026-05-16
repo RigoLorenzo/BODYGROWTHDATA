@@ -19,7 +19,7 @@ const measurementSchema = z.object({
 });
 
 export async function GET() {
-  const session = await auth();
+  const session = await auth().catch(() => null);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const measurements = await prisma.bodyMeasurement.findMany({
@@ -32,7 +32,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const session = await auth();
+  const session = await auth().catch(() => null);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();

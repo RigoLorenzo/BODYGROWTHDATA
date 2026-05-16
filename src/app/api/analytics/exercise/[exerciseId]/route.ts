@@ -9,7 +9,7 @@ interface Params { params: Promise<{ exerciseId: string }> }
 
 export async function GET(_req: Request, { params }: Params) {
   const { exerciseId } = await params;
-  const session = await auth();
+  const session = await auth().catch(() => null);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const sessions = await prisma.workoutSession.findMany({

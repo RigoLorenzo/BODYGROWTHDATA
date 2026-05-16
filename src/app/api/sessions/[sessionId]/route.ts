@@ -18,7 +18,7 @@ interface Params { params: Promise<{ sessionId: string }> }
 
 export async function GET(_req: Request, { params }: Params) {
   const { sessionId } = await params;
-  const session = await auth();
+  const session = await auth().catch(() => null);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const workout = await prisma.workoutSession.findUnique({
@@ -40,7 +40,7 @@ export async function GET(_req: Request, { params }: Params) {
 
 export async function PATCH(req: Request, { params }: Params) {
   const { sessionId } = await params;
-  const session = await auth();
+  const session = await auth().catch(() => null);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
@@ -61,7 +61,7 @@ export async function PATCH(req: Request, { params }: Params) {
 
 export async function DELETE(_req: Request, { params }: Params) {
   const { sessionId } = await params;
-  const session = await auth();
+  const session = await auth().catch(() => null);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   await prisma.workoutSession.update({

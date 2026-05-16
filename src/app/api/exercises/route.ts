@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import type { MuscleGroup, Equipment } from "@prisma/client";
 
 export async function GET(req: Request) {
-  const session = await auth();
+  const session = await auth().catch(() => null);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
