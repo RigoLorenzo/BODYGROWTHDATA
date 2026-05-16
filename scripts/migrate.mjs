@@ -1,21 +1,32 @@
 import { execSync } from "child_process";
 
-const originalUrl = process.env.DATABASE_URL;
-if (!originalUrl) {
+// Vercel/Neon generate postgres:// but Prisma CLI requires postgresql://
+const normalize = (url) => url?.replace(/^postgres(?!ql):\/\//, "postgresql://");
+
+const poolerUrl = normalize(process.env.DATABASE_URL);
+const directUrl = normalize(process.env.DIRECT_URL) ?? poolerUrl;
+
+if (!poolerUrl) {
   console.error("❌ DATABASE_URL is not defined");
   process.exit(1);
 }
 
-const fixedUrl = originalUrl.replace(/^postgres:/, "postgresql:");
-const directUrl = (process.env.DIRECT_URL ?? originalUrl).replace(/^postgres:/, "postgresql:");
+// Log scheme only (never log credentials)
+console.log(`🔗 DATABASE_URL scheme: ${poolerUrl.split("://")[0]}`);
+console.log(`🔗 DIRECT_URL scheme:   ${directUrl.split("://")[0]}`);
 
-const env = { ...process.env, DATABASE_URL: fixedUrl, DIRECT_URL: directUrl };
+// Mutate process.env directly — more reliable than passing { env } to execSync
+// because Prisma CLI's own dotenv loader can override a child-process env object.
+// Use DIRECT_URL for schema operations: pgbouncer/pooler connections
+// don't support DDL statements required by db push.
+process.env.DATABASE_URL = directUrl;
+process.env.DIRECT_URL = directUrl;
 
-console.log("🔄 Pushing schema to database (prisma db push)...");
+console.log("🔄 Running prisma db push...");
 
 try {
-  execSync("npx prisma db push --skip-generate", { env, stdio: "inherit" });
-  console.log("✅ Schema pushed successfully!");
+  execSync("npx prisma db push --skip-generate", { stdio: "inherit" });
+  console.log("✅ Schema pushed!");
 } catch (error) {
   console.error("❌ Schema push failed:", error.message);
   process.exit(1);
