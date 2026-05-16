@@ -1,19 +1,22 @@
-// Normalizes postgres:// → postgresql:// before running prisma migrate deploy.
-// Vercel/Neon auto-generate postgres:// URLs but Prisma requires postgresql://.
 import { execSync } from "child_process";
 
-const env = { ...process.env };
-
-const normalize = (url) => url?.replace(/^postgres:/, "postgresql:");
-
-env.DATABASE_URL = normalize(env.DATABASE_URL);
-env.DIRECT_URL = normalize(env.DIRECT_URL) ?? env.DATABASE_URL;
-
-if (!env.DATABASE_URL) {
-  console.error("❌ DATABASE_URL is not set");
+const originalUrl = process.env.DATABASE_URL;
+if (!originalUrl) {
+  console.error("❌ DATABASE_URL is not defined");
   process.exit(1);
 }
 
+const fixedUrl = originalUrl.replace(/^postgres:/, "postgresql:");
+
 console.log("🔄 Running prisma migrate deploy...");
-execSync("npx prisma migrate deploy", { env, stdio: "inherit" });
-console.log("✅ Migrations complete");
+
+try {
+  execSync("npx prisma migrate deploy", {
+    env: { ...process.env, DATABASE_URL: fixedUrl, DIRECT_URL: fixedUrl },
+    stdio: "inherit",
+  });
+  console.log("✅ Migration completed!");
+} catch (error) {
+  console.error("❌ Migration failed:", error.message);
+  process.exit(1);
+}
