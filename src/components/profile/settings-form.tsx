@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/hooks/use-toast";
@@ -109,7 +108,7 @@ export function SettingsForm({ user }: Props) {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium">Tema</p>
-              <p className="text-xs text-muted-foreground">Aspetto dell'app</p>
+              <p className="text-xs text-muted-foreground">Aspetto dell&apos;app</p>
             </div>
             <Select value={theme} onValueChange={(v) => setThemeState(v as typeof theme)}>
               <SelectTrigger className="w-28 h-8 text-xs">
@@ -187,7 +186,7 @@ export function SettingsForm({ user }: Props) {
             {isDeleting ? "Eliminazione..." : "Elimina tutti i dati di allenamento"}
           </Button>
           <p className="text-xs text-muted-foreground mt-2">
-            Elimina definitivamente tutti gli allenamenti, serie, misurazioni e record. L'account rimane attivo.
+            Elimina definitivamente tutti gli allenamenti, serie, misurazioni e record. L&apos;account rimane attivo.
           </p>
         </CardContent>
       </Card>

@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, Info, TrendingUp, Lightbulb } from "lucide-react";
+import { AlertTriangle, Info } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export function InsightCard() {
@@ -30,7 +30,7 @@ export function InsightCard() {
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
           <div className={`mt-0.5 ${iconColor}`}>
-            <Lightbulb className="h-5 w-5" />
+            <Icon className="h-5 w-5" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">

@@ -3,12 +3,12 @@
 import { motion } from "framer-motion";
 import { useRestTimer } from "@/hooks/use-rest-timer";
 import { Button } from "@/components/ui/button";
-import { X, Plus, SkipForward } from "lucide-react";
+import { X, SkipForward } from "lucide-react";
 import { useSessionStore } from "@/store/session-store";
 import { cn } from "@/lib/utils";
 
 export function RestTimerOverlay() {
-  const { restTimer, remaining, total, progress, stop } = useRestTimer();
+  const { restTimer, remaining, progress, stop } = useRestTimer();
   const { startRestTimer } = useSessionStore();
 
   if (!restTimer) return null;

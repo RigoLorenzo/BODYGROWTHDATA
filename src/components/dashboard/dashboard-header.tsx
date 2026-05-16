@@ -2,7 +2,7 @@
 
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
-import { Bell, Settings } from "lucide-react";
+import { Settings } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 

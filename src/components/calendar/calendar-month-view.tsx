@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, getDay } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isToday, getDay } from "date-fns";
 import { it } from "date-fns/locale";
 import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -58,7 +58,7 @@ export function CalendarMonthView() {
           {Array(startPad).fill(null).map((_, i) => <div key={`pad-${i}`} />)}
           {days.map((day) => {
             const dateStr = format(day, "yyyy-MM-dd");
-            const dayData = (heatmap as any)?.[dateStr];
+            const dayData = (heatmap as Record<string, { volume: number; count: number }>)?.[dateStr];
             const hasWorkout = !!dayData;
             const today = isToday(day);
 

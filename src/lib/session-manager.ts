@@ -34,10 +34,6 @@ export async function finalizeSession(sessionId: string, userId: string) {
     0
   );
 
-  const muscleGroupsTargeted = [...new Set(
-    session.exercises.flatMap((ex) => [])
-  )];
-
   const duration = session.endedAt
     ? Math.floor((session.endedAt.getTime() - session.startedAt.getTime()) / 1000)
     : Math.floor((Date.now() - session.startedAt.getTime()) / 1000);

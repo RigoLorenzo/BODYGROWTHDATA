@@ -19,7 +19,7 @@ export function WeeklyHeatmap() {
         <div className="flex items-center justify-between gap-1">
           {days.map((day) => {
             const dateStr = format(day, "yyyy-MM-dd");
-            const hasWorkout = !!(heatmap as any)?.[dateStr];
+            const hasWorkout = !!(heatmap as Record<string, { volume: number }>)?.[dateStr];
             const isToday = format(day, "yyyy-MM-dd") === format(today, "yyyy-MM-dd");
 
             return (

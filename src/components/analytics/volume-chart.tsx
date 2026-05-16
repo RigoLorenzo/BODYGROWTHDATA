@@ -24,7 +24,7 @@ export function VolumeChart() {
   const last30Days = Array.from({ length: 30 }, (_, i) => {
     const day = subDays(new Date(), 29 - i);
     const dateStr = format(day, "yyyy-MM-dd");
-    const data = (heatmap as any)?.[dateStr];
+    const data = (heatmap as Record<string, { volume: number }>)?.[dateStr];
     return {
       date: format(day, "d MMM", { locale: it }),
       volume: data?.volume ?? 0,

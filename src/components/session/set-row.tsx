@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 import { useSessionStore } from "@/store/session-store";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Check, Minus, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ActiveSet } from "@/types";

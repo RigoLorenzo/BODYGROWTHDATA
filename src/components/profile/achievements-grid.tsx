@@ -5,6 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
+interface AchievementItem {
+  id: string;
+  name: string;
+  iconEmoji: string;
+  tier: string;
+  completed: boolean;
+}
+
 const tierColors: Record<string, string> = {
   BRONZE: "border-orange-600/40 bg-orange-600/10",
   SILVER: "border-gray-400/40 bg-gray-400/10",
@@ -34,7 +42,7 @@ export function AchievementsGrid() {
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-4 gap-2">
-          {allAchievements.slice(0, 12).map((ach: any) => (
+          {allAchievements.slice(0, 12).map((ach: AchievementItem) => (
             <div
               key={ach.id}
               className={cn(

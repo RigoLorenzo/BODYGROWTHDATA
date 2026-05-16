@@ -1,10 +1,25 @@
 "use client";
 
 import { useRecentWorkouts } from "@/hooks/use-workout-session";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatRelative, formatVolume, getMuscleColor, getMuscleLabel } from "@/lib/utils";
+import { formatRelative, formatVolume, getMuscleColor } from "@/lib/utils";
 import { Dumbbell, Star, ChevronRight } from "lucide-react";
+
+interface WorkoutExercise {
+  id: string;
+  exercise?: { name: string; primaryMuscle?: string };
+}
+
+interface WorkoutListItem {
+  id: string;
+  workoutType: string;
+  startedAt: string | Date;
+  totalVolume: number;
+  totalSets: number;
+  exercises?: WorkoutExercise[];
+  _count?: { personalRecords: number };
+}
 import Link from "next/link";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -40,7 +55,7 @@ export function RecentWorkouts() {
         </Link>
       </div>
       <div className="space-y-3">
-        {workouts.slice(0, 5).map((workout: any) => (
+        {workouts.slice(0, 5).map((workout: WorkoutListItem) => (
           <Link key={workout.id} href={`/workout/${workout.id}`}>
             <Card className="border-border/50 hover:border-border transition-colors active:scale-[0.99]">
               <CardContent className="p-4">
@@ -61,7 +76,7 @@ export function RecentWorkouts() {
                     </div>
                     <p className="text-xs text-muted-foreground">{formatRelative(workout.startedAt)}</p>
                     <div className="flex flex-wrap gap-1 mt-2">
-                      {workout.exercises?.slice(0, 3).map((ex: any) => (
+                      {workout.exercises?.slice(0, 3).map((ex: WorkoutExercise) => (
                         <span
                           key={ex.id}
                           className="text-[10px] px-1.5 py-0.5 rounded-full border"

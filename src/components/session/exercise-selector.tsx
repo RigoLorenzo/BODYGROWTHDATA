@@ -6,9 +6,9 @@ import { useExerciseSearch } from "@/hooks/use-workout-session";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { getMuscleColor, getMuscleLabel, getEquipmentLabel } from "@/lib/utils";
+import { getMuscleColor, getMuscleLabel, getEquipmentLabel, cn } from "@/lib/utils";
 import { Search, X, Dumbbell } from "lucide-react";
-import { cn } from "@/lib/utils";
+import type { ExerciseSearchResult } from "@/types";
 
 const MUSCLES = [
   "CHEST", "BACK", "SHOULDERS", "BICEPS", "TRICEPS", "QUADS", "HAMSTRINGS", "GLUTES", "CORE", "CALVES",
@@ -113,7 +113,7 @@ export function ExerciseSelector({ onSelect, onClose }: Props) {
                 <p className="text-sm text-muted-foreground">Nessun esercizio trovato</p>
               </div>
             )}
-            {exercises?.map((exercise: any) => (
+            {exercises?.map((exercise: ExerciseSearchResult) => (
               <button
                 key={exercise.id}
                 onClick={() => onSelect({ id: exercise.id, name: exercise.name })}

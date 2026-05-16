@@ -9,8 +9,39 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
 
+interface SetData {
+  id: string;
+  setNumber: number;
+  type: string;
+  weight?: number | null;
+  reps?: number | null;
+  volume?: number;
+}
+
+interface ExerciseData {
+  id: string;
+  exercise?: { name: string; primaryMuscle?: string };
+  sets: SetData[];
+}
+
+interface PersonalRecord {
+  id: string;
+  recordType: string;
+  value: number;
+  exercise?: { name: string };
+}
+
+interface WorkoutDetail {
+  personalRecords?: PersonalRecord[];
+  startedAt: string | Date;
+  endedAt?: string | Date;
+  totalVolume: number;
+  totalSets: number;
+  exercises: ExerciseData[];
+}
+
 interface Props {
-  workout: any;
+  workout: WorkoutDetail;
 }
 
 const setTypeLabel: Record<string, string> = {
@@ -68,7 +99,7 @@ export function SessionDetail({ workout }: Props) {
               <p className="font-semibold text-sm">Nuovi Personal Records! 🎉</p>
             </div>
             <div className="space-y-1">
-              {prs.map((pr: any) => (
+              {prs.map((pr: PersonalRecord) => (
                 <div key={pr.id} className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">{pr.exercise?.name}</span>
                   <Badge variant="success">{pr.recordType}: {pr.value.toFixed(1)}</Badge>
@@ -81,7 +112,7 @@ export function SessionDetail({ workout }: Props) {
 
       {/* Exercises */}
       <div className="space-y-3">
-        {workout.exercises.map((ex: any) => (
+        {workout.exercises.map((ex: ExerciseData) => (
           <Card key={ex.id} className="border-border/50">
             <CardHeader className="pb-2 pt-4 px-4">
               <div className="flex items-center justify-between">
@@ -103,7 +134,7 @@ export function SessionDetail({ workout }: Props) {
                   <span className="text-right">Volume</span>
                 </div>
                 <Separator />
-                {ex.sets.map((set: any) => (
+                {ex.sets.map((set: SetData) => (
                   <div key={set.id} className="grid grid-cols-5 gap-2 text-xs">
                     <span className="tabular-nums">{set.setNumber}</span>
                     <span className="text-muted-foreground text-[10px]">

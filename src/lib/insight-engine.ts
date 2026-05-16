@@ -1,6 +1,5 @@
 import { prisma } from "./prisma";
-import { subWeeks, subDays } from "date-fns";
-import { calculateOneRM } from "./one-rm-calculator";
+import { subWeeks } from "date-fns";
 
 export interface Insight {
   type: "plateau" | "overtraining" | "undertraining" | "pr_prediction" | "deload" | "volume_imbalance";

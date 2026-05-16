@@ -1,16 +1,14 @@
 "use client";
 
 import { useSessionStore } from "@/store/session-store";
-import { useWorkoutSession } from "@/hooks/use-workout-session";
 import { formatWorkoutDuration } from "@/lib/utils";
-import { Dumbbell, X, ChevronRight } from "lucide-react";
+import { Dumbbell, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export function ActiveSessionBanner() {
   const { activeSession } = useSessionStore();
-  const { completeWorkout } = useWorkoutSession();
   const [elapsed, setElapsed] = useState("");
 
   useEffect(() => {

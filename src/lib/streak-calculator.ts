@@ -1,4 +1,4 @@
-import { differenceInDays, startOfDay, isToday, isYesterday } from "date-fns";
+import { differenceInDays, startOfDay } from "date-fns";
 
 export function calculateStreak(
   workoutDates: Date[],

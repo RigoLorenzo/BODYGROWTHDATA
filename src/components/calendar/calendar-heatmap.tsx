@@ -2,7 +2,7 @@
 
 import { useHeatmapData } from "@/hooks/use-workout-session";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { format, eachDayOfInterval, startOfYear, endOfYear, getDay, addDays, subDays, startOfWeek } from "date-fns";
+import { format, eachDayOfInterval, startOfYear, endOfYear, getDay } from "date-fns";
 import { it } from "date-fns/locale";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -43,9 +43,12 @@ export function CalendarHeatmap() {
 
   if (isLoading) return <Skeleton className="h-48 rounded-xl" />;
 
-  const maxVolume = heatmap
-    ? Math.max(...Object.values(heatmap as Record<string, { volume: number }>).map((d) => d.volume))
-    : 0;
+  type HeatmapDay = { volume: number; count: number };
+  type HeatmapRecord = Record<string, HeatmapDay>;
+  const heatmapData = heatmap as HeatmapRecord | undefined;
+
+  const values = heatmapData ? Object.values(heatmapData).map((d) => d.volume) : [];
+  const maxVolume = values.length ? Math.max(...values) : 0;
 
   const yearStart = startOfYear(new Date(year, 0, 1));
   const yearEnd = endOfYear(new Date(year, 0, 1));
@@ -89,20 +92,15 @@ export function CalendarHeatmap() {
           <div className="relative" style={{ minWidth: 720 }}>
             {/* Month labels */}
             <div className="flex mb-1 ml-6">
-              {MONTHS.map((m, i) => {
-                const weeksInMonth = Math.ceil(
-                  (new Date(year, i + 1, 0).getDate() + new Date(year, i, 1).getDay() - 1) / 7
-                );
-                return (
-                  <div
-                    key={m}
-                    className="text-[10px] text-muted-foreground"
-                    style={{ width: `${Math.round(weeks.length / 12) * 14}px` }}
-                  >
-                    {m}
-                  </div>
-                );
-              })}
+              {MONTHS.map((m) => (
+                <div
+                  key={m}
+                  className="text-[10px] text-muted-foreground"
+                  style={{ width: `${Math.round(weeks.length / 12) * 14}px` }}
+                >
+                  {m}
+                </div>
+              ))}
             </div>
 
             <div className="flex gap-0.5">
@@ -121,7 +119,7 @@ export function CalendarHeatmap() {
                   {week.map((day, di) => {
                     if (!day) return <div key={di} className="h-[13px] w-[13px]" />;
                     const dateStr = format(day, "yyyy-MM-dd");
-                    const dayData = (heatmap as any)?.[dateStr];
+                    const dayData = heatmapData?.[dateStr];
                     const intensity = dayData ? getIntensity(dayData.volume, maxVolume) : 0;
 
                     return (

@@ -11,16 +11,16 @@ import { ExerciseSelector } from "./exercise-selector";
 import { RestTimerOverlay } from "./rest-timer-overlay";
 import { formatWorkoutDuration, formatVolume } from "@/lib/utils";
 import { calculateSessionVolume } from "@/lib/volume-calculator";
-import { Plus, CheckCircle, X, Timer } from "lucide-react";
-import { useEffect, useRef } from "react";
-import type { ActiveSession, ActiveExercise, ActiveSet } from "@/types";
+import { Plus, CheckCircle } from "lucide-react";
+import { useEffect } from "react";
+import type { ActiveSession, ActiveExercise } from "@/types";
 
 interface Props {
   session: ActiveSession;
 }
 
 export function ActiveWorkoutView({ session }: Props) {
-  const { addExercise, endSession } = useSessionStore();
+  const { addExercise } = useSessionStore();
   const { completeWorkout, isCompleting } = useWorkoutSession();
   const { restTimer } = useRestTimer();
   const [showExerciseSelector, setShowExerciseSelector] = useState(false);
@@ -156,7 +156,7 @@ export function ActiveWorkoutView({ session }: Props) {
               className="bg-card border border-border rounded-2xl p-6 w-full max-w-sm"
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 className="font-bold text-lg mb-2">Terminare l'allenamento?</h3>
+              <h3 className="font-bold text-lg mb-2">Terminare l&apos;allenamento?</h3>
               <p className="text-sm text-muted-foreground mb-4">
                 Non hai completato nessuna serie. Vuoi terminare comunque?
               </p>

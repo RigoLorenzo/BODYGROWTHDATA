@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Settings, Edit } from "lucide-react";
+import { Settings } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 

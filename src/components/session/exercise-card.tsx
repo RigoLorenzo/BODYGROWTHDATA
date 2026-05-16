@@ -5,11 +5,10 @@ import { useSessionStore } from "@/store/session-store";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SetRow } from "./set-row";
-import { Plus, ChevronDown, ChevronUp, Trash2, Timer } from "lucide-react";
+import { Plus, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import { calculateExerciseVolume } from "@/lib/volume-calculator";
 import { formatVolume } from "@/lib/utils";
 import type { ActiveExercise } from "@/types";
-import { cn } from "@/lib/utils";
 
 interface Props {
   exercise: ActiveExercise;
