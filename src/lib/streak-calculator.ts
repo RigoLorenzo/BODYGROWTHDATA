@@ -6,7 +6,7 @@ export function calculateStreak(
 ): { current: number; longest: number } {
   if (!workoutDates.length) return { current: 0, longest: 0 };
 
-  const uniqueDays = [...new Set(workoutDates.map((d) => startOfDay(d).getTime()))]
+  const uniqueDays = Array.from(new Set(workoutDates.map((d) => startOfDay(d).getTime())))
     .sort((a, b) => b - a)
     .map((t) => new Date(t));
 

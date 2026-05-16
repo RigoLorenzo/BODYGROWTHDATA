@@ -67,7 +67,7 @@ export function RecentWorkouts() {
                           ? workout.exercises?.[0]?.exercise?.name ?? "Allenamento"
                           : workout.workoutType}
                       </p>
-                      {workout._count?.personalRecords > 0 && (
+                      {(workout._count?.personalRecords ?? 0) > 0 && (
                         <Badge variant="success" className="shrink-0">
                           <Star className="h-2.5 w-2.5 mr-1" />
                           PR
@@ -81,15 +81,15 @@ export function RecentWorkouts() {
                           key={ex.id}
                           className="text-[10px] px-1.5 py-0.5 rounded-full border"
                           style={{
-                            borderColor: `${getMuscleColor(ex.exercise?.primaryMuscle)}40`,
-                            color: getMuscleColor(ex.exercise?.primaryMuscle),
+                            borderColor: `${getMuscleColor(ex.exercise?.primaryMuscle ?? "")}40`,
+                            color: getMuscleColor(ex.exercise?.primaryMuscle ?? ""),
                           }}
                         >
                           {ex.exercise?.name}
                         </span>
                       ))}
-                      {workout.exercises?.length > 3 && (
-                        <span className="text-[10px] text-muted-foreground">+{workout.exercises.length - 3}</span>
+                      {(workout.exercises?.length ?? 0) > 3 && (
+                        <span className="text-[10px] text-muted-foreground">+{(workout.exercises?.length ?? 0) - 3}</span>
                       )}
                     </div>
                   </div>

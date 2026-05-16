@@ -47,7 +47,7 @@ export async function generateInsights(userId: string): Promise<Insight[]> {
     }
   }
 
-  for (const [exerciseId, data] of exerciseProgress.entries()) {
+  for (const [exerciseId, data] of Array.from(exerciseProgress.entries())) {
     if (data.weights.length >= 3) {
       const recent = data.weights.slice(0, 3);
       const maxRecent = Math.max(...recent);

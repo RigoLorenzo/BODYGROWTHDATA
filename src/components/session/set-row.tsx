@@ -28,7 +28,7 @@ export function SetRow({ exerciseId, set, index }: Props) {
   const handleComplete = () => {
     const w = parseFloat(weight) || undefined;
     const r = parseInt(reps) || undefined;
-    updateSet(exerciseId, index, { weight: w, reps: r, volume: (w ?? 0) * (r ?? 0) });
+    updateSet(exerciseId, index, { weight: w, reps: r });
     completeSet(exerciseId, index);
     if ("vibrate" in navigator) navigator.vibrate(50);
   };
