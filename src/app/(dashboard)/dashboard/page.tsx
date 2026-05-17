@@ -18,7 +18,7 @@ export default async function DashboardPage() {
 
   let statsData = null;
   let recentWorkouts = null;
-  let heatmapData: Record<string, { volume: number }> = {};
+  const heatmapData: Record<string, { volume: number }> = {};
 
   if (userId) {
     const now = new Date();
