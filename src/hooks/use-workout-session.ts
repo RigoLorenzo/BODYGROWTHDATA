@@ -101,6 +101,102 @@ export function useAnalyticsOverview() {
   });
 }
 
+export function useDeleteWorkout() {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (sessionId: string) => {
+      const res = await fetch(`/api/sessions/${sessionId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete workout");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["analytics"] });
+      router.push("/dashboard");
+      toast({ title: "Allenamento eliminato" });
+    },
+    onError: () => {
+      toast({ title: "Errore", description: "Impossibile eliminare l'allenamento", variant: "destructive" });
+    },
+  });
+}
+
+export function useCreateExercise() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: {
+      name: string;
+      primaryMuscle: string;
+      muscleGroups: string[];
+      category: string;
+      equipment: string[];
+    }) => {
+      const res = await fetch("/api/exercises", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Failed to create exercise");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["exercises"] });
+      toast({ title: "Esercizio creato!" });
+    },
+    onError: () => {
+      toast({ title: "Errore", description: "Impossibile creare l'esercizio", variant: "destructive" });
+    },
+  });
+}
+
+export function useUpdateExercise() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...data }: {
+      id: string;
+      name: string;
+      primaryMuscle: string;
+      muscleGroups: string[];
+      category: string;
+      equipment: string[];
+    }) => {
+      const res = await fetch(`/api/exercises/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Failed to update exercise");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["exercises"] });
+      toast({ title: "Esercizio aggiornato!" });
+    },
+    onError: () => {
+      toast({ title: "Errore", description: "Impossibile aggiornare l'esercizio", variant: "destructive" });
+    },
+  });
+}
+
+export function useDeleteExercise() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/exercises/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete exercise");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["exercises"] });
+      toast({ title: "Esercizio eliminato" });
+    },
+    onError: () => {
+      toast({ title: "Errore", description: "Impossibile eliminare l'esercizio", variant: "destructive" });
+    },
+  });
+}
+
 export function useHeatmapData(year: number, initialData?: Record<string, { volume: number }>) {
   return useQuery({
     queryKey: ["analytics", "heatmap", year],

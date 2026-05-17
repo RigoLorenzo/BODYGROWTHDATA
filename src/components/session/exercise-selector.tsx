@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useExerciseSearch } from "@/hooks/use-workout-session";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { getMuscleColor, getMuscleLabel, getEquipmentLabel, cn } from "@/lib/utils";
-import { Search, X, Dumbbell } from "lucide-react";
+import { Search, X, Dumbbell, Plus, Pencil } from "lucide-react";
+import { CreateExerciseSheet } from "@/components/exercises/create-exercise-sheet";
 import type { ExerciseSearchResult } from "@/types";
 
 const MUSCLES = [
@@ -22,6 +22,8 @@ interface Props {
 export function ExerciseSelector({ onSelect, onClose }: Props) {
   const [query, setQuery] = useState("");
   const [selectedMuscle, setSelectedMuscle] = useState<string | undefined>();
+  const [showCreate, setShowCreate] = useState(false);
+  const [editingExercise, setEditingExercise] = useState<ExerciseSearchResult | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { data: exercises, isLoading } = useExerciseSearch(query, selectedMuscle);
@@ -55,9 +57,14 @@ export function ExerciseSelector({ onSelect, onClose }: Props) {
         <div className="px-4 pb-3">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-semibold">Seleziona Esercizio</h2>
-            <Button variant="ghost" size="icon-sm" onClick={onClose}>
-              <X className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button variant="ghost" size="icon-sm" onClick={() => { setEditingExercise(null); setShowCreate(true); }} title="Crea esercizio">
+                <Plus className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="icon-sm" onClick={onClose}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
 
           {/* Search */}
@@ -102,22 +109,25 @@ export function ExerciseSelector({ onSelect, onClose }: Props) {
         </div>
 
         {/* Exercise list */}
-        <ScrollArea className="flex-1 min-h-0">
-          <div className="px-4 pb-8 space-y-1">
-            {isLoading && (
-              <div className="py-8 text-center text-muted-foreground text-sm">Caricamento...</div>
-            )}
-            {!isLoading && !exercises?.length && (
-              <div className="py-8 text-center">
-                <Dumbbell className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">Nessun esercizio trovato</p>
-              </div>
-            )}
-            {exercises?.map((exercise: ExerciseSearchResult) => (
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pb-8 space-y-1">
+          {isLoading && (
+            <div className="py-8 text-center text-muted-foreground text-sm">Caricamento...</div>
+          )}
+          {!isLoading && !exercises?.length && (
+            <div className="py-8 text-center">
+              <Dumbbell className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">Nessun esercizio trovato</p>
+              <Button variant="outline" size="sm" className="mt-3" onClick={() => { setEditingExercise(null); setShowCreate(true); }}>
+                <Plus className="h-3.5 w-3.5 mr-1.5" />
+                Crea esercizio
+              </Button>
+            </div>
+          )}
+          {exercises?.map((exercise: ExerciseSearchResult) => (
+            <div key={exercise.id} className="flex items-center gap-1">
               <button
-                key={exercise.id}
                 onClick={() => onSelect({ id: exercise.id, name: exercise.name })}
-                className="w-full text-left p-3 rounded-xl hover:bg-muted/50 active:scale-[0.99] transition-all"
+                className="flex-1 text-left p-3 rounded-xl hover:bg-muted/50 active:scale-[0.99] transition-all"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
@@ -141,10 +151,27 @@ export function ExerciseSelector({ onSelect, onClose }: Props) {
                   </div>
                 </div>
               </button>
-            ))}
-          </div>
-        </ScrollArea>
+              {exercise.isCustom && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setEditingExercise(exercise); setShowCreate(true); }}
+                  className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors shrink-0"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
       </motion.div>
+
+      <AnimatePresence>
+        {showCreate && (
+          <CreateExerciseSheet
+            exercise={editingExercise}
+            onClose={() => { setShowCreate(false); setEditingExercise(null); }}
+          />
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

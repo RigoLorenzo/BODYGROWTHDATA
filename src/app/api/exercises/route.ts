@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { z } from "zod";
 import type { MuscleGroup, Equipment } from "@prisma/client";
 
 export async function GET(req: Request) {
@@ -49,4 +50,48 @@ export async function GET(req: Request) {
   });
 
   return NextResponse.json(exercises);
+}
+
+const createExerciseSchema = z.object({
+  name: z.string().min(1).max(100),
+  primaryMuscle: z.string().min(1),
+  muscleGroups: z.array(z.string()).default([]),
+  category: z.enum(["COMPOUND", "ISOLATION", "CARDIO", "STRETCHING"]).default("COMPOUND"),
+  equipment: z.array(z.string()).default([]),
+});
+
+export async function POST(req: Request) {
+  const session = await auth().catch(() => null);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const body = await req.json();
+  const data = createExerciseSchema.parse(body);
+
+  const muscleGroups = Array.from(new Set([data.primaryMuscle, ...data.muscleGroups]));
+
+  const exercise = await prisma.exercise.create({
+    data: {
+      name: data.name,
+      primaryMuscle: data.primaryMuscle as MuscleGroup,
+      muscleGroups: muscleGroups as MuscleGroup[],
+      category: data.category as never,
+      equipment: data.equipment as Equipment[],
+      isCustom: true,
+      isPublic: false,
+      createdById: session.user.id,
+    },
+    select: {
+      id: true,
+      name: true,
+      aliases: true,
+      category: true,
+      muscleGroups: true,
+      primaryMuscle: true,
+      equipment: true,
+      difficulty: true,
+      isCustom: true,
+    },
+  });
+
+  return NextResponse.json(exercise, { status: 201 });
 }
