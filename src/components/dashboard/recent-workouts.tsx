@@ -1,14 +1,15 @@
 "use client";
 
-import { useRecentWorkouts } from "@/hooks/use-workout-session";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatRelative, formatVolume, getMuscleColor } from "@/lib/utils";
 import { Dumbbell, Star, ChevronRight } from "lucide-react";
+import Link from "next/link";
 
 interface WorkoutExercise {
   id: string;
-  exercise?: { name: string; primaryMuscle?: string };
+  exercise?: { name: string; primaryMuscle?: string | null };
 }
 
 interface WorkoutListItem {
@@ -20,19 +21,22 @@ interface WorkoutListItem {
   exercises?: WorkoutExercise[];
   _count?: { personalRecords: number };
 }
-import Link from "next/link";
-import { Skeleton } from "@/components/ui/skeleton";
 
-export function RecentWorkouts() {
-  const { data: workouts, isLoading } = useRecentWorkouts();
+interface Props {
+  initialData?: WorkoutListItem[];
+}
 
-  if (isLoading) {
-    return (
-      <div className="space-y-3">
-        {Array(3).fill(0).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
-      </div>
-    );
-  }
+export function RecentWorkouts({ initialData }: Props) {
+  const { data: workouts } = useQuery<WorkoutListItem[]>({
+    queryKey: ["sessions"],
+    queryFn: async () => {
+      const res = await fetch("/api/sessions?limit=10");
+      if (!res.ok) throw new Error("Failed to fetch sessions");
+      return res.json();
+    },
+    initialData,
+    staleTime: 60 * 1000,
+  });
 
   if (!workouts?.length) {
     return (

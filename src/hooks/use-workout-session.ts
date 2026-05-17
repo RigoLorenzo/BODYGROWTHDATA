@@ -101,7 +101,7 @@ export function useAnalyticsOverview() {
   });
 }
 
-export function useHeatmapData(year: number) {
+export function useHeatmapData(year: number, initialData?: Record<string, { volume: number }>) {
   return useQuery({
     queryKey: ["analytics", "heatmap", year],
     queryFn: async () => {
@@ -110,5 +110,6 @@ export function useHeatmapData(year: number) {
       return res.json();
     },
     staleTime: 10 * 60 * 1000,
+    initialData,
   });
 }

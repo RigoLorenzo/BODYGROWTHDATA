@@ -1,22 +1,35 @@
 "use client";
 
-import { useAnalyticsOverview } from "@/hooks/use-workout-session";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { TrendingUp, TrendingDown, Flame, Dumbbell, Target, Zap } from "lucide-react";
 import { formatVolume } from "@/lib/utils";
 import { cn } from "@/lib/utils";
-import { Skeleton } from "@/components/ui/skeleton";
 
-export function StatsGrid() {
-  const { data, isLoading } = useAnalyticsOverview();
+interface AnalyticsOverview {
+  thisWeek: { volume: number; workouts: number };
+  lastWeek?: { volume: number; workouts: number };
+  total: { volume: number; workouts: number };
+  volumeChange: number;
+  streak: number;
+  longestStreak?: number;
+}
 
-  if (isLoading) {
-    return (
-      <div className="grid grid-cols-2 gap-3">
-        {Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
-      </div>
-    );
-  }
+interface Props {
+  initialData?: AnalyticsOverview;
+}
+
+export function StatsGrid({ initialData }: Props) {
+  const { data } = useQuery<AnalyticsOverview>({
+    queryKey: ["analytics", "overview"],
+    queryFn: async () => {
+      const res = await fetch("/api/analytics?type=overview");
+      if (!res.ok) throw new Error("Failed to fetch analytics");
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+    initialData,
+  });
 
   const stats = [
     {

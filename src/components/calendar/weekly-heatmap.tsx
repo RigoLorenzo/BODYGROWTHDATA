@@ -6,9 +6,13 @@ import { format, subDays, eachDayOfInterval } from "date-fns";
 import { it } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
-export function WeeklyHeatmap() {
+interface Props {
+  initialData?: Record<string, { volume: number }>;
+}
+
+export function WeeklyHeatmap({ initialData }: Props) {
   const year = new Date().getFullYear();
-  const { data: heatmap } = useHeatmapData(year);
+  const { data: heatmap } = useHeatmapData(year, initialData);
 
   const today = new Date();
   const days = eachDayOfInterval({ start: subDays(today, 6), end: today });
