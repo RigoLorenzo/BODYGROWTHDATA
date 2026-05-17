@@ -7,10 +7,13 @@ import { calculateOneRM } from "@/lib/one-rm-calculator";
 
 interface Params { params: Promise<{ exerciseId: string }> }
 
-export async function GET(_req: Request, { params }: Params) {
+export async function GET(req: Request, { params }: Params) {
   const { exerciseId } = await params;
   const session = await auth().catch(() => null);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { searchParams } = new URL(req.url);
+  const isLast = searchParams.get("last") === "true";
 
   const sessions = await prisma.workoutSession.findMany({
     where: {
@@ -18,8 +21,8 @@ export async function GET(_req: Request, { params }: Params) {
       status: "COMPLETED",
       exercises: { some: { exerciseId } },
     },
-    orderBy: { startedAt: "asc" },
-    take: 60,
+    orderBy: { startedAt: isLast ? "desc" : "asc" },
+    take: isLast ? 1 : 60,
     select: {
       startedAt: true,
       exercises: {

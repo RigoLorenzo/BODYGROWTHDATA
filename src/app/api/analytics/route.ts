@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { startOfWeek, endOfWeek, subWeeks, format } from "date-fns";
+import { startOfWeek, endOfWeek, subWeeks, subDays, differenceInDays, format } from "date-fns";
 
 export async function GET(req: Request) {
   const session = await auth().catch(() => null);
@@ -111,6 +111,46 @@ export async function GET(req: Request) {
       .sort((a, b) => b.volume - a.volume);
 
     return NextResponse.json(result);
+  }
+
+  if (type === "muscle-frequency") {
+    const days = parseInt(searchParams.get("days") ?? "14");
+    const since = subDays(new Date(), days);
+
+    const sessions = await prisma.workoutSession.findMany({
+      where: { userId, status: "COMPLETED", startedAt: { gte: since } },
+      orderBy: { startedAt: "desc" },
+      select: {
+        startedAt: true,
+        exercises: {
+          select: { exercise: { select: { primaryMuscle: true } } },
+        },
+      },
+    });
+
+    const ALL_MUSCLES = [
+      "CHEST", "BACK", "SHOULDERS", "BICEPS", "TRICEPS",
+      "QUADS", "HAMSTRINGS", "GLUTES", "CORE", "CALVES",
+    ];
+
+    const muscleData: Record<string, { count: number; lastWorked: string | null; daysSince: number | null }> = {};
+    for (const m of ALL_MUSCLES) {
+      muscleData[m] = { count: 0, lastWorked: null, daysSince: null };
+    }
+
+    for (const s of sessions) {
+      const worked = Array.from(new Set(s.exercises.map((ex) => ex.exercise.primaryMuscle).filter(Boolean)));
+      for (const muscle of worked) {
+        if (!muscle || !muscleData[muscle]) continue;
+        muscleData[muscle].count++;
+        if (muscleData[muscle].lastWorked === null) {
+          muscleData[muscle].lastWorked = format(s.startedAt, "yyyy-MM-dd");
+          muscleData[muscle].daysSince = differenceInDays(new Date(), s.startedAt);
+        }
+      }
+    }
+
+    return NextResponse.json(muscleData);
   }
 
   return NextResponse.json({ error: "Unknown type" }, { status: 400 });

@@ -197,6 +197,28 @@ export function useDeleteExercise() {
   });
 }
 
+interface LastSessionData {
+  date: string;
+  maxWeight: number;
+  maxReps: number;
+  volume: number;
+  oneRM: number;
+}
+
+export function useLastExerciseSession(exerciseId: string) {
+  return useQuery<LastSessionData | null>({
+    queryKey: ["exercise-last", exerciseId],
+    queryFn: async () => {
+      const res = await fetch(`/api/analytics/exercise/${exerciseId}?last=true`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data[0] ?? null;
+    },
+    staleTime: 5 * 60 * 1000,
+    enabled: !!exerciseId,
+  });
+}
+
 export function useHeatmapData(year: number, initialData?: Record<string, { volume: number }>) {
   return useQuery({
     queryKey: ["analytics", "heatmap", year],

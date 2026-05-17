@@ -3,6 +3,9 @@ import { auth } from "@/lib/auth";
 import { ProfileHeader } from "@/components/profile/profile-header";
 import { BodyMeasurements } from "@/components/profile/body-measurements";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent } from "@/components/ui/card";
+import { Trophy, ChevronRight } from "lucide-react";
+import Link from "next/link";
 
 export const metadata = { title: "Profilo" };
 
@@ -12,6 +15,21 @@ export default async function ProfilePage() {
   return (
     <div className="container max-w-4xl mx-auto p-4 space-y-6">
       <ProfileHeader user={session?.user ?? {}} />
+
+      <Link href="/records">
+        <Card className="border-border/50 hover:border-border transition-colors active:scale-[0.99]">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-yellow-400/10">
+              <Trophy className="h-5 w-5 text-yellow-400" />
+            </div>
+            <div className="flex-1">
+              <p className="font-medium text-sm">Personal Records</p>
+              <p className="text-xs text-muted-foreground">Visualizza i tuoi migliori risultati</p>
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </CardContent>
+        </Card>
+      </Link>
 
       <Suspense fallback={<Skeleton className="h-64 rounded-xl" />}>
         <BodyMeasurements />

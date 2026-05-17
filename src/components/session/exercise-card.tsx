@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { useSessionStore } from "@/store/session-store";
+import { useLastExerciseSession } from "@/hooks/use-workout-session";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SetRow } from "./set-row";
-import { Plus, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
+import { Plus, ChevronDown, ChevronUp, Trash2, TrendingUp } from "lucide-react";
 import { calculateExerciseVolume } from "@/lib/volume-calculator";
 import { formatVolume } from "@/lib/utils";
 import type { ActiveExercise } from "@/types";
@@ -17,6 +18,7 @@ interface Props {
 export function ExerciseCard({ exercise }: Props) {
   const { addSet, removeExercise } = useSessionStore();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const { data: lastSession } = useLastExerciseSession(exercise.exerciseId);
 
   const completedSets = exercise.sets.filter((s) => s.completed);
   const volume = calculateExerciseVolume(
@@ -67,6 +69,16 @@ export function ExerciseCard({ exercise }: Props) {
 
       {!isCollapsed && (
         <CardContent className="p-3 pt-2 space-y-1.5">
+          {/* Previous session hint */}
+          {lastSession && lastSession.maxWeight > 0 && (
+            <div className="flex items-center justify-between px-2 py-1.5 rounded-lg bg-primary/8 text-xs">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <TrendingUp className="h-3 w-3 text-primary/70" />
+                <span>Ultima: <span className="font-semibold text-foreground">{lastSession.maxWeight}kg × {lastSession.maxReps}</span></span>
+              </div>
+              <span className="text-muted-foreground/60">~{lastSession.oneRM}kg 1RM</span>
+            </div>
+          )}
           {/* Column headers */}
           <div className="grid grid-cols-12 gap-1 text-[10px] text-muted-foreground font-medium px-1">
             <span className="col-span-1">#</span>

@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VolumeChart } from "./volume-chart";
 import { StrengthChart } from "./strength-chart";
 import { MuscleBalanceChart } from "./muscle-balance-chart";
+import { MuscleFrequencyGrid } from "./muscle-frequency-grid";
 import { OverviewStats } from "./overview-stats";
 
 export function AnalyticsTabs() {
@@ -28,7 +29,8 @@ export function AnalyticsTabs() {
         <StrengthChart />
       </TabsContent>
 
-      <TabsContent value="muscle" className="mt-4">
+      <TabsContent value="muscle" className="mt-4 space-y-4">
+        <MuscleFrequencyGrid />
         <MuscleBalanceChart />
       </TabsContent>
     </Tabs>
