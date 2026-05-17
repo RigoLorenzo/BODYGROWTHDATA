@@ -18,8 +18,9 @@ export function RestTimerOverlay() {
   const circumference = 2 * Math.PI * 44;
   const strokeDashoffset = circumference * (1 - progress / 100);
 
-  const addTime = (seconds: number) => {
-    startRestTimer(restTimer.exerciseId, restTimer.setNumber, remaining + seconds);
+  const addTime = (delta: number) => {
+    const next = Math.max(5, remaining + delta);
+    startRestTimer(restTimer.exerciseId, restTimer.setNumber, next);
   };
 
   return (
@@ -60,15 +61,18 @@ export function RestTimerOverlay() {
           <div className="flex-1 space-y-2">
             <p className="text-sm font-semibold">Recupero</p>
             <div className="flex gap-1.5">
-              {[15, 30, 60].map((s) => (
-                <button
-                  key={s}
-                  onClick={() => addTime(s)}
-                  className="text-xs px-2 py-1 rounded-lg bg-muted hover:bg-muted/70 text-muted-foreground transition-colors"
-                >
-                  +{s}s
-                </button>
-              ))}
+              <button
+                onClick={() => addTime(-30)}
+                className="text-xs px-2.5 py-1 rounded-lg bg-muted hover:bg-muted/70 text-muted-foreground transition-colors"
+              >
+                -30s
+              </button>
+              <button
+                onClick={() => addTime(30)}
+                className="text-xs px-2.5 py-1 rounded-lg bg-muted hover:bg-muted/70 text-muted-foreground transition-colors"
+              >
+                +30s
+              </button>
             </div>
             <div className="flex gap-2">
               <Button

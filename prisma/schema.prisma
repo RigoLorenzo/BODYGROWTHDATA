@@ -356,6 +356,7 @@ model Set {
   distance          Float?
   isPR              Boolean @default(false)
   volume            Float   @default(0)
+  restSeconds       Int?
   notes             String?
   completedAt       DateTime @default(now())
 

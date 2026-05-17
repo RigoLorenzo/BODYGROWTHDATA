@@ -1,19 +1,75 @@
 export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { finalizeSession } from "@/lib/session-manager";
 
 interface Params { params: Promise<{ sessionId: string }> }
 
-export async function POST(_req: Request, { params }: Params) {
+interface IncomingSet {
+  setNumber: number;
+  type?: string;
+  weight?: number;
+  reps?: number;
+  rpe?: number;
+  restSeconds?: number;
+}
+
+interface IncomingExercise {
+  exerciseId: string;
+  orderIndex: number;
+  restTimerSeconds?: number;
+  sets: IncomingSet[];
+}
+
+export async function POST(req: Request, { params }: Params) {
   const { sessionId } = await params;
   const session = await auth().catch(() => null);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
+    const body = await req.json().catch(() => ({}));
+    const exercises: IncomingExercise[] = body.exercises ?? [];
+
+    if (exercises.length > 0) {
+      await prisma.$transaction(async (tx) => {
+        // Remove any pre-existing exercises (idempotent re-submit)
+        await tx.workoutExercise.deleteMany({ where: { sessionId } });
+
+        for (const ex of exercises) {
+          const workoutEx = await tx.workoutExercise.create({
+            data: {
+              sessionId,
+              exerciseId: ex.exerciseId,
+              orderIndex: ex.orderIndex,
+              restTimerSeconds: ex.restTimerSeconds ?? 90,
+            },
+          });
+
+          for (const s of ex.sets) {
+            const weight = s.weight ?? 0;
+            const reps = s.reps ?? 0;
+            await tx.set.create({
+              data: {
+                workoutExerciseId: workoutEx.id,
+                setNumber: s.setNumber,
+                type: (s.type as "WARMUP" | "WORKING" | "DROPSET" | "FAILURE" | "MYOREP") ?? "WORKING",
+                weight: weight || null,
+                reps: reps || null,
+                rpe: s.rpe ?? null,
+                restSeconds: s.restSeconds ?? null,
+                volume: weight * reps,
+              },
+            });
+          }
+        }
+      });
+    }
+
     const result = await finalizeSession(sessionId, session.user.id);
     return NextResponse.json(result);
-  } catch {
+  } catch (err) {
+    console.error("complete session error", err);
     return NextResponse.json({ error: "Failed to finalize session" }, { status: 500 });
   }
 }

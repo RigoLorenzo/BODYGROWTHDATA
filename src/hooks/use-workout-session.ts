@@ -36,20 +36,42 @@ export function useWorkoutSession() {
 
   const completeMutation = useMutation({
     mutationFn: async (sessionId: string) => {
-      const res = await fetch(`/api/sessions/${sessionId}`, {
-        method: "PATCH",
+      const { activeSession } = useSessionStore.getState();
+      const exercises = (activeSession?.exercises ?? [])
+        .map((ex, idx) => ({
+          exerciseId: ex.exerciseId,
+          orderIndex: ex.orderIndex ?? idx,
+          restTimerSeconds: ex.restTimerSeconds,
+          sets: ex.sets
+            .filter((s) => s.completed)
+            .map((s) => ({
+              setNumber: s.setNumber,
+              type: s.type,
+              weight: s.weight,
+              reps: s.reps,
+              rpe: s.rpe,
+            })),
+        }))
+        .filter((ex) => ex.sets.length > 0);
+
+      const res = await fetch(`/api/sessions/${sessionId}/complete`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "COMPLETED" }),
+        body: JSON.stringify({ exercises }),
       });
       if (!res.ok) throw new Error("Failed to complete session");
       return res.json();
     },
-    onSuccess: (session) => {
+    onSuccess: (data) => {
       endSession();
       queryClient.invalidateQueries({ queryKey: ["sessions"] });
       queryClient.invalidateQueries({ queryKey: ["analytics"] });
-      router.push(`/workout/${session.id}`);
-      toast({ title: "Allenamento completato! 💪", description: `Ottimo lavoro!` });
+      queryClient.invalidateQueries({ queryKey: ["records"] });
+      router.push(`/workout/${data.sessionId}`);
+      toast({ title: "Allenamento completato! 💪", description: "Ottimo lavoro!" });
+    },
+    onError: () => {
+      toast({ title: "Errore", description: "Impossibile salvare l'allenamento", variant: "destructive" });
     },
   });
 
