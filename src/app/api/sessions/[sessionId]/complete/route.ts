@@ -66,6 +66,33 @@ export async function POST(req: Request, { params }: Params) {
       });
     }
 
+    // Deviation tracking: compare actual vs. planned if session was linked to a plan day
+    const workoutSession = await prisma.workoutSession.findUnique({
+      where: { id: sessionId },
+      select: { programDayId: true },
+    });
+
+    if (workoutSession?.programDayId) {
+      const planDay = await prisma.programDay.findUnique({
+        where: { id: workoutSession.programDayId },
+        include: { exercises: { select: { exerciseId: true } } },
+      });
+      if (planDay) {
+        const plannedIds = new Set(planDay.exercises.map((e) => e.exerciseId));
+        const doneIds = new Set(exercises.map((e) => e.exerciseId));
+        const missing = Array.from(plannedIds).filter((id) => !doneIds.has(id));
+        const extra = Array.from(doneIds).filter((id) => !plannedIds.has(id));
+        if (missing.length > 0 || extra.length > 0) {
+          const current = await prisma.workoutSession.findUnique({ where: { id: sessionId }, select: { notes: true } });
+          const deviationNote = `[DEVIAZIONE: mancanti=${missing.length}, extra=${extra.length}]`;
+          await prisma.workoutSession.update({
+            where: { id: sessionId },
+            data: { notes: current?.notes ? `${current.notes}\n${deviationNote}` : deviationNote },
+          });
+        }
+      }
+    }
+
     const result = await finalizeSession(sessionId, session.user.id);
     return NextResponse.json(result);
   } catch (err) {

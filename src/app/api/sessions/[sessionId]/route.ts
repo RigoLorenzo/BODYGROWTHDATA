@@ -69,5 +69,9 @@ export async function DELETE(_req: Request, { params }: Params) {
     data: { status: "ABANDONED" },
   });
 
+  // Recalculate streak since a completed workout was removed
+  const { updateUserStreak } = await import("@/lib/streak-calculator");
+  await updateUserStreak(session.user.id);
+
   return NextResponse.json({ success: true });
 }

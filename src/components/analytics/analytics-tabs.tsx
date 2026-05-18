@@ -5,6 +5,7 @@ import { VolumeChart } from "./volume-chart";
 import { StrengthChart } from "./strength-chart";
 import { MuscleBalanceChart } from "./muscle-balance-chart";
 import { MuscleFrequencyGrid } from "./muscle-frequency-grid";
+import { MuscleStatsGrid } from "./muscle-stats-grid";
 import { OverviewStats } from "./overview-stats";
 
 export function AnalyticsTabs() {
@@ -31,6 +32,7 @@ export function AnalyticsTabs() {
 
       <TabsContent value="muscle" className="mt-4 space-y-4">
         <MuscleFrequencyGrid />
+        <MuscleStatsGrid />
         <MuscleBalanceChart />
       </TabsContent>
     </Tabs>

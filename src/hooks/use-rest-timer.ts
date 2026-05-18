@@ -22,8 +22,11 @@ export function useRestTimer() {
     if (restTimer && restTimer.remaining === 0 && !restTimer.active) {
       if ("vibrate" in navigator) navigator.vibrate([200, 100, 200]);
       if (intervalRef.current) clearInterval(intervalRef.current);
+      // Auto-dismiss after 3 seconds
+      const t = setTimeout(() => stopRestTimer(), 3000);
+      return () => clearTimeout(t);
     }
-  }, [restTimer]);
+  }, [restTimer, stopRestTimer]);
 
   return {
     restTimer,

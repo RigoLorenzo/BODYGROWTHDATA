@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatRelative, formatVolume, formatWorkoutDuration, getMuscleColor } from "@/lib/utils";
-import { Star, Dumbbell } from "lucide-react";
+import { Star, Dumbbell, CalendarDays, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import Link from "next/link";
@@ -23,6 +23,8 @@ interface WorkoutItem {
   endedAt?: string | null;
   totalVolume: number;
   totalSets: number;
+  programDayId?: string | null;
+  notes?: string | null;
   exercises?: WorkoutExercise[];
   _count?: { personalRecords: number };
 }
@@ -110,7 +112,7 @@ export function WorkoutHistoryList() {
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5">
+                        <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                           <p className="font-medium text-sm truncate">
                             {workout.workoutType === "CUSTOM"
                               ? workout.exercises?.[0]?.exercise?.name ?? "Allenamento"
@@ -120,6 +122,18 @@ export function WorkoutHistoryList() {
                             <Badge variant="success" className="shrink-0">
                               <Star className="h-2.5 w-2.5 mr-1" />
                               PR
+                            </Badge>
+                          )}
+                          {workout.programDayId && (
+                            <Badge variant="outline" className="shrink-0 text-[9px] border-blue-500/40 text-blue-400 bg-blue-500/10">
+                              <CalendarDays className="h-2.5 w-2.5 mr-1" />
+                              Piano
+                            </Badge>
+                          )}
+                          {workout.notes?.includes("[DEVIAZIONE") && (
+                            <Badge variant="outline" className="shrink-0 text-[9px] border-orange-500/40 text-orange-400 bg-orange-500/10">
+                              <AlertTriangle className="h-2.5 w-2.5 mr-1" />
+                              Deviato
                             </Badge>
                           )}
                         </div>

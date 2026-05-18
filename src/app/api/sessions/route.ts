@@ -7,6 +7,7 @@ import { z } from "zod";
 const createSessionSchema = z.object({
   workoutType: z.enum(["PUSH", "PULL", "LEGS", "UPPER", "LOWER", "FULL_BODY", "CARDIO", "CUSTOM"]).optional(),
   templateId: z.string().optional(),
+  programDayId: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -24,6 +25,7 @@ export async function POST(req: Request) {
       workoutType: data.workoutType ?? "CUSTOM",
       notes: data.notes,
       templateId: data.templateId,
+      programDayId: data.programDayId,
     },
   });
 

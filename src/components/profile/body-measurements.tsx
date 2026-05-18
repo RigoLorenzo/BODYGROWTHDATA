@@ -6,12 +6,29 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Scale, X } from "lucide-react";
+import { Plus, Scale, X, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { Skeleton } from "@/components/ui/skeleton";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "@/hooks/use-toast";
+import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
+
+interface Measurement {
+  id: string;
+  date: string;
+  weight?: number | null;
+  bodyFat?: number | null;
+  muscleMass?: number | null;
+}
+
+type TrendMetric = "weight" | "bodyFat" | "muscleMass";
+
+const METRIC_CONFIG: Record<TrendMetric, { label: string; unit: string; color: string }> = {
+  weight: { label: "Peso", unit: "kg", color: "#22c55e" },
+  bodyFat: { label: "Body Fat", unit: "%", color: "#f97316" },
+  muscleMass: { label: "Massa Musc.", unit: "kg", color: "#3b82f6" },
+};
 
 interface MeasurementForm {
   weight: string;
@@ -22,9 +39,10 @@ interface MeasurementForm {
 export function BodyMeasurements() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [trendMetric, setTrendMetric] = useState<TrendMetric>("weight");
   const [form, setForm] = useState<MeasurementForm>({ weight: "", bodyFat: "", muscleMass: "" });
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading } = useQuery<Measurement[]>({
     queryKey: ["measurements"],
     queryFn: async () => {
       const res = await fetch("/api/measurements");
@@ -64,6 +82,22 @@ export function BodyMeasurements() {
   };
 
   const latest = data?.[0];
+  const cfg = METRIC_CONFIG[trendMetric];
+
+  // Chart: chronological order (oldest first) for the trend
+  const chartData = [...(data ?? [])]
+    .filter((m) => m[trendMetric] != null)
+    .reverse()
+    .slice(-15)
+    .map((m) => ({
+      date: format(new Date(m.date), "d/M", { locale: it }),
+      value: m[trendMetric] as number,
+    }));
+
+  // Trend direction
+  const first = chartData[0]?.value;
+  const last = chartData[chartData.length - 1]?.value;
+  const trendDelta = first !== undefined && last !== undefined ? last - first : null;
 
   return (
     <>
@@ -81,24 +115,65 @@ export function BodyMeasurements() {
           {isLoading ? (
             <Skeleton className="h-24 rounded-lg" />
           ) : latest ? (
-            <div>
-              <p className="text-xs text-muted-foreground mb-3">
-                {format(new Date(latest.date), "d MMM yyyy", { locale: it })}
-              </p>
-              <div className="grid grid-cols-3 gap-3">
-                {[
-                  { label: "Peso", value: latest.weight, unit: "kg" },
-                  { label: "Body Fat", value: latest.bodyFat, unit: "%" },
-                  { label: "Massa Musc.", value: latest.muscleMass, unit: "kg" },
-                ]
-                  .filter((m) => m.value != null)
-                  .map((m) => (
-                    <div key={m.label} className="text-center p-2 rounded-lg bg-muted/30">
-                      <p className="text-lg font-bold tabular-nums">{m.value}{m.unit}</p>
-                      <p className="text-[10px] text-muted-foreground">{m.label}</p>
-                    </div>
-                  ))}
+            <div className="space-y-4">
+              {/* Latest values */}
+              <div>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Ultima: {format(new Date(latest.date), "d MMM yyyy", { locale: it })}
+                </p>
+                <div className="grid grid-cols-3 gap-2">
+                  {(["weight", "bodyFat", "muscleMass"] as TrendMetric[])
+                    .filter((k) => latest[k] != null)
+                    .map((k) => {
+                      const c = METRIC_CONFIG[k];
+                      return (
+                        <button
+                          key={k}
+                          onClick={() => setTrendMetric(k)}
+                          className={`text-center p-2 rounded-lg transition-colors ${trendMetric === k ? "ring-1 ring-primary" : ""} bg-muted/30`}
+                        >
+                          <p className="text-lg font-bold tabular-nums">{latest[k]}{c.unit}</p>
+                          <p className="text-[10px] text-muted-foreground">{c.label}</p>
+                        </button>
+                      );
+                    })}
+                </div>
               </div>
+
+              {/* Trend chart */}
+              {chartData.length > 1 && (
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-xs text-muted-foreground">Andamento {cfg.label}</p>
+                    {trendDelta !== null && (
+                      <div className="flex items-center gap-1 text-xs">
+                        {trendDelta < -0.1 ? (
+                          <TrendingDown className="h-3 w-3 text-green-400" />
+                        ) : trendDelta > 0.1 ? (
+                          <TrendingUp className="h-3 w-3 text-orange-400" />
+                        ) : (
+                          <Minus className="h-3 w-3 text-muted-foreground" />
+                        )}
+                        <span className={trendDelta < 0 ? "text-green-400" : trendDelta > 0 ? "text-orange-400" : "text-muted-foreground"}>
+                          {trendDelta > 0 ? "+" : ""}{trendDelta.toFixed(1)}{cfg.unit}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <ResponsiveContainer width="100%" height={80}>
+                    <LineChart data={chartData}>
+                      <XAxis dataKey="date" tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                      <YAxis domain={["auto", "auto"]} hide />
+                      <Tooltip
+                        contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11 }}
+                        formatter={(v: number) => [`${v}${cfg.unit}`, cfg.label]}
+                        labelStyle={{ color: "hsl(var(--muted-foreground))" }}
+                      />
+                      <Line dataKey="value" stroke={cfg.color} strokeWidth={2} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
             </div>
           ) : (
             <div className="text-center py-6">

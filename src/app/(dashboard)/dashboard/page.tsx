@@ -7,6 +7,7 @@ import { RecentWorkouts } from "@/components/dashboard/recent-workouts";
 import { WeeklyHeatmap } from "@/components/calendar/weekly-heatmap";
 import { QuickStart } from "@/components/session/quick-start";
 import { InsightCard } from "@/components/analytics/insight-card";
+import { TodayPlanCard } from "@/components/programs/today-plan-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { startOfWeek, endOfWeek, subWeeks, format, subDays } from "date-fns";
 
@@ -93,6 +94,8 @@ export default async function DashboardPage() {
       <DashboardHeader user={session?.user ?? {}} />
 
       <QuickStart />
+
+      <TodayPlanCard />
 
       <StatsGrid initialData={statsData ?? undefined} />
 

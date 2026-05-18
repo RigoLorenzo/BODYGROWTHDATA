@@ -11,7 +11,7 @@ export function useWorkoutSession() {
   const { activeSession, startSession, endSession } = useSessionStore();
 
   const startMutation = useMutation({
-    mutationFn: async (data: { workoutType?: string; templateId?: string }) => {
+    mutationFn: async (data: { workoutType?: string; templateId?: string; programDayId?: string }) => {
       const res = await fetch("/api/sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

@@ -90,27 +90,62 @@ export async function GET(req: Request) {
         exercises: {
           include: {
             exercise: { select: { primaryMuscle: true } },
-            sets: { where: { type: { not: "WARMUP" } }, select: { volume: true } },
+            sets: { where: { type: { not: "WARMUP" } }, select: { volume: true, reps: true } },
           },
         },
       },
     });
 
-    const muscleVolume: Record<string, number> = {};
+    const muscleData: Record<string, { tonnage: number; volume: number }> = {};
     for (const session of sessions) {
       for (const ex of session.exercises) {
         const muscle = ex.exercise.primaryMuscle;
         if (!muscle) continue;
-        const vol = ex.sets.reduce((sum, s) => sum + s.volume, 0);
-        muscleVolume[muscle] = (muscleVolume[muscle] ?? 0) + vol;
+        if (!muscleData[muscle]) muscleData[muscle] = { tonnage: 0, volume: 0 };
+        for (const s of ex.sets) {
+          muscleData[muscle].tonnage += s.volume; // volume field = weight × reps
+          muscleData[muscle].volume += s.reps ?? 0; // pure reps = volume without weight
+        }
       }
     }
 
-    const result = Object.entries(muscleVolume)
-      .map(([muscle, volume]) => ({ muscle, volume }))
-      .sort((a, b) => b.volume - a.volume);
+    const result = Object.entries(muscleData)
+      .map(([muscle, d]) => ({ muscle, tonnage: d.tonnage, volume: d.volume }))
+      .sort((a, b) => b.tonnage - a.tonnage);
 
     return NextResponse.json(result);
+  }
+
+  if (type === "muscle-stats") {
+    const weeks = parseInt(searchParams.get("weeks") ?? "8");
+    const sessions = await prisma.workoutSession.findMany({
+      where: { userId, status: "COMPLETED", startedAt: { gte: subWeeks(new Date(), weeks) } },
+      include: {
+        exercises: {
+          include: {
+            exercise: { select: { primaryMuscle: true } },
+            sets: { where: { type: { not: "WARMUP" } }, select: { volume: true, reps: true, weight: true } },
+          },
+        },
+      },
+    });
+
+    const stats: Record<string, { totalSets: number; totalReps: number; tonnage: number; volume: number }> = {};
+    for (const session of sessions) {
+      for (const ex of session.exercises) {
+        const muscle = ex.exercise.primaryMuscle;
+        if (!muscle) continue;
+        if (!stats[muscle]) stats[muscle] = { totalSets: 0, totalReps: 0, tonnage: 0, volume: 0 };
+        stats[muscle].totalSets += ex.sets.length;
+        for (const s of ex.sets) {
+          stats[muscle].totalReps += s.reps ?? 0;
+          stats[muscle].tonnage += s.volume;
+          stats[muscle].volume += s.reps ?? 0;
+        }
+      }
+    }
+
+    return NextResponse.json(stats);
   }
 
   if (type === "muscle-frequency") {
