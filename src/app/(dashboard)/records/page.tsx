@@ -140,7 +140,7 @@ export default function RecordsPage() {
         </Card>
       )}
 
-      {!isLoading && data?.length > 0 && filtered.length === 0 && (
+      {!isLoading && (data?.length ?? 0) > 0 && filtered.length === 0 && (
         <Card className="border-border/50">
           <CardContent className="p-8 text-center">
             <p className="text-sm text-muted-foreground">Nessun record trovato per questa ricerca.</p>
