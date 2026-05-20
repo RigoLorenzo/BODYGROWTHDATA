@@ -15,25 +15,40 @@ export async function GET() {
   const session = await auth().catch(() => null);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const profile = await prisma.profile.findUnique({
-    where: { userId: session.user.id },
-  });
-
-  return NextResponse.json(profile ?? {});
+  try {
+    const profile = await prisma.profile.findUnique({
+      where: { userId: session.user.id },
+    });
+    return NextResponse.json(profile ?? {});
+  } catch (err) {
+    console.error("[GET /api/user/profile]", err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 }
 
 export async function PATCH(req: Request) {
   const session = await auth().catch(() => null);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const body = await req.json();
-  const data = updateProfileSchema.parse(body);
+  try {
+    const body = await req.json();
+    const parsed = updateProfileSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Dati non validi", details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
 
-  const profile = await prisma.profile.upsert({
-    where: { userId: session.user.id },
-    update: data,
-    create: { userId: session.user.id, ...data },
-  });
+    const profile = await prisma.profile.upsert({
+      where: { userId: session.user.id },
+      update: parsed.data,
+      create: { userId: session.user.id, ...parsed.data },
+    });
 
-  return NextResponse.json(profile);
+    return NextResponse.json(profile);
+  } catch (err) {
+    console.error("[PATCH /api/user/profile]", err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 }

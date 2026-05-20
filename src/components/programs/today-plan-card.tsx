@@ -13,6 +13,7 @@ interface PlanExercise {
   sets: number;
   repsMin: number;
   repsMax: number;
+  restSeconds?: number;
   exercise: { id: string; name: string; primaryMuscle: string | null } | null;
 }
 
@@ -63,11 +64,21 @@ export function TodayPlanCard() {
   const dayNum = (currentDay % totalDays) + 1;
 
   const handleStart = () => {
-    startWorkout({
-      workoutType: todayDay.workoutType as "PUSH" | "PULL" | "LEGS" | "UPPER" | "LOWER" | "FULL_BODY" | "CARDIO" | "CUSTOM",
-      programDayId: todayDay.id,
-    });
-    // Advance plan day after starting
+    const planExercises = todayDay.exercises
+      .filter((ex) => ex.exercise)
+      .map((ex) => ({
+        exerciseId: ex.exerciseId,
+        exerciseName: ex.exercise!.name,
+        restSeconds: ex.restSeconds,
+      }));
+
+    startWorkout(
+      {
+        workoutType: todayDay.workoutType as "PUSH" | "PULL" | "LEGS" | "UPPER" | "LOWER" | "FULL_BODY" | "CARDIO" | "CUSTOM",
+        programDayId: todayDay.id,
+      },
+      planExercises
+    );
     advanceMutation.mutate();
   };
 

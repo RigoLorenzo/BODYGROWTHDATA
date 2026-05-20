@@ -1,11 +1,13 @@
 "use client";
 
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getMuscleColor, getMuscleLabel, formatVolume } from "@/lib/utils";
-import { Trophy, TrendingUp, ChevronLeft } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { getMuscleColor, getMuscleLabel, formatVolume, cn } from "@/lib/utils";
+import { Trophy, TrendingUp, ChevronLeft, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { format } from "date-fns";
@@ -36,6 +38,9 @@ const TYPE_CONFIG: Record<string, { label: string; color: string; format: (v: nu
 };
 
 export default function RecordsPage() {
+  const [search, setSearch] = useState("");
+  const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
+
   const { data, isLoading } = useQuery<ExerciseGroup[]>({
     queryKey: ["records"],
     queryFn: async () => {
@@ -45,6 +50,22 @@ export default function RecordsPage() {
     },
     staleTime: 5 * 60 * 1000,
   });
+
+  const muscles = useMemo(() => {
+    if (!data) return [];
+    const set = new Set<string>();
+    data.forEach((g) => { if (g.exercise.primaryMuscle) set.add(g.exercise.primaryMuscle); });
+    return Array.from(set);
+  }, [data]);
+
+  const filtered = useMemo(() => {
+    if (!data) return [];
+    return data.filter((group) => {
+      const matchesSearch = !search || group.exercise.name.toLowerCase().includes(search.toLowerCase());
+      const matchesMuscle = !selectedMuscle || group.exercise.primaryMuscle === selectedMuscle;
+      return matchesSearch && matchesMuscle;
+    });
+  }, [data, search, selectedMuscle]);
 
   return (
     <div className="container max-w-2xl mx-auto p-4 space-y-4">
@@ -57,6 +78,49 @@ export default function RecordsPage() {
           <p className="text-muted-foreground text-sm">I tuoi migliori risultati</p>
         </div>
       </div>
+
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Cerca esercizio..."
+          className="pl-9"
+        />
+      </div>
+
+      {/* Muscle filter chips */}
+      {muscles.length > 0 && (
+        <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
+          <button
+            onClick={() => setSelectedMuscle(null)}
+            className={cn(
+              "shrink-0 text-xs px-3 py-1 rounded-full border transition-colors",
+              !selectedMuscle
+                ? "bg-primary text-primary-foreground border-transparent"
+                : "border-border text-muted-foreground hover:border-foreground"
+            )}
+          >
+            Tutti
+          </button>
+          {muscles.map((m) => (
+            <button
+              key={m}
+              onClick={() => setSelectedMuscle(selectedMuscle === m ? null : m)}
+              className={cn(
+                "shrink-0 text-xs px-3 py-1 rounded-full border transition-colors",
+                selectedMuscle === m
+                  ? "border-transparent text-white"
+                  : "border-border text-muted-foreground hover:border-foreground"
+              )}
+              style={selectedMuscle === m ? { background: getMuscleColor(m) } : {}}
+            >
+              {getMuscleLabel(m)}
+            </button>
+          ))}
+        </div>
+      )}
 
       {isLoading && (
         <div className="space-y-3">
@@ -76,8 +140,16 @@ export default function RecordsPage() {
         </Card>
       )}
 
+      {!isLoading && data?.length > 0 && filtered.length === 0 && (
+        <Card className="border-border/50">
+          <CardContent className="p-8 text-center">
+            <p className="text-sm text-muted-foreground">Nessun record trovato per questa ricerca.</p>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="space-y-3">
-        {data?.map((group) => (
+        {filtered.map((group) => (
           <Card key={group.exerciseId} className="border-border/50">
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-3">

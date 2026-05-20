@@ -37,11 +37,18 @@ export function ExerciseCard({ exercise }: Props) {
   };
 
   return (
-    <Card className="border-border/50">
+    <Card className="border-border/30 transition-colors hover:border-border/60">
       <CardHeader className="p-3 pb-0">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-sm leading-tight">{exercise.exerciseName}</h3>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="font-semibold text-sm leading-tight tracking-tight">{exercise.exerciseName}</h3>
+              {exercise.fromPlan && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium shrink-0">
+                  Dal piano
+                </span>
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">
               {completedSets.length}/{exercise.sets.length} serie · {formatVolume(volume)}
             </p>

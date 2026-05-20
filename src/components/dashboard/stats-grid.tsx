@@ -70,7 +70,7 @@ export function StatsGrid({ initialData }: Props) {
     <div className="grid grid-cols-2 gap-3">
       {stats.map((stat) => (
         <Card key={stat.label} className="border-border/50">
-          <CardContent className="p-4">
+          <CardContent className="p-5">
             <div className="flex items-start justify-between mb-2">
               <div className={cn("p-2 rounded-lg", stat.bg)}>
                 <stat.icon className={cn("h-4 w-4", stat.color)} />
@@ -82,8 +82,15 @@ export function StatsGrid({ initialData }: Props) {
                 </div>
               )}
             </div>
-            <p className="text-2xl font-bold tabular-nums">{stat.value}</p>
-            <p className="text-xs text-muted-foreground">{stat.sub ?? stat.label}</p>
+            <p
+              className="text-3xl font-black tabular-nums"
+              style={{ letterSpacing: "-0.02em" }}
+            >
+              {stat.value}
+            </p>
+            <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground/70 mt-0.5">
+              {stat.sub ?? stat.label}
+            </p>
           </CardContent>
         </Card>
       ))}
