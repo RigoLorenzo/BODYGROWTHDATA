@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { Toaster } from "@/components/ui/toaster";
+import { PwaRegister } from "@/components/pwa-register";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -15,12 +16,21 @@ export const metadata: Metadata = {
     default: "BodyGrowth — Elite Fitness Tracker",
     template: "%s | BodyGrowth",
   },
-  description: "Enterprise-grade strength training tracker with AI insights, progressive overload tracking, and advanced analytics.",
+  description: "Tracker di allenamento con progressive overload, analytics e PR tracking.",
   keywords: ["fitness", "workout tracker", "strength training", "powerlifting", "progressive overload"],
+  manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "BodyGrowth",
+    startupImage: "/apple-touch-icon.png",
+  },
+  icons: {
+    apple: "/apple-touch-icon.png",
+    icon: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
   },
 };
 
@@ -43,6 +53,7 @@ export default function RootLayout({
         <Providers>
           {children}
           <Toaster />
+          <PwaRegister />
         </Providers>
       </body>
     </html>
