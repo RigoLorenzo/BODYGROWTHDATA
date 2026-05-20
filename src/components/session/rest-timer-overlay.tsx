@@ -29,7 +29,7 @@ export function RestTimerOverlay() {
       animate={{ y: 0 }}
       exit={{ y: "100%" }}
       transition={{ type: "spring", damping: 25, stiffness: 250 }}
-      className="fixed bottom-20 md:bottom-4 left-1/2 -translate-x-1/2 z-40 w-full max-w-sm px-4"
+      className="fixed bottom-20 md:bottom-4 left-4 right-4 z-40"
     >
       <div className="bg-card border border-border rounded-2xl p-4 shadow-xl">
         <div className="flex items-center gap-4">

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useSessionStore } from "@/store/session-store";
-import { Check, Minus, Plus } from "lucide-react";
+import { Check, Minus, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ActiveSet } from "@/types";
 
@@ -10,6 +10,7 @@ interface Props {
   exerciseId: string;
   set: ActiveSet;
   index: number;
+  onRemove?: () => void;
 }
 
 const setTypeShort: Record<string, string> = {
@@ -20,7 +21,7 @@ const setTypeShort: Record<string, string> = {
   MYOREP: "M",
 };
 
-export function SetRow({ exerciseId, set, index }: Props) {
+export function SetRow({ exerciseId, set, index, onRemove }: Props) {
   const { updateSet, completeSet } = useSessionStore();
   const [weight, setWeight] = useState(set.weight?.toString() ?? "");
   const [reps, setReps] = useState(set.reps?.toString() ?? "");
@@ -50,59 +51,77 @@ export function SetRow({ exerciseId, set, index }: Props) {
   return (
     <div
       className={cn(
-        "grid grid-cols-12 gap-1 items-center rounded-lg p-1 transition-colors",
+        "grid grid-cols-12 gap-1 items-center rounded-lg p-1.5 transition-colors",
         set.completed ? "bg-green-600/10" : "hover:bg-muted/30"
       )}
     >
       {/* Set number */}
-      <span className="col-span-1 text-xs font-medium text-muted-foreground tabular-nums">{set.setNumber}</span>
+      <span className="col-span-1 text-sm font-medium text-muted-foreground tabular-nums">{set.setNumber}</span>
 
       {/* Type */}
-      <div className="col-span-3 flex justify-center">
-        <span className={cn("text-xs font-bold", set.type === "WARMUP" ? "text-yellow-400" : "text-muted-foreground")}>
+      <div className="col-span-2 flex justify-center">
+        <span className={cn("text-sm font-bold", set.type === "WARMUP" ? "text-yellow-400" : "text-muted-foreground")}>
           {setTypeShort[set.type] ?? set.type}
         </span>
       </div>
 
       {/* Weight */}
       <div className="col-span-3 flex items-center justify-center gap-0.5">
-        <button onClick={() => adjustWeight(-2.5)} className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-          <Minus className="h-3 w-3" />
+        <button
+          onClick={() => adjustWeight(-2.5)}
+          className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          disabled={set.completed}
+        >
+          <Minus className="h-3.5 w-3.5" />
         </button>
         <input
           type="number"
+          inputMode="decimal"
           value={weight}
           onChange={(e) => {
             setWeight(e.target.value);
             updateSet(exerciseId, index, { weight: parseFloat(e.target.value) || undefined });
           }}
-          className="w-10 text-center text-xs font-semibold bg-transparent tabular-nums border-0 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          className="w-12 text-center text-sm font-semibold bg-transparent tabular-nums border-0 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           placeholder="0"
           disabled={set.completed}
         />
-        <button onClick={() => adjustWeight(2.5)} className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-          <Plus className="h-3 w-3" />
+        <button
+          onClick={() => adjustWeight(2.5)}
+          className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          disabled={set.completed}
+        >
+          <Plus className="h-3.5 w-3.5" />
         </button>
       </div>
 
       {/* Reps */}
       <div className="col-span-3 flex items-center justify-center gap-0.5">
-        <button onClick={() => adjustReps(-1)} className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-          <Minus className="h-3 w-3" />
+        <button
+          onClick={() => adjustReps(-1)}
+          className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          disabled={set.completed}
+        >
+          <Minus className="h-3.5 w-3.5" />
         </button>
         <input
           type="number"
+          inputMode="numeric"
           value={reps}
           onChange={(e) => {
             setReps(e.target.value);
             updateSet(exerciseId, index, { reps: parseInt(e.target.value) || undefined });
           }}
-          className="w-8 text-center text-xs font-semibold bg-transparent tabular-nums border-0 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          className="w-10 text-center text-sm font-semibold bg-transparent tabular-nums border-0 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           placeholder="0"
           disabled={set.completed}
         />
-        <button onClick={() => adjustReps(1)} className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-          <Plus className="h-3 w-3" />
+        <button
+          onClick={() => adjustReps(1)}
+          className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          disabled={set.completed}
+        >
+          <Plus className="h-3.5 w-3.5" />
         </button>
       </div>
 
@@ -112,7 +131,7 @@ export function SetRow({ exerciseId, set, index }: Props) {
           onClick={handleComplete}
           disabled={set.completed}
           className={cn(
-            "h-7 w-7 rounded-full flex items-center justify-center transition-all",
+            "h-8 w-8 rounded-full flex items-center justify-center transition-all",
             set.completed
               ? "bg-green-600 text-white scale-90"
               : "border-2 border-border hover:border-green-600 hover:text-green-600 text-muted-foreground"
@@ -120,6 +139,18 @@ export function SetRow({ exerciseId, set, index }: Props) {
         >
           <Check className="h-3.5 w-3.5" />
         </button>
+      </div>
+
+      {/* Remove button — only when not completed */}
+      <div className="col-span-1 flex justify-center">
+        {!set.completed && onRemove && (
+          <button
+            onClick={onRemove}
+            className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground/50 hover:text-destructive transition-colors"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        )}
       </div>
     </div>
   );

@@ -16,7 +16,7 @@ interface Props {
 }
 
 export function ExerciseCard({ exercise }: Props) {
-  const { addSet, removeExercise } = useSessionStore();
+  const { addSet, removeExercise, removeSet } = useSessionStore();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { data: lastSession } = useLastExerciseSession(exercise.exerciseId);
 
@@ -82,10 +82,11 @@ export function ExerciseCard({ exercise }: Props) {
           {/* Column headers */}
           <div className="grid grid-cols-12 gap-1 text-[10px] text-muted-foreground font-medium px-1">
             <span className="col-span-1">#</span>
-            <span className="col-span-3 text-center">Tipo</span>
+            <span className="col-span-2 text-center">Tipo</span>
             <span className="col-span-3 text-center">Peso (kg)</span>
             <span className="col-span-3 text-center">Reps</span>
             <span className="col-span-2 text-center">✓</span>
+            <span className="col-span-1"></span>
           </div>
 
           {exercise.sets.map((set, index) => (
@@ -94,6 +95,7 @@ export function ExerciseCard({ exercise }: Props) {
               exerciseId={exercise.id}
               set={set}
               index={index}
+              onRemove={() => removeSet(exercise.id, index)}
             />
           ))}
 

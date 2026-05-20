@@ -9,8 +9,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { formatDate, formatVolume, formatWorkoutDuration, getMuscleColor, getMuscleLabel } from "@/lib/utils";
-import { Star, Clock, Weight, Repeat, ChevronLeft, Trash2 } from "lucide-react";
+import { formatDate, getMuscleColor, getMuscleLabel } from "@/lib/utils";
+import { ChevronLeft, Trash2, Star } from "lucide-react";
+import { WorkoutSummaryCard } from "./workout-summary-card";
 import Link from "next/link";
 import { toast } from "@/hooks/use-toast";
 
@@ -77,28 +78,8 @@ export function SessionDetail({ workout }: Props) {
         </Button>
       </div>
 
-      {/* Summary */}
-      <Card className="border-border/50">
-        <CardContent className="p-4">
-          <div className="grid grid-cols-3 gap-4">
-            <div className="text-center">
-              <Clock className="h-4 w-4 text-muted-foreground mx-auto mb-1" />
-              <p className="text-lg font-bold tabular-nums">{formatWorkoutDuration(workout.startedAt, workout.endedAt)}</p>
-              <p className="text-[10px] text-muted-foreground">Durata</p>
-            </div>
-            <div className="text-center">
-              <Weight className="h-4 w-4 text-muted-foreground mx-auto mb-1" />
-              <p className="text-lg font-bold tabular-nums">{formatVolume(workout.totalVolume ?? 0)}</p>
-              <p className="text-[10px] text-muted-foreground">Volume</p>
-            </div>
-            <div className="text-center">
-              <Repeat className="h-4 w-4 text-muted-foreground mx-auto mb-1" />
-              <p className="text-lg font-bold tabular-nums">{workout.totalSets ?? 0}</p>
-              <p className="text-[10px] text-muted-foreground">Serie</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Summary card */}
+      <WorkoutSummaryCard workout={workout} />
 
       {/* PRs */}
       {prs.length > 0 && (

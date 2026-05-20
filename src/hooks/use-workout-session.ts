@@ -62,24 +62,35 @@ export function useWorkoutSession() {
       if (!res.ok) throw new Error("Failed to complete session");
       return res.json();
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       endSession();
       queryClient.invalidateQueries({ queryKey: ["sessions"] });
       queryClient.invalidateQueries({ queryKey: ["analytics"] });
       queryClient.invalidateQueries({ queryKey: ["records"] });
-      router.push(`/workout/${data.sessionId}`);
-      toast({ title: "Allenamento completato! 💪", description: "Ottimo lavoro!" });
     },
     onError: () => {
       toast({ title: "Errore", description: "Impossibile salvare l'allenamento", variant: "destructive" });
     },
   });
 
+  const startWorkout = (data?: { workoutType?: string; templateId?: string; programDayId?: string }) => {
+    const { activeSession: current } = useSessionStore.getState();
+    if (current) {
+      toast({
+        title: "Allenamento in corso",
+        description: "Termina o abbandona l'allenamento attuale prima di iniziarne uno nuovo.",
+        variant: "destructive",
+      });
+      return;
+    }
+    startMutation.mutate(data ?? {});
+  };
+
   return {
     activeSession,
     isLoading: startMutation.isPending,
-    startWorkout: startMutation.mutate,
-    completeWorkout: completeMutation.mutate,
+    startWorkout,
+    completeWorkout: completeMutation.mutateAsync,
     isCompleting: completeMutation.isPending,
   };
 }

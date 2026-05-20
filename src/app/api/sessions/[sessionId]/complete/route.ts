@@ -93,8 +93,22 @@ export async function POST(req: Request, { params }: Params) {
       }
     }
 
-    const result = await finalizeSession(sessionId, session.user.id);
-    return NextResponse.json(result);
+    await finalizeSession(sessionId, session.user.id);
+
+    const fullWorkout = await prisma.workoutSession.findUnique({
+      where: { id: sessionId },
+      include: {
+        exercises: {
+          include: {
+            exercise: true,
+            sets: { orderBy: { setNumber: "asc" } },
+          },
+          orderBy: { orderIndex: "asc" },
+        },
+        personalRecords: { include: { exercise: true } },
+      },
+    });
+    return NextResponse.json(fullWorkout);
   } catch (err) {
     console.error("complete session error", err);
     return NextResponse.json({ error: "Failed to finalize session" }, { status: 500 });

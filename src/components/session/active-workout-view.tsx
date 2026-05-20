@@ -16,7 +16,16 @@ import { calculateSessionVolume } from "@/lib/volume-calculator";
 import { Plus, CheckCircle, X } from "lucide-react";
 import { useEffect } from "react";
 import { toast } from "@/hooks/use-toast";
+import { WorkoutSummaryCard } from "./workout-summary-card";
 import type { ActiveSession, ActiveExercise } from "@/types";
+import type { Prisma } from "@prisma/client";
+
+type CompletedWorkout = Prisma.WorkoutSessionGetPayload<{
+  include: {
+    personalRecords: { include: { exercise: true } };
+    exercises: { include: { exercise: true; sets: true } };
+  };
+}>;
 
 interface Props {
   session: ActiveSession;
@@ -31,6 +40,7 @@ export function ActiveWorkoutView({ session }: Props) {
   const [elapsed, setElapsed] = useState("");
   const [showFinishConfirm, setShowFinishConfirm] = useState(false);
   const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
+  const [completedWorkout, setCompletedWorkout] = useState<CompletedWorkout | null>(null);
 
   const abandonMutation = useMutation({
     mutationFn: async () => {
@@ -76,16 +86,26 @@ export function ActiveWorkoutView({ session }: Props) {
     [addExercise, session.exercises.length]
   );
 
+  const doComplete = async () => {
+    try {
+      const data = await completeWorkout(session.id);
+      setCompletedWorkout(data as CompletedWorkout);
+      toast({ title: "Allenamento completato! 💪", description: "Ottimo lavoro!" });
+    } catch {
+      toast({ title: "Errore", description: "Impossibile salvare l'allenamento", variant: "destructive" });
+    }
+  };
+
   const handleFinish = () => {
     if (session.exercises.length === 0 || session.exercises.every((ex) => ex.sets.every((s) => !s.completed))) {
       setShowFinishConfirm(true);
       return;
     }
-    completeWorkout(session.id);
+    doComplete();
   };
 
   return (
-    <div className="min-h-screen bg-background pb-32">
+    <div className="bg-background pb-32">
       {/* Header */}
       <div className="sticky top-0 z-30 glass border-b border-border/50">
         <div className="container max-w-2xl mx-auto px-4 py-3">
@@ -193,14 +213,31 @@ export function ActiveWorkoutView({ session }: Props) {
                   variant="destructive"
                   className="flex-1"
                   onClick={() => {
-                    completeWorkout(session.id);
                     setShowFinishConfirm(false);
+                    doComplete();
                   }}
                 >
                   Termina
                 </Button>
               </div>
             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Completed summary modal */}
+      <AnimatePresence>
+        {completedWorkout && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/80 overflow-y-auto p-4 flex flex-col justify-center"
+          >
+            <WorkoutSummaryCard
+              workout={completedWorkout}
+              onClose={() => router.replace("/dashboard")}
+            />
           </motion.div>
         )}
       </AnimatePresence>
