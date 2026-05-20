@@ -52,7 +52,9 @@ export function SetRow({ exerciseId, set, index, onRemove }: Props) {
     <div
       className={cn(
         "grid grid-cols-12 gap-1 items-center rounded-lg p-1.5 transition-colors",
-        set.completed ? "bg-green-600/10" : "hover:bg-muted/30"
+        set.completed
+          ? "bg-green-500/10 border-l-2 border-green-500/40 pl-1"
+          : "hover:bg-muted/30"
       )}
     >
       {/* Set number */}

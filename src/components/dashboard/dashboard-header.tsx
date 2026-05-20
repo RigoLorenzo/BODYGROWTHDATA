@@ -10,21 +10,17 @@ interface Props {
   user: { name?: string | null; image?: string | null };
 }
 
-const getGreeting = () => {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Buongiorno";
-  if (hour < 18) return "Buon pomeriggio";
-  return "Buonasera";
-};
-
 export function DashboardHeader({ user }: Props) {
   return (
     <div className="flex items-center justify-between pt-2">
       <div>
-        <p className="text-sm text-muted-foreground">{format(new Date(), "EEEE d MMMM", { locale: it })}</p>
-        <h1 className="text-2xl font-bold tracking-tight">
-          {getGreeting()}, {user.name?.split(" ")[0] ?? "Atleta"} 👊
-        </h1>
+        <p className="text-xs text-muted-foreground capitalize">
+          {format(new Date(), "EEEE · d MMMM", { locale: it })}
+        </p>
+        <h1 className="text-2xl font-bold tracking-tight">BodyGrowth</h1>
+        {user.name && (
+          <p className="text-sm text-muted-foreground">{user.name.split(" ")[0]}</p>
+        )}
       </div>
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="icon" asChild>

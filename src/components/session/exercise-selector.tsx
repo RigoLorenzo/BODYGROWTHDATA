@@ -21,16 +21,33 @@ interface Props {
 
 export function ExerciseSelector({ onSelect, onClose }: Props) {
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [selectedMuscle, setSelectedMuscle] = useState<string | undefined>();
   const [showCreate, setShowCreate] = useState(false);
   const [editingExercise, setEditingExercise] = useState<ExerciseSearchResult | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { data: exercises, isLoading } = useExerciseSearch(query, selectedMuscle);
-
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query), 300);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  useEffect(() => {
+    const update = () => {
+      const h = window.visualViewport?.height ?? window.innerHeight;
+      document.documentElement.style.setProperty("--vh", `${h / 100}px`);
+    };
+    update();
+    const vv = window.visualViewport;
+    vv?.addEventListener("resize", update);
+    return () => vv?.removeEventListener("resize", update);
+  }, []);
+
+  const { data: exercises, isLoading } = useExerciseSearch(debouncedQuery, selectedMuscle);
 
   return (
     <motion.div
@@ -45,16 +62,17 @@ export function ExerciseSelector({ onSelect, onClose }: Props) {
         animate={{ y: 0 }}
         exit={{ y: "100%" }}
         transition={{ type: "spring", damping: 30, stiffness: 300 }}
-        className="absolute bottom-0 left-0 right-0 bg-card rounded-t-2xl border-t border-border max-h-[85vh] flex flex-col"
+        className="absolute bottom-0 left-0 right-0 bg-card rounded-t-2xl border-t border-border flex flex-col"
+        style={{ height: "calc(var(--vh, 1vh) * 85)" }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Handle */}
-        <div className="flex justify-center pt-3 pb-2">
+        <div className="flex justify-center pt-3 pb-2 shrink-0">
           <div className="h-1 w-10 rounded-full bg-muted-foreground/30" />
         </div>
 
         {/* Header */}
-        <div className="px-4 pb-3">
+        <div className="px-4 pb-3 shrink-0">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-semibold">Seleziona Esercizio</h2>
             <div className="flex items-center gap-1">

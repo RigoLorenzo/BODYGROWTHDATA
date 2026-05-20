@@ -58,6 +58,7 @@ export interface ActiveExercise {
   exerciseName: string;
   orderIndex: number;
   restTimerSeconds: number;
+  fromPlan?: boolean;
   sets: ActiveSet[];
 }
 

@@ -1,14 +1,23 @@
 "use client";
 
+import { useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSessionStore } from "@/store/session-store";
 import { useRouter } from "next/navigation";
 import { toast } from "@/hooks/use-toast";
+import type { ActiveExercise } from "@/types";
+
+type PlanExerciseInput = {
+  exerciseId: string;
+  exerciseName: string;
+  restSeconds?: number;
+};
 
 export function useWorkoutSession() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { activeSession, startSession, endSession } = useSessionStore();
+  const planExercisesRef = useRef<PlanExerciseInput[]>([]);
 
   const startMutation = useMutation({
     mutationFn: async (data: { workoutType?: string; templateId?: string; programDayId?: string }) => {
@@ -21,11 +30,21 @@ export function useWorkoutSession() {
       return res.json();
     },
     onSuccess: (session) => {
+      const exercises: ActiveExercise[] = planExercisesRef.current.map((ex, idx) => ({
+        id: `plan-${ex.exerciseId}-${Date.now()}-${idx}`,
+        exerciseId: ex.exerciseId,
+        exerciseName: ex.exerciseName,
+        orderIndex: idx,
+        restTimerSeconds: ex.restSeconds ?? 90,
+        fromPlan: true,
+        sets: [{ setNumber: 1, type: "WORKING" as const, completed: false }],
+      }));
       startSession({
         id: session.id,
         startedAt: new Date(session.startedAt),
-        exercises: [],
+        exercises,
       });
+      planExercisesRef.current = [];
       router.push(`/workout/active`);
       toast({ title: "Allenamento iniziato!", description: "Dai tutto!" });
     },
@@ -73,7 +92,10 @@ export function useWorkoutSession() {
     },
   });
 
-  const startWorkout = (data?: { workoutType?: string; templateId?: string; programDayId?: string }) => {
+  const startWorkout = (
+    data?: { workoutType?: string; templateId?: string; programDayId?: string },
+    planExercises?: PlanExerciseInput[]
+  ) => {
     const { activeSession: current } = useSessionStore.getState();
     if (current) {
       toast({
@@ -83,6 +105,7 @@ export function useWorkoutSession() {
       });
       return;
     }
+    planExercisesRef.current = planExercises ?? [];
     startMutation.mutate(data ?? {});
   };
 

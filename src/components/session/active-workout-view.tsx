@@ -107,7 +107,7 @@ export function ActiveWorkoutView({ session }: Props) {
   return (
     <div className="bg-background pb-32">
       {/* Header */}
-      <div className="sticky top-0 z-30 glass border-b border-border/50">
+      <div className="sticky top-0 z-30 bg-black/90 backdrop-blur-xl border-b border-white/5">
         <div className="container max-w-2xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -116,7 +116,7 @@ export function ActiveWorkoutView({ session }: Props) {
               </Button>
               <div>
                 <p className="text-xs text-muted-foreground">Allenamento in corso</p>
-                <p className="text-xl font-bold tabular-nums text-green-400">{elapsed}</p>
+                <p className="text-2xl font-bold font-mono tabular-nums text-green-400">{elapsed}</p>
               </div>
             </div>
             <div className="text-right">

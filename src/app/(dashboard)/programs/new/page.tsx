@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -48,14 +48,21 @@ const WORKOUT_TYPE_LABELS = [
 
 function ExerciseSearch({ onSelect }: { onSelect: (ex: ExerciseResult) => void }) {
   const [q, setQ] = useState("");
+  const [debouncedQ, setDebouncedQ] = useState("");
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQ(q), 300);
+    return () => clearTimeout(timer);
+  }, [q]);
+
   const { data } = useQuery<ExerciseResult[]>({
-    queryKey: ["exercises", q],
+    queryKey: ["exercises", debouncedQ],
     queryFn: async () => {
-      const res = await fetch(`/api/exercises?q=${encodeURIComponent(q)}&limit=8`);
+      const res = await fetch(`/api/exercises?q=${encodeURIComponent(debouncedQ)}&limit=8`);
       if (!res.ok) return [];
       return res.json();
     },
-    enabled: q.length >= 1,
+    enabled: debouncedQ.length >= 1,
     staleTime: 60_000,
   });
 
@@ -84,6 +91,73 @@ function ExerciseSearch({ onSelect }: { onSelect: (ex: ExerciseResult) => void }
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+interface PlanExerciseRowProps {
+  ex: PlanExercise;
+  onUpdate: (updates: Partial<PlanExercise>) => void;
+  onRemove: () => void;
+}
+
+function PlanExerciseRow({ ex, onUpdate, onRemove }: PlanExerciseRowProps) {
+  const [sets, setSets] = useState(ex.sets);
+  const [repsMin, setRepsMin] = useState(ex.repsMin);
+  const [repsMax, setRepsMax] = useState(ex.repsMax);
+  const [restSeconds, setRestSeconds] = useState(ex.restSeconds);
+
+  const commit = useCallback(() => {
+    onUpdate({ sets, repsMin, repsMax, restSeconds });
+  }, [sets, repsMin, repsMax, restSeconds, onUpdate]);
+
+  return (
+    <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/30 min-h-0 overflow-hidden">
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-medium truncate">{ex.exerciseName}</p>
+        <div className="flex items-center gap-2 mt-1">
+          <span className="text-[10px] text-muted-foreground">Serie:</span>
+          <input
+            type="number"
+            className="w-8 text-xs bg-transparent border-b border-border text-center"
+            value={sets}
+            onChange={(e) => setSets(parseInt(e.target.value) || 1)}
+            onBlur={commit}
+            min={1} max={20}
+          />
+          <span className="text-[10px] text-muted-foreground">Reps:</span>
+          <input
+            type="number"
+            className="w-8 text-xs bg-transparent border-b border-border text-center"
+            value={repsMin}
+            onChange={(e) => setRepsMin(parseInt(e.target.value) || 1)}
+            onBlur={commit}
+            min={1} max={100}
+          />
+          <span className="text-[10px] text-muted-foreground">–</span>
+          <input
+            type="number"
+            className="w-8 text-xs bg-transparent border-b border-border text-center"
+            value={repsMax}
+            onChange={(e) => setRepsMax(parseInt(e.target.value) || 1)}
+            onBlur={commit}
+            min={1} max={100}
+          />
+          <span className="text-[10px] text-muted-foreground">Rest:</span>
+          <input
+            type="number"
+            className="w-10 text-xs bg-transparent border-b border-border text-center"
+            value={restSeconds}
+            onChange={(e) => setRestSeconds(parseInt(e.target.value) || 60)}
+            onBlur={commit}
+            min={0} max={600} step={15}
+          />
+          <span className="text-[10px] text-muted-foreground">s</span>
+        </div>
+      </div>
+      <button onClick={onRemove} className="text-muted-foreground hover:text-destructive shrink-0">
+        <X className="h-3.5 w-3.5" />
+      </button>
     </div>
   );
 }
@@ -140,17 +214,24 @@ export default function NewProgramPage() {
   };
 
   const addExercise = (dayIdx: number, ex: ExerciseResult) => {
-    setDays((prev) => prev.map((d, i) =>
-      i === dayIdx
-        ? {
-            ...d,
-            exercises: [
-              ...d.exercises,
-              { exerciseId: ex.id, exerciseName: ex.name, sets: 3, repsMin: 8, repsMax: 12, restSeconds: 90 },
-            ],
-          }
-        : d
-    ));
+    setDays((prev) => prev.map((d, i) => {
+      if (i !== dayIdx) return d;
+      const last = d.exercises[d.exercises.length - 1];
+      return {
+        ...d,
+        exercises: [
+          ...d.exercises,
+          {
+            exerciseId: ex.id,
+            exerciseName: ex.name,
+            sets: last?.sets ?? 3,
+            repsMin: last?.repsMin ?? 8,
+            repsMax: last?.repsMax ?? 12,
+            restSeconds: last?.restSeconds ?? 90,
+          },
+        ],
+      };
+    }));
   };
 
   const updateExercise = (dayIdx: number, exIdx: number, updates: Partial<PlanExercise>) => {
@@ -195,7 +276,7 @@ export default function NewProgramPage() {
   };
 
   return (
-    <div className="container max-w-2xl mx-auto p-4 space-y-4 pb-24">
+    <div className="container max-w-2xl mx-auto p-4 space-y-4 pb-24 min-h-0 overflow-hidden">
       <div className="flex items-center gap-3 pt-2">
         <Button variant="ghost" size="icon-sm" asChild>
           <Link href="/programs"><ChevronLeft className="h-5 w-5" /></Link>
@@ -270,7 +351,7 @@ export default function NewProgramPage() {
       <div className="space-y-3">
         {days.map((day, dayIdx) => (
           <Card key={dayIdx} className="border-border/50">
-            <CardContent className="p-4 space-y-3">
+            <CardContent className="p-4 space-y-3 min-h-0 overflow-hidden">
               <div className="flex items-center gap-2">
                 <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
                 <Input
@@ -296,49 +377,12 @@ export default function NewProgramPage() {
 
               {/* Exercises */}
               {day.exercises.map((ex, exIdx) => (
-                <div key={exIdx} className="flex items-center gap-2 p-2 rounded-lg bg-muted/30">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium truncate">{ex.exerciseName}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[10px] text-muted-foreground">Serie:</span>
-                      <input
-                        type="number"
-                        className="w-8 text-xs bg-transparent border-b border-border text-center"
-                        value={ex.sets}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateExercise(dayIdx, exIdx, { sets: parseInt(e.target.value) || 1 })}
-                        min={1} max={20}
-                      />
-                      <span className="text-[10px] text-muted-foreground">Reps:</span>
-                      <input
-                        type="number"
-                        className="w-8 text-xs bg-transparent border-b border-border text-center"
-                        value={ex.repsMin}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateExercise(dayIdx, exIdx, { repsMin: parseInt(e.target.value) || 1 })}
-                        min={1} max={100}
-                      />
-                      <span className="text-[10px] text-muted-foreground">–</span>
-                      <input
-                        type="number"
-                        className="w-8 text-xs bg-transparent border-b border-border text-center"
-                        value={ex.repsMax}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateExercise(dayIdx, exIdx, { repsMax: parseInt(e.target.value) || 1 })}
-                        min={1} max={100}
-                      />
-                      <span className="text-[10px] text-muted-foreground">Rest:</span>
-                      <input
-                        type="number"
-                        className="w-10 text-xs bg-transparent border-b border-border text-center"
-                        value={ex.restSeconds}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateExercise(dayIdx, exIdx, { restSeconds: parseInt(e.target.value) || 60 })}
-                        min={0} max={600} step={15}
-                      />
-                      <span className="text-[10px] text-muted-foreground">s</span>
-                    </div>
-                  </div>
-                  <button onClick={() => removeExercise(dayIdx, exIdx)} className="text-muted-foreground hover:text-destructive shrink-0">
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
+                <PlanExerciseRow
+                  key={`${dayIdx}-${exIdx}-${ex.exerciseId}`}
+                  ex={ex}
+                  onUpdate={(updates) => updateExercise(dayIdx, exIdx, updates)}
+                  onRemove={() => removeExercise(dayIdx, exIdx)}
+                />
               ))}
 
               <ExerciseSearch onSelect={(ex) => addExercise(dayIdx, ex)} />
