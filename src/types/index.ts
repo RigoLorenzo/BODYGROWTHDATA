@@ -128,3 +128,25 @@ export interface ActiveProgramResponse {
   days: PlanDay[];
   todayDay: PlanDay | null;
 }
+
+/** Allenamento ancora aperto sul server (GET /api/sessions/active) */
+export interface ServerActiveSession {
+  id: string;
+  startedAt: string;
+  programDayId: string | null;
+  workoutType: string;
+  exercises: {
+    id: string;
+    exerciseId: string;
+    orderIndex: number;
+    restTimerSeconds: number;
+    exercise: { id: string; name: string; nameIt: string | null };
+    sets: {
+      setNumber: number;
+      type: string;
+      weight: number | null;
+      reps: number | null;
+      rpe: number | null;
+    }[];
+  }[];
+}
