@@ -26,6 +26,16 @@ export function formatDuration(seconds: number): string {
   return `${s}s`;
 }
 
+/** mm:ss (o h:mm:ss oltre l'ora) — per cronometri e recuperi */
+export function formatClock(seconds: number): string {
+  const safe = Math.max(0, Math.floor(seconds));
+  const h = Math.floor(safe / 3600);
+  const m = Math.floor((safe % 3600) / 60);
+  const s = safe % 60;
+  if (h > 0) return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
 export function formatDate(date: Date | string): string {
   return format(new Date(date), "d MMM yyyy", { locale: it });
 }

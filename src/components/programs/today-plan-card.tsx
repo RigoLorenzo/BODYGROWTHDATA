@@ -1,12 +1,15 @@
 "use client";
 
+import { useState } from "react";
+import { AnimatePresence } from "framer-motion";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CalendarDays, ChevronRight, Dumbbell, Play } from "lucide-react";
+import { CalendarDays, ChevronRight, Dumbbell, Play, ListChecks } from "lucide-react";
 import { getMuscleColor } from "@/lib/utils";
 import Link from "next/link";
 import { useWorkoutSession } from "@/hooks/use-workout-session";
+import { StartWorkoutSheet } from "@/components/session/start-workout-sheet";
 
 interface PlanExercise {
   exerciseId: string;
@@ -14,12 +17,13 @@ interface PlanExercise {
   repsMin: number;
   repsMax: number;
   restSeconds?: number;
-  exercise: { id: string; name: string; primaryMuscle: string | null } | null;
+  exercise: { id: string; name: string; nameIt?: string | null; primaryMuscle: string | null } | null;
 }
 
 interface TodayPlan {
   programId: string;
   currentDay: number;
+  suggestedDayIndex: number;
   totalDays: number;
   weekProgress: number;
   program: { name: string; durationWeeks: number; frequency: number };
@@ -34,6 +38,7 @@ interface TodayPlan {
 export function TodayPlanCard() {
   const queryClient = useQueryClient();
   const { startWorkout, isLoading } = useWorkoutSession();
+  const [showPicker, setShowPicker] = useState(false);
 
   const { data: active, isLoading: loadingPlan } = useQuery<TodayPlan | null>({
     queryKey: ["programs", "active"],
@@ -46,11 +51,11 @@ export function TodayPlanCard() {
   });
 
   const advanceMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (dayIndex: number) => {
       await fetch("/api/programs/active", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "advance" }),
+        body: JSON.stringify({ action: "advance", dayIndex }),
       });
     },
     onSuccess: () => {
@@ -69,17 +74,22 @@ export function TodayPlanCard() {
       .map((ex) => ({
         exerciseId: ex.exerciseId,
         exerciseName: ex.exercise!.name,
+        exerciseNameIt: ex.exercise!.nameIt,
         restSeconds: ex.restSeconds,
+        sets: ex.sets,
+        repsMin: ex.repsMin,
+        repsMax: ex.repsMax,
       }));
 
     startWorkout(
       {
-        workoutType: todayDay.workoutType as "PUSH" | "PULL" | "LEGS" | "UPPER" | "LOWER" | "FULL_BODY" | "CARDIO" | "CUSTOM",
+        workoutType: todayDay.workoutType,
         programDayId: todayDay.id,
+        programDayName: todayDay.name,
       },
       planExercises
     );
-    advanceMutation.mutate();
+    advanceMutation.mutate(active.suggestedDayIndex ?? 0);
   };
 
   return (
@@ -107,7 +117,7 @@ export function TodayPlanCard() {
               {todayDay.exercises.slice(0, 4).map((ex, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <Dumbbell className="h-3 w-3 text-muted-foreground shrink-0" />
-                  <p className="text-xs flex-1 truncate">{ex.exercise?.name ?? "Esercizio"}</p>
+                  <p className="text-xs flex-1 truncate">{ex.exercise?.nameIt ?? ex.exercise?.name ?? "Esercizio"}</p>
                   <p className="text-[10px] text-muted-foreground shrink-0">
                     {ex.sets}×{ex.repsMin}–{ex.repsMax}
                   </p>
@@ -126,15 +136,31 @@ export function TodayPlanCard() {
               )}
             </div>
 
-            <Button className="w-full" size="sm" onClick={handleStart} disabled={isLoading}>
-              <Play className="h-3.5 w-3.5 mr-1" />
-              Inizia Allenamento
-            </Button>
+            <div className="flex gap-2">
+              <Button className="flex-1" size="sm" onClick={handleStart} disabled={isLoading}>
+                <Play className="h-3.5 w-3.5 mr-1" />
+                Inizia Giorno {dayNum}
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setShowPicker(true)} disabled={isLoading}>
+                <ListChecks className="h-3.5 w-3.5 mr-1" />
+                Cambia giorno
+              </Button>
+            </div>
           </>
         ) : (
-          <p className="text-xs text-muted-foreground">Nessun esercizio programmato per oggi.</p>
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">Nessun esercizio programmato per oggi.</p>
+            <Button variant="outline" size="sm" className="w-full" onClick={() => setShowPicker(true)}>
+              <ListChecks className="h-3.5 w-3.5 mr-1" />
+              Scegli un altro giorno
+            </Button>
+          </div>
         )}
       </CardContent>
+
+      <AnimatePresence>
+        {showPicker && <StartWorkoutSheet onClose={() => setShowPicker(false)} />}
+      </AnimatePresence>
     </Card>
   );
 }

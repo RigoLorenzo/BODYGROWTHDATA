@@ -31,27 +31,30 @@ export async function GET() {
   const dayCount = program.days.length;
   if (dayCount === 0) return NextResponse.json({ ...activeProgram, todayDay: null });
 
-  const todayDay = program.days[currentDay % dayCount];
+  const suggestedIndex = currentDay % dayCount;
 
-  // Enrich today's exercises with names
-  const exerciseIds = todayDay.exercises.map((e) => e.exerciseId);
+  // Enrich every day's exercises with names, so the user can pick which day of
+  // the plan they are actually training today.
+  const exerciseIds = program.days.flatMap((d) => d.exercises.map((e) => e.exerciseId));
   const exercises = await prisma.exercise.findMany({
     where: { id: { in: exerciseIds } },
-    select: { id: true, name: true, primaryMuscle: true },
+    select: { id: true, name: true, nameIt: true, primaryMuscle: true },
   });
   const exerciseMap = new Map(exercises.map((e) => [e.id, e]));
 
-  const enrichedDay = {
-    ...todayDay,
-    exercises: todayDay.exercises.map((ex) => ({
+  const enrichedDays = program.days.map((day) => ({
+    ...day,
+    exercises: day.exercises.map((ex) => ({
       ...ex,
       exercise: exerciseMap.get(ex.exerciseId) ?? null,
     })),
-  };
+  }));
 
   return NextResponse.json({
     ...activeProgram,
-    todayDay: enrichedDay,
+    days: enrichedDays,
+    todayDay: enrichedDays[suggestedIndex],
+    suggestedDayIndex: suggestedIndex,
     totalDays: dayCount,
     weekProgress: Math.floor(currentDay / program.frequency) + 1,
   });
@@ -62,7 +65,7 @@ export async function POST(req: Request) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { programId, action } = body;
+  const { programId, action, dayIndex } = body;
 
   if (action === "deactivate") {
     await prisma.activeProgram.deleteMany({ where: { userId: session.user.id } });
@@ -70,12 +73,23 @@ export async function POST(req: Request) {
   }
 
   if (action === "advance") {
-    // Called after completing a workout to advance to the next day
-    const active = await prisma.activeProgram.findUnique({ where: { userId: session.user.id } });
+    // Called after starting a workout to move on to the next day of the plan.
+    // When the user picked a specific day, continue from that one.
+    const active = await prisma.activeProgram.findUnique({
+      where: { userId: session.user.id },
+      include: { program: { include: { days: { select: { id: true } } } } },
+    });
     if (!active) return NextResponse.json({ error: "No active program" }, { status: 404 });
+
+    const dayCount = active.program.days.length || 1;
+    const nextDay =
+      typeof dayIndex === "number"
+        ? Math.floor(active.currentDay / dayCount) * dayCount + dayIndex + 1
+        : active.currentDay + 1;
+
     const updated = await prisma.activeProgram.update({
       where: { userId: session.user.id },
-      data: { currentDay: active.currentDay + 1 },
+      data: { currentDay: nextDay },
     });
     return NextResponse.json(updated);
   }

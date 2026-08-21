@@ -1,7 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { AnimatePresence } from "framer-motion";
+import { StartWorkoutSheet } from "@/components/session/start-workout-sheet";
 import { LayoutDashboard, Calendar, Plus, BarChart3, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWorkoutSession } from "@/hooks/use-workout-session";
@@ -17,7 +20,9 @@ const navItems = [
 
 export function BottomNav() {
   const pathname = usePathname();
-  const { startWorkout, activeSession } = useWorkoutSession();
+  const router = useRouter();
+  const { activeSession } = useWorkoutSession();
+  const [showPicker, setShowPicker] = useState(false);
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden">
@@ -30,7 +35,9 @@ export function BottomNav() {
               return (
                 <button
                   key={item.href}
-                  onClick={() => startWorkout({ workoutType: "CUSTOM" })}
+                  onClick={() =>
+                    activeSession ? router.push("/workout/active") : setShowPicker(true)
+                  }
                   className="relative -mt-6 flex h-14 w-14 items-center justify-center rounded-full bg-primary shadow-lg shadow-primary/30 active:scale-95 transition-transform"
                 >
                   {activeSession && (
@@ -63,6 +70,10 @@ export function BottomNav() {
           })}
         </div>
       </div>
+
+      <AnimatePresence>
+        {showPicker && <StartWorkoutSheet onClose={() => setShowPicker(false)} />}
+      </AnimatePresence>
     </nav>
   );
 }

@@ -3,13 +3,15 @@
 import { useState } from "react";
 import { useSessionStore } from "@/store/session-store";
 import { Check, Minus, Plus, X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatClock } from "@/lib/utils";
 import type { ActiveSet } from "@/types";
 
 interface Props {
   exerciseId: string;
   set: ActiveSet;
   index: number;
+  /** Recupero cronometrato dopo questa serie */
+  restSeconds?: number;
   onRemove?: () => void;
 }
 
@@ -21,7 +23,7 @@ const setTypeShort: Record<string, string> = {
   MYOREP: "M",
 };
 
-export function SetRow({ exerciseId, set, index, onRemove }: Props) {
+export function SetRow({ exerciseId, set, index, restSeconds, onRemove }: Props) {
   const { updateSet, completeSet } = useSessionStore();
   const [weight, setWeight] = useState(set.weight?.toString() ?? "");
   const [reps, setReps] = useState(set.reps?.toString() ?? "");
@@ -49,6 +51,7 @@ export function SetRow({ exerciseId, set, index, onRemove }: Props) {
   };
 
   return (
+    <div className="space-y-0.5">
     <div
       className={cn(
         "grid grid-cols-12 gap-1 items-center rounded-lg p-1.5 transition-colors",
@@ -154,6 +157,12 @@ export function SetRow({ exerciseId, set, index, onRemove }: Props) {
           </button>
         )}
       </div>
+    </div>
+    {typeof restSeconds === "number" && (
+      <p className="pl-2 text-[10px] text-muted-foreground/70 tabular-nums">
+        recupero {formatClock(restSeconds)}
+      </p>
+    )}
     </div>
   );
 }

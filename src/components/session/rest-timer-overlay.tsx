@@ -1,27 +1,34 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useRestTimer } from "@/hooks/use-rest-timer";
-import { Button } from "@/components/ui/button";
-import { X, SkipForward } from "lucide-react";
+import { useSessionTimers } from "@/hooks/use-rest-timer";
 import { useSessionStore } from "@/store/session-store";
+import { Button } from "@/components/ui/button";
+import { Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+function clock(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+/**
+ * Recupero in corso: il timer conta in salita da 0.
+ * Si ferma quando premi "Ricomincia" e il tempo finisce nel totale recuperi.
+ */
 export function RestTimerOverlay() {
-  const { restTimer, remaining, progress, stop } = useRestTimer();
-  const { startRestTimer } = useSessionStore();
+  const { rest, restElapsed, restTarget, endRest } = useSessionTimers();
+  const activeSession = useSessionStore((s) => s.activeSession);
 
-  if (!restTimer) return null;
+  if (!rest) return null;
 
-  const minutes = Math.floor(remaining / 60);
-  const seconds = remaining % 60;
+  const exercise = activeSession?.exercises.find((e) => e.id === rest.exerciseId);
+  const isExerciseRest = rest.kind === "EXERCISE";
+  const target = restTarget || 90;
+  const progress = Math.min(100, (restElapsed / target) * 100);
+  const reached = restElapsed >= target;
   const circumference = 2 * Math.PI * 44;
-  const strokeDashoffset = circumference * (1 - progress / 100);
-
-  const addTime = (delta: number) => {
-    const next = Math.max(5, remaining + delta);
-    startRestTimer(restTimer.exerciseId, restTimer.setNumber, next);
-  };
 
   return (
     <motion.div
@@ -33,7 +40,7 @@ export function RestTimerOverlay() {
     >
       <div className="bg-card border border-border rounded-2xl p-4 shadow-xl">
         <div className="flex items-center gap-4">
-          {/* Circular timer */}
+          {/* Cronometro circolare */}
           <div className="relative shrink-0">
             <svg className="h-[100px] w-[100px] -rotate-90" viewBox="0 0 100 100">
               <circle cx="50" cy="50" r="44" fill="none" stroke="hsl(var(--muted))" strokeWidth="8" />
@@ -42,56 +49,44 @@ export function RestTimerOverlay() {
                 cy="50"
                 r="44"
                 fill="none"
-                stroke={remaining <= 10 ? "#ef4444" : "#22c55e"}
+                stroke={reached ? "#22c55e" : "#f59e0b"}
                 strokeWidth="8"
                 strokeLinecap="round"
                 strokeDasharray={circumference}
-                strokeDashoffset={strokeDashoffset}
+                strokeDashoffset={circumference * (1 - progress / 100)}
                 className="transition-all duration-1000"
               />
             </svg>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className={cn("text-2xl font-bold tabular-nums", remaining <= 10 && "text-red-400")}>
-                {minutes > 0 ? `${minutes}:${seconds.toString().padStart(2, "0")}` : seconds}
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className={cn("text-2xl font-bold tabular-nums", reached && "text-green-400")}>
+                {clock(restElapsed)}
               </span>
+              <span className="text-[10px] text-muted-foreground">obiettivo {clock(target)}</span>
             </div>
           </div>
 
-          {/* Controls */}
-          <div className="flex-1 space-y-2">
-            <p className="text-sm font-semibold">Recupero</p>
-            <div className="flex gap-1.5">
-              <button
-                onClick={() => addTime(-30)}
-                className="text-xs px-2.5 py-1 rounded-lg bg-muted hover:bg-muted/70 text-muted-foreground transition-colors"
-              >
-                -30s
-              </button>
-              <button
-                onClick={() => addTime(30)}
-                className="text-xs px-2.5 py-1 rounded-lg bg-muted hover:bg-muted/70 text-muted-foreground transition-colors"
-              >
-                +30s
-              </button>
+          {/* Controlli */}
+          <div className="flex-1 min-w-0 space-y-2">
+            <div>
+              <p className="text-sm font-semibold">
+                {isExerciseRest ? "Recupero tra esercizi" : "Recupero tra le serie"}
+              </p>
+              {exercise && (
+                <p className="text-xs text-muted-foreground truncate">
+                  dopo {exercise.exerciseNameIt ?? exercise.exerciseName}
+                </p>
+              )}
             </div>
-            <div className="flex gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="flex-1 text-xs"
-                onClick={stop}
-              >
-                <SkipForward className="h-3.5 w-3.5 mr-1" />
-                Salta
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={stop}
-              >
-                <X className="h-3.5 w-3.5" />
-              </Button>
-            </div>
+            <Button
+              className="w-full bg-green-600 hover:bg-green-700 text-white"
+              onClick={endRest}
+            >
+              <Play className="h-4 w-4 mr-1.5" />
+              {isExerciseRest ? "Ricomincia esercizio" : "Riprendi la serie"}
+            </Button>
+            <p className="text-[10px] text-muted-foreground">
+              Il tempo di recupero viene salvato con l&apos;allenamento.
+            </p>
           </div>
         </div>
       </div>

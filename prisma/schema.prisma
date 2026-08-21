@@ -262,6 +262,7 @@ model Goal {
 model Exercise {
   id           String           @id @default(cuid())
   name         String
+  nameIt       String?
   aliases      String[]
   description  String?          @db.Text
   instructions String?          @db.Text
@@ -300,6 +301,8 @@ model WorkoutSession {
   totalVolume         Float         @default(0)
   totalSets           Int           @default(0)
   totalReps           Int           @default(0)
+  restSeconds         Int           @default(0)
+  activeSeconds       Int?
   estimatedCalories   Int?
   rating              Int?
   rpe                 Float?
@@ -331,6 +334,7 @@ model WorkoutExercise {
   exerciseId       String
   orderIndex       Int     @default(0)
   restTimerSeconds Int     @default(90)
+  restAfterSeconds Int?
   notes            String? @db.Text
   supersetWith     String?
   createdAt        DateTime @default(now())

@@ -15,7 +15,7 @@ const MUSCLES = [
 ];
 
 interface Props {
-  onSelect: (exercise: { id: string; name: string }) => void;
+  onSelect: (exercise: { id: string; name: string; nameIt?: string | null }) => void;
   onClose: () => void;
 }
 
@@ -92,7 +92,7 @@ export function ExerciseSelector({ onSelect, onClose }: Props) {
               ref={inputRef}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Cerca esercizi..."
+              placeholder="Cerca esercizi (in italiano o inglese)..."
               className="pl-9"
             />
           </div>
@@ -144,12 +144,15 @@ export function ExerciseSelector({ onSelect, onClose }: Props) {
           {exercises?.map((exercise: ExerciseSearchResult) => (
             <div key={exercise.id} className="flex items-center gap-1">
               <button
-                onClick={() => onSelect({ id: exercise.id, name: exercise.name })}
+                onClick={() => onSelect({ id: exercise.id, name: exercise.name, nameIt: exercise.nameIt })}
                 className="flex-1 text-left p-3 rounded-xl hover:bg-muted/50 active:scale-[0.99] transition-all"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm">{exercise.name}</p>
+                    {exercise.nameIt && (
+                      <p className="text-xs text-muted-foreground/80 leading-tight">{exercise.nameIt}</p>
+                    )}
                     <div className="flex flex-wrap gap-1 mt-1">
                       {exercise.equipment?.slice(0, 2).map((eq: string) => (
                         <span key={eq} className="text-[10px] text-muted-foreground">{getEquipmentLabel(eq)}</span>
