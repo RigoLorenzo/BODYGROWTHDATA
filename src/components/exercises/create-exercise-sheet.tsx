@@ -36,6 +36,7 @@ export function CreateExerciseSheet({ exercise, onClose }: Props) {
   const isEdit = !!exercise;
 
   const [name, setName] = useState(exercise?.name ?? "");
+  const [nameIt, setNameIt] = useState(exercise?.nameIt ?? "");
   const [primaryMuscle, setPrimaryMuscle] = useState(exercise?.primaryMuscle ?? "");
   const [muscleGroups, setMuscleGroups] = useState<string[]>(exercise?.muscleGroups ?? []);
   const [category, setCategory] = useState(exercise?.category ?? "COMPOUND");
@@ -64,6 +65,7 @@ export function CreateExerciseSheet({ exercise, onClose }: Props) {
     if (!name.trim() || !primaryMuscle) return;
     const payload = {
       name: name.trim(),
+      nameIt: nameIt.trim(),
       primaryMuscle,
       muscleGroups: Array.from(new Set([primaryMuscle, ...muscleGroups])),
       category,
@@ -121,12 +123,22 @@ export function CreateExerciseSheet({ exercise, onClose }: Props) {
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pb-8 space-y-4">
           {/* Name */}
           <div className="space-y-1.5">
-            <Label>Nome *</Label>
+            <Label>Nome (inglese) *</Label>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Es. Panca Piana"
+              placeholder="Es. Barbell Bench Press"
               autoFocus={!isEdit}
+            />
+          </div>
+
+          {/* Nome italiano */}
+          <div className="space-y-1.5">
+            <Label>Nome italiano</Label>
+            <Input
+              value={nameIt}
+              onChange={(e) => setNameIt(e.target.value)}
+              placeholder="Es. Panca piana con bilanciere"
             />
           </div>
 

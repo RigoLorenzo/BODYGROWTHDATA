@@ -19,6 +19,7 @@ interface IncomingExercise {
   exerciseId: string;
   orderIndex: number;
   restTimerSeconds?: number;
+  restAfterSeconds?: number;
   sets: IncomingSet[];
 }
 
@@ -30,6 +31,9 @@ export async function POST(req: Request, { params }: Params) {
   try {
     const body = await req.json().catch(() => ({}));
     const exercises: IncomingExercise[] = body.exercises ?? [];
+    const totalRestSeconds = Number.isFinite(body.totalRestSeconds)
+      ? Math.max(0, Math.round(body.totalRestSeconds))
+      : 0;
 
     if (exercises.length > 0) {
       await prisma.$transaction(async (tx) => {
@@ -43,6 +47,7 @@ export async function POST(req: Request, { params }: Params) {
               exerciseId: ex.exerciseId,
               orderIndex: ex.orderIndex,
               restTimerSeconds: ex.restTimerSeconds ?? 90,
+              restAfterSeconds: ex.restAfterSeconds ?? null,
             },
           });
 
@@ -93,7 +98,7 @@ export async function POST(req: Request, { params }: Params) {
       }
     }
 
-    await finalizeSession(sessionId, session.user.id);
+    await finalizeSession(sessionId, session.user.id, { restSeconds: totalRestSeconds });
 
     const fullWorkout = await prisma.workoutSession.findUnique({
       where: { id: sessionId },

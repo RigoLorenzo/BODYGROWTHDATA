@@ -26,7 +26,8 @@ export async function GET(req: Request) {
         query ? {
           OR: [
             { name: { contains: query, mode: "insensitive" } },
-            { aliases: { hasSome: [query] } },
+            { nameIt: { contains: query, mode: "insensitive" } },
+            { aliases: { has: query.toLowerCase() } },
             { tags: { hasSome: [query] } },
           ],
         } : {},
@@ -35,10 +36,11 @@ export async function GET(req: Request) {
       ],
     },
     orderBy: [{ isCustom: "asc" }, { name: "asc" }],
-    take: 50,
+    take: 120,
     select: {
       id: true,
       name: true,
+      nameIt: true,
       aliases: true,
       category: true,
       muscleGroups: true,
@@ -54,6 +56,7 @@ export async function GET(req: Request) {
 
 const createExerciseSchema = z.object({
   name: z.string().min(1).max(100),
+  nameIt: z.string().max(100).optional(),
   primaryMuscle: z.string().min(1),
   muscleGroups: z.array(z.string()).default([]),
   category: z.enum(["COMPOUND", "ISOLATION", "CARDIO", "STRETCHING"]).default("COMPOUND"),
@@ -72,6 +75,7 @@ export async function POST(req: Request) {
   const exercise = await prisma.exercise.create({
     data: {
       name: data.name,
+      nameIt: data.nameIt?.trim() || null,
       primaryMuscle: data.primaryMuscle as MuscleGroup,
       muscleGroups: muscleGroups as MuscleGroup[],
       category: data.category as never,
@@ -83,6 +87,7 @@ export async function POST(req: Request) {
     select: {
       id: true,
       name: true,
+      nameIt: true,
       aliases: true,
       category: true,
       muscleGroups: true,

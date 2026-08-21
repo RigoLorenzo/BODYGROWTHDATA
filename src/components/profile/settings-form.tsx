@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/hooks/use-toast";
-import { Download, Trash2, Moon, Sun, Dumbbell } from "lucide-react";
+import { Download, Trash2, Moon, Sun, Dumbbell, RefreshCw } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { useUIStore } from "@/store/ui-store";
 
@@ -20,6 +20,22 @@ export function SettingsForm({ user }: Props) {
   const [restDefault, setRestDefault] = useState(90);
   const [isExporting, setIsExporting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  // Ricarica la libreria esercizi di sistema (nomi inglese + italiano)
+  const handleSyncExercises = async () => {
+    setIsSyncing(true);
+    try {
+      const res = await fetch("/api/setup", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error();
+      toast({ title: "Libreria aggiornata", description: data.message });
+    } catch {
+      toast({ title: "Errore aggiornamento libreria", variant: "destructive" });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const handleExportCSV = async () => {
     setIsExporting(true);
@@ -166,6 +182,22 @@ export function SettingsForm({ user }: Props) {
           </Button>
           <p className="text-xs text-muted-foreground">
             Scarica tutti i tuoi allenamenti, serie e misurazioni in formato CSV.
+          </p>
+
+          <Separator />
+
+          <Button
+            variant="outline"
+            className="w-full justify-start"
+            onClick={handleSyncExercises}
+            disabled={isSyncing}
+          >
+            <RefreshCw className={isSyncing ? "h-4 w-4 mr-2 animate-spin" : "h-4 w-4 mr-2"} />
+            {isSyncing ? "Aggiornamento..." : "Aggiorna libreria esercizi"}
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            Ricarica il catalogo completo degli esercizi con i nomi in inglese e in italiano.
+            I tuoi esercizi personalizzati non vengono toccati.
           </p>
         </CardContent>
       </Card>

@@ -5,7 +5,11 @@ import { calculateSessionVolume } from "./volume-calculator";
 import { checkAndSavePersonalRecords } from "./pr-detector";
 import { updateUserStreak } from "./streak-calculator";
 
-export async function finalizeSession(sessionId: string, userId: string) {
+export async function finalizeSession(
+  sessionId: string,
+  userId: string,
+  opts: { restSeconds?: number } = {}
+) {
   const session = await prisma.workoutSession.findUnique({
     where: { id: sessionId, userId },
     include: {
@@ -38,6 +42,11 @@ export async function finalizeSession(sessionId: string, userId: string) {
     ? Math.floor((session.endedAt.getTime() - session.startedAt.getTime()) / 1000)
     : Math.floor((Date.now() - session.startedAt.getTime()) / 1000);
 
+  // Tempo di recupero cronometrato durante la sessione: il resto della durata
+  // è tempo di lavoro effettivo.
+  const restSeconds = Math.max(0, Math.min(Math.round(opts.restSeconds ?? 0), duration));
+  const activeSeconds = Math.max(0, duration - restSeconds);
+
   await prisma.workoutSession.update({
     where: { id: sessionId },
     data: {
@@ -47,6 +56,8 @@ export async function finalizeSession(sessionId: string, userId: string) {
       totalVolume,
       totalSets,
       totalReps,
+      restSeconds,
+      activeSeconds,
     },
   });
 
@@ -68,5 +79,5 @@ export async function finalizeSession(sessionId: string, userId: string) {
   await checkAndSavePersonalRecords(userId, sessionId, prCandidates);
   await updateUserStreak(userId);
 
-  return { sessionId, totalVolume, totalSets, totalReps };
+  return { sessionId, totalVolume, totalSets, totalReps, restSeconds, activeSeconds };
 }

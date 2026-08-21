@@ -32,6 +32,7 @@ interface PlanDay {
 interface ExerciseResult {
   id: string;
   name: string;
+  nameIt?: string | null;
   primaryMuscle: string | null;
 }
 
@@ -69,7 +70,7 @@ function ExerciseSearch({ onSelect }: { onSelect: (ex: ExerciseResult) => void }
   return (
     <div className="relative">
       <Input
-        placeholder="Cerca esercizio..."
+        placeholder="Cerca esercizio (italiano o inglese)..."
         value={q}
         onChange={(e) => setQ(e.target.value)}
         className="text-sm"
@@ -83,9 +84,14 @@ function ExerciseSearch({ onSelect }: { onSelect: (ex: ExerciseResult) => void }
               onClick={() => { onSelect(ex); setQ(""); }}
             >
               <Dumbbell className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              <span>{ex.name}</span>
+              <span className="min-w-0">
+                <span className="block truncate">{ex.name}</span>
+                {ex.nameIt && (
+                  <span className="block text-[10px] text-muted-foreground truncate">{ex.nameIt}</span>
+                )}
+              </span>
               {ex.primaryMuscle && (
-                <span className="text-[10px] text-muted-foreground ml-auto">{ex.primaryMuscle}</span>
+                <span className="text-[10px] text-muted-foreground ml-auto shrink-0">{ex.primaryMuscle}</span>
               )}
             </button>
           ))}

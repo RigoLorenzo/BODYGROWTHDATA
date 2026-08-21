@@ -1,39 +1,80 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { useSessionStore } from "@/store/session-store";
+import { useEffect, useRef, useState } from "react";
+import {
+  useSessionStore,
+  getOpenRest,
+  getTotalRestSeconds,
+  getActiveSeconds,
+} from "@/store/session-store";
 
-export function useRestTimer() {
-  const { restTimer, tickRestTimer, stopRestTimer } = useSessionStore();
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
+/** Orologio a 1 secondo, attivo solo quando c'è un allenamento in corso. */
+function useNow(enabled: boolean) {
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    if (restTimer?.active) {
-      intervalRef.current = setInterval(() => {
-        tickRestTimer();
-      }, 1000);
-    }
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [restTimer?.active, tickRestTimer]);
+    if (!enabled) return;
+    setNow(Date.now());
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [enabled]);
+  return now;
+}
 
+/**
+ * Cronometri della sessione: durata totale, recupero e lavoro effettivo.
+ * Tutto è calcolato dai timestamp, quindi resta corretto anche se l'app
+ * finisce in background o lo schermo si spegne.
+ */
+export function useSessionTimers() {
+  const activeSession = useSessionStore((s) => s.activeSession);
+  const endRest = useSessionStore((s) => s.endRest);
+  const resumeExercise = useSessionStore((s) => s.resumeExercise);
+  const finishExercise = useSessionStore((s) => s.finishExercise);
+
+  const now = useNow(!!activeSession);
+  const rest = getOpenRest(activeSession);
+  const vibratedFor = useRef<string | null>(null);
+
+  const restElapsed = rest ? Math.max(0, Math.floor((now - rest.startedAt) / 1000)) : 0;
+  const restTarget = rest?.targetSeconds ?? 0;
+
+  // Vibrazione una sola volta al raggiungimento del recupero target
   useEffect(() => {
-    if (restTimer && restTimer.remaining === 0 && !restTimer.active) {
-      if ("vibrate" in navigator) navigator.vibrate([200, 100, 200]);
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      // Auto-dismiss after 3 seconds
-      const t = setTimeout(() => stopRestTimer(), 3000);
-      return () => clearTimeout(t);
+    if (!rest || !restTarget) return;
+    if (restElapsed < restTarget) return;
+    if (vibratedFor.current === rest.id) return;
+    vibratedFor.current = rest.id;
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      navigator.vibrate([200, 100, 200]);
     }
-  }, [restTimer, stopRestTimer]);
+  }, [rest, restElapsed, restTarget]);
+
+  const totalSeconds = activeSession
+    ? Math.max(0, Math.floor((now - new Date(activeSession.startedAt).getTime()) / 1000))
+    : 0;
 
   return {
-    restTimer,
-    isActive: restTimer?.active ?? false,
-    remaining: restTimer?.remaining ?? 0,
-    total: restTimer?.seconds ?? 0,
-    progress: restTimer ? (restTimer.remaining / restTimer.seconds) * 100 : 0,
-    stop: stopRestTimer,
+    rest,
+    isResting: !!rest,
+    restElapsed,
+    restTarget,
+    totalSeconds,
+    restSeconds: getTotalRestSeconds(activeSession, now),
+    activeSeconds: getActiveSeconds(activeSession, now),
+    endRest,
+    resumeExercise,
+    finishExercise,
+  };
+}
+
+/** Compatibilità con i componenti che leggevano solo il recupero in corso. */
+export function useRestTimer() {
+  const timers = useSessionTimers();
+  return {
+    restTimer: timers.rest,
+    isActive: timers.isResting,
+    elapsed: timers.restElapsed,
+    target: timers.restTarget,
+    stop: timers.endRest,
   };
 }

@@ -15,7 +15,7 @@ export async function GET() {
       exercises: {
         orderBy: { orderIndex: "asc" },
         include: {
-          exercise: { select: { name: true, primaryMuscle: true, category: true } },
+          exercise: { select: { name: true, nameIt: true, primaryMuscle: true, category: true } },
           sets: { orderBy: { setNumber: "asc" } },
         },
       },
@@ -23,37 +23,42 @@ export async function GET() {
   });
 
   const rows: string[] = [
-    "Date,Session ID,Workout Type,Duration (min),Total Volume (kg),Exercise,Set #,Set Type,Weight (kg),Reps,RPE,Volume (kg),Notes",
+    "Date,Session ID,Workout Type,Duration (min),Rest (min),Active (min),Total Volume (kg),Exercise,Esercizio (IT),Set #,Set Type,Weight (kg),Reps,RPE,Volume (kg),Rest after set (s),Notes",
   ];
 
   for (const workout of workouts) {
     const date = format(workout.startedAt, "yyyy-MM-dd");
     const duration = workout.duration ? Math.round(workout.duration / 60) : "";
+    const rest = workout.restSeconds ? Math.round(workout.restSeconds / 60) : "";
+    const active = workout.activeSeconds ? Math.round(workout.activeSeconds / 60) : "";
+    const head = `${date},${workout.id},${workout.workoutType},${duration},${rest},${active},${workout.totalVolume}`;
 
     if (workout.exercises.length === 0) {
-      rows.push(`${date},${workout.id},${workout.workoutType},${duration},${workout.totalVolume},,,,,,,"${workout.notes ?? ""}"`);
+      // 9 colonne vuote: Exercise → Rest after set
+      rows.push([head, ...Array(9).fill(""), `"${workout.notes ?? ""}"`].join(","));
       continue;
     }
 
     for (const ex of workout.exercises) {
       if (ex.sets.length === 0) {
-        rows.push(`${date},${workout.id},${workout.workoutType},${duration},${workout.totalVolume},${ex.exercise.name},,,,,,"${workout.notes ?? ""}"`);
+        // 7 colonne vuote: Set # → Rest after set
+        rows.push(
+          [head, `"${ex.exercise.name}"`, `"${ex.exercise.nameIt ?? ""}"`, ...Array(7).fill(""), `"${workout.notes ?? ""}"`].join(",")
+        );
         continue;
       }
       for (const set of ex.sets) {
         const row = [
-          date,
-          workout.id,
-          workout.workoutType,
-          duration,
-          workout.totalVolume,
+          head,
           `"${ex.exercise.name}"`,
+          `"${ex.exercise.nameIt ?? ""}"`,
           set.setNumber,
           set.type,
           set.weight ?? "",
           set.reps ?? "",
           set.rpe ?? "",
           set.volume,
+          set.restSeconds ?? "",
           `"${set.notes ?? ""}"`,
         ].join(",");
         rows.push(row);

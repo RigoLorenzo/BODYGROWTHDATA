@@ -2,7 +2,7 @@
 
 import { useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSessionStore } from "@/store/session-store";
+import { useSessionStore, getRestAfterSet, getRestAfterExercise, getTotalRestSeconds } from "@/store/session-store";
 import { useRouter } from "next/navigation";
 import { toast } from "@/hooks/use-toast";
 import type { ActiveExercise } from "@/types";
@@ -10,39 +10,69 @@ import type { ActiveExercise } from "@/types";
 type PlanExerciseInput = {
   exerciseId: string;
   exerciseName: string;
+  exerciseNameIt?: string | null;
   restSeconds?: number;
+  sets?: number;
+  repsMin?: number;
+  repsMax?: number;
+};
+
+type StartWorkoutInput = {
+  workoutType?: string;
+  templateId?: string;
+  programDayId?: string;
+  programDayName?: string;
+  planDayIndex?: number;
 };
 
 export function useWorkoutSession() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { activeSession, startSession, endSession } = useSessionStore();
+  const { activeSession, startSession } = useSessionStore();
   const planExercisesRef = useRef<PlanExerciseInput[]>([]);
 
   const startMutation = useMutation({
-    mutationFn: async (data: { workoutType?: string; templateId?: string; programDayId?: string }) => {
+    mutationFn: async (data: StartWorkoutInput) => {
+      // programDayName / planDayIndex servono solo lato client
+      const payload = {
+        workoutType: data.workoutType,
+        templateId: data.templateId,
+        programDayId: data.programDayId,
+      };
       const res = await fetch("/api/sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error("Failed to start session");
       return res.json();
     },
-    onSuccess: (session) => {
+    onSuccess: (session, variables) => {
       const exercises: ActiveExercise[] = planExercisesRef.current.map((ex, idx) => ({
         id: `plan-${ex.exerciseId}-${Date.now()}-${idx}`,
         exerciseId: ex.exerciseId,
         exerciseName: ex.exerciseName,
+        exerciseNameIt: ex.exerciseNameIt ?? null,
         orderIndex: idx,
         restTimerSeconds: ex.restSeconds ?? 90,
         fromPlan: true,
-        sets: [{ setNumber: 1, type: "WORKING" as const, completed: false }],
+        targetSets: ex.sets,
+        targetRepsMin: ex.repsMin,
+        targetRepsMax: ex.repsMax,
+        // Serie pre-caricate come da piano, pronte da compilare
+        sets: Array.from({ length: Math.max(1, ex.sets ?? 1) }, (_, i) => ({
+          setNumber: i + 1,
+          type: "WORKING" as const,
+          completed: false,
+        })),
       }));
       startSession({
         id: session.id,
         startedAt: new Date(session.startedAt),
         exercises,
+        restIntervals: [],
+        programDayId: variables.programDayId,
+        programDayName: variables.programDayName,
       });
       planExercisesRef.current = [];
       router.push(`/workout/active`);
@@ -55,34 +85,43 @@ export function useWorkoutSession() {
 
   const completeMutation = useMutation({
     mutationFn: async (sessionId: string) => {
+      // Chiude il recupero eventualmente ancora in corso, così finisce nei totali
+      useSessionStore.getState().endRest();
       const { activeSession } = useSessionStore.getState();
+
       const exercises = (activeSession?.exercises ?? [])
         .map((ex, idx) => ({
           exerciseId: ex.exerciseId,
           orderIndex: ex.orderIndex ?? idx,
           restTimerSeconds: ex.restTimerSeconds,
+          restAfterSeconds: getRestAfterExercise(activeSession, ex.id),
           sets: ex.sets
-            .filter((s) => s.completed)
-            .map((s) => ({
+            .map((s, setIndex) => ({ set: s, restSeconds: getRestAfterSet(activeSession, ex.id, setIndex) }))
+            .filter(({ set: s }) => s.completed)
+            .map(({ set: s, restSeconds }) => ({
               setNumber: s.setNumber,
               type: s.type,
               weight: s.weight,
               reps: s.reps,
               rpe: s.rpe,
+              restSeconds,
             })),
         }))
         .filter((ex) => ex.sets.length > 0);
 
+      const totalRestSeconds = getTotalRestSeconds(activeSession);
+
       const res = await fetch(`/api/sessions/${sessionId}/complete`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ exercises }),
+        body: JSON.stringify({ exercises, totalRestSeconds }),
       });
       if (!res.ok) throw new Error("Failed to complete session");
       return res.json();
     },
     onSuccess: () => {
-      endSession();
+      // La sessione locale viene chiusa da chi mostra il riepilogo,
+      // così il resoconto finale resta a schermo.
       queryClient.invalidateQueries({ queryKey: ["sessions"] });
       queryClient.invalidateQueries({ queryKey: ["analytics"] });
       queryClient.invalidateQueries({ queryKey: ["records"] });
@@ -93,7 +132,7 @@ export function useWorkoutSession() {
   });
 
   const startWorkout = (
-    data?: { workoutType?: string; templateId?: string; programDayId?: string },
+    data?: StartWorkoutInput,
     planExercises?: PlanExerciseInput[]
   ) => {
     const { activeSession: current } = useSessionStore.getState();
@@ -183,6 +222,7 @@ export function useCreateExercise() {
   return useMutation({
     mutationFn: async (data: {
       name: string;
+      nameIt?: string;
       primaryMuscle: string;
       muscleGroups: string[];
       category: string;
@@ -212,6 +252,7 @@ export function useUpdateExercise() {
     mutationFn: async ({ id, ...data }: {
       id: string;
       name: string;
+      nameIt?: string;
       primaryMuscle: string;
       muscleGroups: string[];
       category: string;

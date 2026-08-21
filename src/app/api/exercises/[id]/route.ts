@@ -11,6 +11,7 @@ interface Params {
 
 const updateSchema = z.object({
   name: z.string().min(1).max(100).optional(),
+  nameIt: z.string().max(100).optional(),
   primaryMuscle: z.string().optional(),
   muscleGroups: z.array(z.string()).optional(),
   category: z.enum(["COMPOUND", "ISOLATION", "CARDIO", "STRETCHING"]).optional(),
@@ -38,13 +39,14 @@ export async function PATCH(req: Request, { params }: Params) {
     where: { id },
     data: {
       ...(data.name && { name: data.name }),
+      ...(data.nameIt !== undefined && { nameIt: data.nameIt.trim() || null }),
       ...(data.primaryMuscle && { primaryMuscle: data.primaryMuscle as MuscleGroup }),
       ...(muscleGroups && { muscleGroups: muscleGroups as MuscleGroup[] }),
       ...(data.category && { category: data.category as never }),
       ...(data.equipment && { equipment: data.equipment as Equipment[] }),
     },
     select: {
-      id: true, name: true, aliases: true, category: true,
+      id: true, name: true, nameIt: true, aliases: true, category: true,
       muscleGroups: true, primaryMuscle: true, equipment: true,
       difficulty: true, isCustom: true,
     },

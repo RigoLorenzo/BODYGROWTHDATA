@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { formatDate, getMuscleColor, getMuscleLabel } from "@/lib/utils";
+import { formatDate, getMuscleColor, getMuscleLabel, formatClock } from "@/lib/utils";
 import { ChevronLeft, Trash2, Star } from "lucide-react";
 import { WorkoutSummaryCard } from "./workout-summary-card";
 import Link from "next/link";
@@ -107,7 +107,12 @@ export function SessionDetail({ workout }: Props) {
           <Card key={ex.id} className="border-border/50">
             <CardHeader className="pb-2 pt-4 px-4">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm">{ex.exercise?.name}</CardTitle>
+                <div className="min-w-0">
+                  <CardTitle className="text-sm">{ex.exercise?.name}</CardTitle>
+                  {ex.exercise?.nameIt && (
+                    <p className="text-xs text-muted-foreground">{ex.exercise.nameIt}</p>
+                  )}
+                </div>
                 {ex.exercise?.primaryMuscle && (
                   <Badge
                     style={{
@@ -124,16 +129,17 @@ export function SessionDetail({ workout }: Props) {
             </CardHeader>
             <CardContent className="px-4 pb-4">
               <div className="space-y-1.5">
-                <div className="grid grid-cols-5 gap-2 text-[10px] text-muted-foreground font-medium">
+                <div className="grid grid-cols-6 gap-2 text-[10px] text-muted-foreground font-medium">
                   <span>Serie</span>
                   <span>Tipo</span>
                   <span className="text-right">Peso</span>
                   <span className="text-right">Reps</span>
                   <span className="text-right">Volume</span>
+                  <span className="text-right">Rec.</span>
                 </div>
                 <Separator />
                 {ex.sets.map((set) => (
-                  <div key={set.id} className="grid grid-cols-5 gap-2 text-xs">
+                  <div key={set.id} className="grid grid-cols-6 gap-2 text-xs">
                     <span className="tabular-nums">{set.setNumber}</span>
                     <span className="text-muted-foreground text-[10px]">
                       {setTypeLabel[set.type] ?? set.type}
@@ -142,6 +148,9 @@ export function SessionDetail({ workout }: Props) {
                     <span className="text-right tabular-nums">{set.reps ?? "-"}</span>
                     <span className="text-right tabular-nums text-muted-foreground">
                       {(set.volume ?? 0) > 0 ? `${set.volume!.toFixed(0)}kg` : "-"}
+                    </span>
+                    <span className="text-right tabular-nums text-muted-foreground">
+                      {set.restSeconds ? formatClock(set.restSeconds) : "-"}
                     </span>
                   </div>
                 ))}

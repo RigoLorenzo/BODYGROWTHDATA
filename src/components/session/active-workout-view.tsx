@@ -6,17 +6,15 @@ import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { useSessionStore } from "@/store/session-store";
 import { useWorkoutSession } from "@/hooks/use-workout-session";
-import { useRestTimer } from "@/hooks/use-rest-timer";
+import { useSessionTimers } from "@/hooks/use-rest-timer";
 import { Button } from "@/components/ui/button";
 import { ExerciseCard } from "./exercise-card";
 import { ExerciseSelector } from "./exercise-selector";
 import { RestTimerOverlay } from "./rest-timer-overlay";
-import { formatWorkoutDuration, formatVolume } from "@/lib/utils";
+import { formatVolume, formatClock, cn } from "@/lib/utils";
 import { calculateSessionVolume } from "@/lib/volume-calculator";
-import { Plus, CheckCircle, X } from "lucide-react";
-import { useEffect } from "react";
+import { Plus, CheckCircle, X, Flag, Play } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { WorkoutSummaryCard } from "./workout-summary-card";
 import type { ActiveSession, ActiveExercise } from "@/types";
 import type { Prisma } from "@prisma/client";
 
@@ -29,18 +27,27 @@ type CompletedWorkout = Prisma.WorkoutSessionGetPayload<{
 
 interface Props {
   session: ActiveSession;
+  /** Chiamata quando l'allenamento è stato salvato: la pagina mostra il riepilogo */
+  onCompleted: (workout: CompletedWorkout) => void;
 }
 
-export function ActiveWorkoutView({ session }: Props) {
+export function ActiveWorkoutView({ session, onCompleted }: Props) {
   const router = useRouter();
   const { addExercise, endSession } = useSessionStore();
   const { completeWorkout, isCompleting } = useWorkoutSession();
-  const { restTimer } = useRestTimer();
+  const {
+    rest,
+    isResting,
+    restElapsed,
+    totalSeconds,
+    restSeconds,
+    activeSeconds,
+    finishExercise,
+    endRest,
+  } = useSessionTimers();
   const [showExerciseSelector, setShowExerciseSelector] = useState(false);
-  const [elapsed, setElapsed] = useState("");
   const [showFinishConfirm, setShowFinishConfirm] = useState(false);
   const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
-  const [completedWorkout, setCompletedWorkout] = useState<CompletedWorkout | null>(null);
 
   const abandonMutation = useMutation({
     mutationFn: async () => {
@@ -57,23 +64,22 @@ export function ActiveWorkoutView({ session }: Props) {
     },
   });
 
-  useEffect(() => {
-    const update = () => setElapsed(formatWorkoutDuration(new Date(session.startedAt)));
-    update();
-    const id = setInterval(update, 1000);
-    return () => clearInterval(id);
-  }, [session.startedAt]);
+  // L'esercizio "corrente": l'ultimo non ancora terminato
+  const currentExerciseId =
+    [...session.exercises].reverse().find((ex) => !ex.finished)?.id ??
+    session.exercises[session.exercises.length - 1]?.id;
 
   const totalVolume = calculateSessionVolume(
     session.exercises.map((ex) => ({ sets: ex.sets.filter((s) => s.completed) }))
   );
 
   const handleAddExercise = useCallback(
-    (exercise: { id: string; name: string }) => {
+    (exercise: { id: string; name: string; nameIt?: string | null }) => {
       const newExercise: ActiveExercise = {
         id: `ex-${Date.now()}`,
         exerciseId: exercise.id,
         exerciseName: exercise.name,
+        exerciseNameIt: exercise.nameIt ?? null,
         orderIndex: session.exercises.length,
         restTimerSeconds: 90,
         sets: [
@@ -89,7 +95,7 @@ export function ActiveWorkoutView({ session }: Props) {
   const doComplete = async () => {
     try {
       const data = await completeWorkout(session.id);
-      setCompletedWorkout(data as CompletedWorkout);
+      onCompleted(data as CompletedWorkout);
       toast({ title: "Allenamento completato! 💪", description: "Ottimo lavoro!" });
     } catch {
       toast({ title: "Errore", description: "Impossibile salvare l'allenamento", variant: "destructive" });
@@ -109,18 +115,20 @@ export function ActiveWorkoutView({ session }: Props) {
       {/* Header */}
       <div className="sticky top-0 z-30 bg-black/90 backdrop-blur-xl border-b border-white/5">
         <div className="container max-w-2xl mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
               <Button variant="ghost" size="icon-sm" onClick={() => setShowAbandonConfirm(true)} className="text-muted-foreground">
                 <X className="h-4 w-4" />
               </Button>
-              <div>
-                <p className="text-xs text-muted-foreground">Allenamento in corso</p>
-                <p className="text-2xl font-bold font-mono tabular-nums text-green-400">{elapsed}</p>
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground truncate">
+                  {session.programDayName ? `Piano · ${session.programDayName}` : "Allenamento in corso"}
+                </p>
+                <p className="text-2xl font-bold font-mono tabular-nums text-green-400">{formatClock(totalSeconds)}</p>
               </div>
             </div>
             <div className="text-right">
-              <p className="text-xs text-muted-foreground">Volume totale</p>
+              <p className="text-xs text-muted-foreground">Volume</p>
               <p className="text-lg font-bold tabular-nums">{formatVolume(totalVolume)}</p>
             </div>
             <Button
@@ -133,12 +141,30 @@ export function ActiveWorkoutView({ session }: Props) {
               {isCompleting ? "Salvataggio..." : "Fine"}
             </Button>
           </div>
+
+          {/* Cronometri: totale, recupero, lavoro effettivo */}
+          <div className="grid grid-cols-3 gap-1.5 mt-2">
+            <div className="rounded-lg bg-white/5 px-2 py-1.5 text-center">
+              <p className="text-[10px] text-muted-foreground">Totale</p>
+              <p className="text-sm font-semibold tabular-nums">{formatClock(totalSeconds)}</p>
+            </div>
+            <div className={cn("rounded-lg px-2 py-1.5 text-center", isResting ? "bg-amber-500/15" : "bg-white/5")}>
+              <p className="text-[10px] text-muted-foreground">Recupero</p>
+              <p className={cn("text-sm font-semibold tabular-nums", isResting && "text-amber-400")}>
+                {formatClock(restSeconds)}
+              </p>
+            </div>
+            <div className="rounded-lg bg-white/5 px-2 py-1.5 text-center">
+              <p className="text-[10px] text-muted-foreground">Effettivo</p>
+              <p className="text-sm font-semibold tabular-nums text-green-400">{formatClock(activeSeconds)}</p>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Rest Timer */}
       <AnimatePresence>
-        {restTimer && <RestTimerOverlay />}
+        {rest && <RestTimerOverlay />}
       </AnimatePresence>
 
       {/* Exercise list */}
@@ -162,6 +188,28 @@ export function ActiveWorkoutView({ session }: Props) {
             <p className="text-lg font-medium mb-2">Nessun esercizio</p>
             <p className="text-sm">Aggiungi il primo esercizio per iniziare</p>
           </div>
+        )}
+
+        {/* Recupero: fine esercizio → cronometro, ricomincia → si ferma */}
+        {session.exercises.length > 0 && (
+          isResting ? (
+            <Button
+              className="w-full h-12 bg-green-600 hover:bg-green-700 text-white"
+              onClick={endRest}
+            >
+              <Play className="h-4 w-4 mr-2" />
+              Ricomincia esercizio · recupero {formatClock(restElapsed)}
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              className="w-full h-12 border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
+              onClick={() => currentExerciseId && finishExercise(currentExerciseId)}
+            >
+              <Flag className="h-4 w-4 mr-2" />
+              Fine esercizio — avvia recupero
+            </Button>
+          )
         )}
 
         <Button
@@ -221,23 +269,6 @@ export function ActiveWorkoutView({ session }: Props) {
                 </Button>
               </div>
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Completed summary modal */}
-      <AnimatePresence>
-        {completedWorkout && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/80 overflow-y-auto p-4 flex flex-col justify-center"
-          >
-            <WorkoutSummaryCard
-              workout={completedWorkout}
-              onClose={() => router.replace("/dashboard")}
-            />
           </motion.div>
         )}
       </AnimatePresence>
