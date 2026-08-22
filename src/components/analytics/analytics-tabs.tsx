@@ -10,6 +10,8 @@ import { OverviewStats } from "./overview-stats";
 import { ProgressScore } from "./progress-score";
 import { WeeklyLoadChart } from "./weekly-load-chart";
 import { MuscleTrendChart } from "./muscle-trend-chart";
+import { WorkloadStats } from "./workload-stats";
+import { MuscleVolumeCards } from "./muscle-volume-cards";
 
 export function AnalyticsTabs() {
   return (
@@ -24,6 +26,7 @@ export function AnalyticsTabs() {
 
       <TabsContent value="overview" className="mt-4 space-y-4">
         <OverviewStats />
+        <WorkloadStats />
       </TabsContent>
 
       <TabsContent value="progress" className="mt-4">
@@ -31,6 +34,7 @@ export function AnalyticsTabs() {
       </TabsContent>
 
       <TabsContent value="volume" className="mt-4 space-y-4">
+        <WorkloadStats />
         <VolumeChart />
         <WeeklyLoadChart />
       </TabsContent>
@@ -40,6 +44,7 @@ export function AnalyticsTabs() {
       </TabsContent>
 
       <TabsContent value="muscle" className="mt-4 space-y-4">
+        <MuscleVolumeCards />
         <MuscleFrequencyGrid />
         <MuscleStatsGrid />
         <MuscleBalanceChart />

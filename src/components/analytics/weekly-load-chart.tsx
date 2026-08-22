@@ -79,16 +79,9 @@ export function WeeklyLoadChart() {
           </BarChart>
         </ResponsiveContainer>
 
-        <div className="grid grid-cols-2 gap-2 mt-3">
-          <div className="text-center p-2 rounded-lg bg-muted/30">
-            <p className="text-lg font-bold tabular-nums">{data?.trainingFrequency ?? 0}</p>
-            <p className="text-[10px] text-muted-foreground">Allenamenti a settimana</p>
-          </div>
-          <div className="text-center p-2 rounded-lg bg-muted/30">
-            <p className="text-lg font-bold tabular-nums">{data?.weeklyAverageWorkingSets ?? 0}</p>
-            <p className="text-[10px] text-muted-foreground">Serie di lavoro a settimana</p>
-          </div>
-        </div>
+        <p className="text-[10px] text-muted-foreground text-center mt-2">
+          Media {data?.weeklyAverageWorkingSets ?? 0} serie di lavoro a settimana
+        </p>
       </CardContent>
     </Card>
   );
