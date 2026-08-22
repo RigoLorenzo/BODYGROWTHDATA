@@ -1,6 +1,7 @@
 import { prisma } from "./prisma";
 import { subDays } from "date-fns";
-import { calculateOneRM } from "./one-rm-calculator";
+import { bestEstimatedOneRM } from "./one-rm-calculator";
+import { accumulateMuscleSets, roundSets, type MuscleSetTotals } from "./muscle-volume";
 
 /**
  * Progress Score: 0-100 rispetto allo storico dell'utente stesso.
@@ -13,11 +14,29 @@ import { calculateOneRM } from "./one-rm-calculator";
 
 const PERIOD_DAYS = 28;
 
-export type ProgressCategoryKey = "consistency" | "strength" | "volume" | "records" | "body";
+/**
+ * Il riferimento personale è il miglior periodo degli ultimi 6 mesi, non di
+ * sempre: un record isolato di anni fa non deve tenere basso il punteggio a
+ * tempo indeterminato.
+ */
+const REFERENCE_DAYS = 180;
+
+export type ProgressCategoryKey = "consistency" | "strength" | "muscleVolume" | "records" | "body";
+
+/** Peso di ogni categoria; quelle senza dati vengono escluse e i pesi rinormalizzati */
+const CATEGORY_WEIGHT: Record<ProgressCategoryKey, number> = {
+  strength: 0.3,
+  muscleVolume: 0.3,
+  records: 0.15,
+  consistency: 0.15,
+  body: 0.1,
+};
 
 export interface ProgressCategory {
   key: ProgressCategoryKey;
   label: string;
+  /** Peso della categoria nel punteggio finale (0-1) */
+  weight: number;
   /** Per la composizione corporea: quale metrica è stata usata */
   metric?: "bodyFat" | "muscleMass";
   score: number;
@@ -57,11 +76,16 @@ function windowSum(points: { date: Date; value: number }[], end: number): number
   }, 0);
 }
 
-/** Miglior finestra di PERIOD_DAYS mai raggiunta (valutata alla fine di ogni giorno con dati) */
-function bestWindow(points: { date: Date; value: number }[]): number {
+/**
+ * Miglior finestra di PERIOD_DAYS raggiunta nel periodo di riferimento
+ * (ultimi REFERENCE_DAYS giorni), valutata alla fine di ogni giorno con dati.
+ */
+function bestWindow(points: { date: Date; value: number }[], since: number): number {
   let best = 0;
   for (const p of points) {
-    best = Math.max(best, windowSum(points, p.date.getTime()));
+    const end = p.date.getTime();
+    if (end < since) continue;
+    best = Math.max(best, windowSum(points, end));
   }
   return best;
 }
@@ -70,6 +94,7 @@ export async function computeProgressScore(userId: string): Promise<ProgressScor
   const now = new Date();
   const periodStart = subDays(now, PERIOD_DAYS);
   const previousStart = subDays(now, PERIOD_DAYS * 2);
+  const referenceStart = subDays(now, REFERENCE_DAYS);
 
   const [sessions, recentSessions, records, measurements] = await Promise.all([
     prisma.workoutSession.findMany({
@@ -79,15 +104,16 @@ export async function computeProgressScore(userId: string): Promise<ProgressScor
       take: 500,
     }),
     prisma.workoutSession.findMany({
-      where: { userId, status: "COMPLETED", startedAt: { gte: previousStart } },
+      where: { userId, status: "COMPLETED", startedAt: { gte: referenceStart } },
       select: {
         startedAt: true,
         exercises: {
           select: {
             exerciseId: true,
+            exercise: { select: { primaryMuscle: true, muscleGroups: true, muscleContributions: true } },
             sets: {
               where: { type: { not: "WARMUP" } },
-              select: { weight: true, reps: true },
+              select: { weight: true, reps: true, rpe: true, type: true },
             },
           },
         },
@@ -127,55 +153,70 @@ export async function computeProgressScore(userId: string): Promise<ProgressScor
 
   const nowMs = now.getTime();
   const prevEndMs = periodStart.getTime();
+  const referenceMs = referenceStart.getTime();
   const categories: ProgressCategory[] = [];
 
   // ─── Costanza ───────────────────────────────────────────────────────────────
   const sessionPoints = sessions.map((s) => ({ date: s.startedAt, value: 1 }));
   const consistencyNow = windowSum(sessionPoints, nowMs);
   const consistencyPrev = windowSum(sessionPoints, prevEndMs);
-  const consistencyBest = Math.max(bestWindow(sessionPoints), consistencyNow);
+  const consistencyBest = Math.max(bestWindow(sessionPoints, referenceMs), consistencyNow);
   if (consistencyBest > 0) {
     categories.push({
       key: "consistency",
       label: "Costanza",
+      weight: CATEGORY_WEIGHT.consistency,
       score: ratioScore(consistencyNow, consistencyBest),
       previousScore: ratioScore(consistencyPrev, consistencyBest),
       changePercent: changePercent(consistencyNow, consistencyPrev),
-      detail: `${consistencyNow} allenamenti in ${PERIOD_DAYS} giorni (record personale ${consistencyBest})`,
+      detail: `${consistencyNow} allenamenti in ${PERIOD_DAYS} giorni (meglio degli ultimi 6 mesi: ${consistencyBest})`,
     });
   }
 
-  // ─── Volume ─────────────────────────────────────────────────────────────────
+  // ─── Muscle Volume: serie efficaci, non tonnellaggio ───────────────────────
   const volumePoints = sessions
     .filter((s) => (s.totalVolume ?? 0) > 0)
     .map((s) => ({ date: s.startedAt, value: s.totalVolume }));
-  if (volumePoints.length >= 3) {
-    const volumeNow = windowSum(volumePoints, nowMs);
-    const volumePrev = windowSum(volumePoints, prevEndMs);
-    const volumeBest = Math.max(bestWindow(volumePoints), volumeNow);
-    if (volumeBest > 0) {
+  const tonnageNow = windowSum(volumePoints, nowMs);
+
+  // Serie efficaci per finestra: ogni sessione contribuisce con le sue serie
+  const effectiveSetPoints = recentSessions.map((session) => {
+    const muscles: Record<string, MuscleSetTotals> = {};
+    for (const ex of session.exercises) {
+      accumulateMuscleSets(muscles, ex.exercise, ex.sets);
+    }
+    const total = Object.values(muscles).reduce((sum, m) => sum + m.effectiveSets, 0);
+    return { date: session.startedAt, value: total };
+  });
+
+  if (effectiveSetPoints.length >= 3) {
+    const setsNow = windowSum(effectiveSetPoints, nowMs);
+    const setsPrev = windowSum(effectiveSetPoints, prevEndMs);
+    const setsBest = Math.max(bestWindow(effectiveSetPoints, referenceMs), setsNow);
+    if (setsBest > 0) {
       categories.push({
-        key: "volume",
-        label: "Volume",
-        score: ratioScore(volumeNow, volumeBest),
-        previousScore: ratioScore(volumePrev, volumeBest),
-        changePercent: changePercent(volumeNow, volumePrev),
-        detail: `${Math.round(volumeNow / 1000)}t sollevate (record ${Math.round(volumeBest / 1000)}t)`,
+        key: "muscleVolume",
+        label: "Volume muscolare",
+        weight: CATEGORY_WEIGHT.muscleVolume,
+        score: ratioScore(setsNow, setsBest),
+        previousScore: ratioScore(setsPrev, setsBest),
+        changePercent: changePercent(setsNow, setsPrev),
+        detail: `${roundSets(setsNow)} serie efficaci in ${PERIOD_DAYS} giorni (meglio: ${roundSets(setsBest)}) · ${Math.round(tonnageNow / 1000)}t di tonnellaggio`,
       });
     }
   }
 
   // ─── Forza: massimale stimato sugli esercizi principali ─────────────────────
+  // Il massimale stimato usa le serie in 1-8 ripetizioni: rep range molto
+  // diversi non sono confrontabili tra loro.
   const bestOneRM = (from: Date, to: Date) => {
     const map = new Map<string, number>();
     for (const session of recentSessions) {
       if (session.startedAt <= from || session.startedAt > to) continue;
       for (const ex of session.exercises) {
-        for (const set of ex.sets) {
-          if (!set.weight || !set.reps) continue;
-          const estimate = calculateOneRM(set.weight, set.reps);
-          map.set(ex.exerciseId, Math.max(map.get(ex.exerciseId) ?? 0, estimate));
-        }
+        const estimate = bestEstimatedOneRM(ex.sets);
+        if (!estimate) continue;
+        map.set(ex.exerciseId, Math.max(map.get(ex.exerciseId) ?? 0, estimate.oneRM));
       }
     }
     return map;
@@ -220,6 +261,7 @@ export async function computeProgressScore(userId: string): Promise<ProgressScor
     categories.push({
       key: "strength",
       label: "Forza",
+      weight: CATEGORY_WEIGHT.strength,
       score: clampScore(strengthScore * 100),
       previousScore,
       changePercent: strengthChange,
@@ -232,11 +274,12 @@ export async function computeProgressScore(userId: string): Promise<ProgressScor
     const recordPoints = records.map((r) => ({ date: r.dateAchieved, value: 1 }));
     const recordsNow = windowSum(recordPoints, nowMs);
     const recordsPrev = windowSum(recordPoints, prevEndMs);
-    const recordsBest = Math.max(bestWindow(recordPoints), recordsNow);
+    const recordsBest = Math.max(bestWindow(recordPoints, referenceMs), recordsNow);
     if (recordsBest > 0) {
       categories.push({
         key: "records",
         label: "Record",
+        weight: CATEGORY_WEIGHT.records,
         score: ratioScore(recordsNow, recordsBest),
         previousScore: ratioScore(recordsPrev, recordsBest),
         changePercent: changePercent(recordsNow, recordsPrev),
@@ -256,6 +299,7 @@ export async function computeProgressScore(userId: string): Promise<ProgressScor
     categories.push({
       key: "body",
       label: "Composizione",
+      weight: CATEGORY_WEIGHT.body,
       metric: "bodyFat",
       score: ratioScore(bestFat, latest),
       previousScore: beforePeriod ? ratioScore(bestFat, beforePeriod) : null,
@@ -269,6 +313,7 @@ export async function computeProgressScore(userId: string): Promise<ProgressScor
     categories.push({
       key: "body",
       label: "Composizione",
+      weight: CATEGORY_WEIGHT.body,
       metric: "muscleMass",
       score: ratioScore(latest, bestMuscle),
       previousScore: beforePeriod ? ratioScore(beforePeriod, bestMuscle) : null,
@@ -281,10 +326,19 @@ export async function computeProgressScore(userId: string): Promise<ProgressScor
     return { ...base, reason: "Non ci sono ancora abbastanza dati per calcolare il punteggio." };
   }
 
-  const score = clampScore(categories.reduce((sum, c) => sum + c.score, 0) / categories.length);
+  // Media pesata: i pesi delle categorie mancanti si redistribuiscono sulle
+  // altre, così un dato assente non penalizza il punteggio.
+  const totalWeight = categories.reduce((sum, c) => sum + c.weight, 0);
+  const score = clampScore(
+    categories.reduce((sum, c) => sum + c.score * c.weight, 0) / (totalWeight || 1)
+  );
+
   const withPrevious = categories.filter((c) => c.previousScore != null);
+  const previousWeight = withPrevious.reduce((sum, c) => sum + c.weight, 0);
   const previousScore = withPrevious.length
-    ? clampScore(withPrevious.reduce((sum, c) => sum + (c.previousScore ?? 0), 0) / withPrevious.length)
+    ? clampScore(
+        withPrevious.reduce((sum, c) => sum + (c.previousScore ?? 0) * c.weight, 0) / (previousWeight || 1)
+      )
     : null;
 
   return {
@@ -321,18 +375,19 @@ function buildInsight(categories: ProgressCategory[]): string | null {
       return up
         ? `La tua forza è aumentata del ${value}% rispetto al periodo precedente.`
         : `I tuoi massimali sono calati del ${value}% rispetto al periodo precedente.`;
-    case "volume":
+    case "muscleVolume":
       return up
-        ? `Hai sollevato il ${value}% di volume in più rispetto al periodo precedente.`
-        : `Il volume è calato del ${value}% rispetto al periodo precedente.`;
+        ? `Hai fatto il ${value}% di serie efficaci in più rispetto al periodo precedente.`
+        : `Le serie efficaci sono calate del ${value}% rispetto al periodo precedente.`;
     case "consistency":
       return up
         ? `Ti sei allenato il ${value}% in più rispetto al periodo precedente.`
         : `Ti sei allenato il ${value}% in meno rispetto al periodo precedente.`;
     case "records":
+      // Sui record contano i numeri assoluti, non le percentuali
       return up
-        ? `Hai stabilito il ${value}% di record in più rispetto al periodo precedente.`
-        : `Hai stabilito meno record rispetto al periodo precedente.`;
+        ? "Hai stabilito più personal record rispetto al periodo precedente."
+        : "Hai stabilito meno personal record rispetto al periodo precedente.";
     case "body":
       if (top.metric === "muscleMass") {
         return up

@@ -158,3 +158,21 @@ export interface ServerActiveSession {
     }[];
   }[];
 }
+
+/** Risposta di GET /api/analytics?type=weekly */
+export interface WeeklyAnalytics {
+  weeks: {
+    weekStart: string;
+    label: string;
+    /** Volume Load: peso × ripetizioni */
+    tonnage: number;
+    /** Serie di lavoro totali (escluse le warm-up) */
+    workingSets: number;
+    sessions: number;
+    effectiveSetsByMuscle: Record<string, number>;
+    directSetsByMuscle: Record<string, number>;
+  }[];
+  /** Allenamenti a settimana, sulle settimane in cui ti sei allenato */
+  trainingFrequency: number;
+  weeklyAverageWorkingSets: number;
+}

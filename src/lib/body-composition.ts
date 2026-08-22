@@ -67,11 +67,14 @@ export function calculateLeanMass(weightKg: number, bodyFatPercent: number): num
   return weightKg * (1 - bodyFatPercent / 100);
 }
 
+/** Correzione originale per il FFMI normalizzato a 1,80 m */
+export const FFMI_NORMALIZATION_FACTOR = 6.3;
+
 /** FFMI = massa magra / altezza², con normalizzazione a 1,80 m */
 export function calculateFFMI(leanMassKg: number, heightCm: number) {
   const heightM = heightCm / 100;
   const ffmi = leanMassKg / Math.pow(heightM, 2);
-  return { ffmi, normalized: ffmi + 6.1 * (1.8 - heightM) };
+  return { ffmi, normalized: ffmi + FFMI_NORMALIZATION_FACTOR * (1.8 - heightM) };
 }
 
 const num = (v: unknown): number | null =>

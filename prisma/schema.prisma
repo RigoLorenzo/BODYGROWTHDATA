@@ -272,6 +272,8 @@ model Exercise {
   muscleGroups MuscleGroup[]
   primaryMuscle MuscleGroup?
   equipment    Equipment[]
+  // Coefficienti di contributo per muscolo, es. {"CHEST":1,"TRICEPS":0.5}
+  muscleContributions Json?
   difficulty   Int              @default(3)
   tags         String[]
   isCustom     Boolean          @default(false)

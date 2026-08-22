@@ -11,9 +11,12 @@ interface MuscleStats {
   totalReps: number;
   tonnage: number;
   volume: number;
+  directSets: number;
+  indirectSets: number;
+  effectiveSets: number;
 }
 
-type Metric = "sets" | "reps" | "tonnage";
+type Metric = "effective" | "direct" | "reps" | "tonnage";
 
 const MUSCLES = [
   "CHEST", "BACK", "SHOULDERS", "BICEPS", "TRICEPS",
@@ -21,7 +24,7 @@ const MUSCLES = [
 ];
 
 export function MuscleStatsGrid() {
-  const [metric, setMetric] = useState<Metric>("sets");
+  const [metric, setMetric] = useState<Metric>("effective");
 
   const { data, isLoading } = useQuery<Record<string, MuscleStats>>({
     queryKey: ["analytics", "muscle-stats"],
@@ -35,7 +38,8 @@ export function MuscleStatsGrid() {
 
   const getValue = (stats: MuscleStats | undefined): number => {
     if (!stats) return 0;
-    if (metric === "sets") return stats.totalSets;
+    if (metric === "effective") return stats.effectiveSets ?? 0;
+    if (metric === "direct") return stats.directSets ?? stats.totalSets;
     if (metric === "reps") return stats.totalReps;
     return stats.tonnage;
   };
@@ -45,6 +49,8 @@ export function MuscleStatsGrid() {
 
   const formatValue = (v: number) => {
     if (metric === "tonnage") return formatVolume(v);
+    if (metric === "effective") return `${v} serie`;
+    if (metric === "direct") return `${v} serie`;
     return v.toLocaleString();
   };
 
@@ -56,14 +62,24 @@ export function MuscleStatsGrid() {
     <Card className="border-border/50">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-sm">Serie & Ripetizioni</CardTitle>
+          <CardTitle className="text-sm">Volume muscolare</CardTitle>
           <div className="flex gap-1">
-            <button className={btnCls(metric === "sets")} onClick={() => setMetric("sets")}>Serie</button>
+            <button className={btnCls(metric === "effective")} onClick={() => setMetric("effective")}>Efficaci</button>
+            <button className={btnCls(metric === "direct")} onClick={() => setMetric("direct")}>Dirette</button>
             <button className={btnCls(metric === "reps")} onClick={() => setMetric("reps")}>Reps</button>
             <button className={btnCls(metric === "tonnage")} onClick={() => setMetric("tonnage")}>Tonn.</button>
           </div>
         </div>
-        <p className="text-[10px] text-muted-foreground mt-1">Ultimi 8 settimane · esercizi lavoranti</p>
+        <p className="text-[10px] text-muted-foreground mt-1">
+          Ultime 8 settimane ·{" "}
+          {metric === "effective"
+            ? "serie pesate per contributo del muscolo e vicinanza al cedimento"
+            : metric === "direct"
+              ? "serie in cui il muscolo è il primario"
+              : metric === "tonnage"
+                ? "Volume Load attribuito al muscolo"
+                : "ripetizioni attribuite al muscolo"}
+        </p>
       </CardHeader>
       <CardContent>
         {isLoading ? (
