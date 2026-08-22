@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Pencil, X, Activity } from "lucide-react";
+import { Pencil, X, Activity, Info, AlertTriangle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "@/hooks/use-toast";
+import { analyzeBodyComposition } from "@/lib/body-composition";
 
 interface Profile {
   height?: number | null;
@@ -17,11 +18,14 @@ interface Profile {
   experienceLevel?: string;
 }
 
-function getBMICategory(bmi: number) {
-  if (bmi < 18.5) return { label: "Sottopeso", color: "text-blue-400" };
-  if (bmi < 25) return { label: "Normopeso", color: "text-green-400" };
-  if (bmi < 30) return { label: "Sovrappeso", color: "text-yellow-400" };
-  return { label: "Obesità", color: "text-red-400" };
+/** Misurazione corporea: stessa fonte della sezione "Misurazioni Corporee" */
+interface Measurement {
+  id: string;
+  date: string;
+  weight?: number | null;
+  bodyFat?: number | null;
+  muscleMass?: number | null;
+  waist?: number | null;
 }
 
 const EXP_LABELS: Record<string, string> = {
@@ -44,6 +48,18 @@ export function BodyStatsCard() {
       return res.json();
     },
   });
+
+  // Stessa query (e quindi stessa cache) della sezione Misurazioni Corporee
+  const { data: measurements } = useQuery<Measurement[]>({
+    queryKey: ["measurements"],
+    queryFn: async () => {
+      const res = await fetch("/api/measurements");
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+  const latestMeasurement = measurements?.[0];
+  const previousMeasurement = measurements?.[1];
 
   const updateMutation = useMutation({
     mutationFn: async (payload: Partial<Profile & { experienceLevel: string }>) => {
@@ -82,11 +98,28 @@ export function BodyStatsCard() {
     updateMutation.mutate(payload);
   };
 
-  const weight = profile?.weight;
+  const weight = profile?.weight ?? latestMeasurement?.weight ?? null;
   const height = profile?.height;
-  const bmi = weight && height ? weight / Math.pow(height / 100, 2) : null;
   const hp = weight && height ? weight - (height - 100) : null;
-  const bmiCategory = bmi ? getBMICategory(bmi) : null;
+
+  // Interpretazione basata sui dati già presenti: profilo + ultime misurazioni
+  const analysis = analyzeBodyComposition({
+    heightCm: height,
+    weightKg: weight,
+    bodyFatPercent: latestMeasurement?.bodyFat,
+    muscleMassKg: latestMeasurement?.muscleMass,
+    waistCm: latestMeasurement?.waist,
+    previous: previousMeasurement
+      ? {
+          date: previousMeasurement.date,
+          weightKg: previousMeasurement.weight,
+          bodyFatPercent: previousMeasurement.bodyFat,
+          muscleMassKg: previousMeasurement.muscleMass,
+        }
+      : null,
+  });
+  const bmi = analysis.bmi;
+  const bmiCategory = analysis.bmiCategory;
 
   return (
     <>
@@ -136,6 +169,82 @@ export function BodyStatsCard() {
                     </p>
                     <p className="text-[10px] text-muted-foreground mt-0.5">HP</p>
                     <p className="text-[9px] text-muted-foreground mt-0.5">peso−(alt−100)</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Dati aggiuntivi: compaiono solo se disponibili */}
+              {(analysis.ffmiNormalized || analysis.waistToHeight) && (
+                <div className="grid grid-cols-2 gap-2">
+                  {analysis.ffmiNormalized && (
+                    <div className="text-center p-3 rounded-xl bg-muted/30">
+                      <p className="text-xl font-bold tabular-nums">{analysis.ffmiNormalized.toFixed(1)}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">FFMI</p>
+                      <p className="text-[9px] text-muted-foreground mt-0.5">
+                        massa magra {analysis.leanMassKg?.toFixed(1)}kg
+                      </p>
+                    </div>
+                  )}
+                  {analysis.waistToHeight && (
+                    <div className="text-center p-3 rounded-xl bg-muted/30">
+                      <p
+                        className={`text-xl font-bold tabular-nums ${
+                          analysis.waistToHeight < 0.5 ? "text-green-400" : analysis.waistToHeight < 0.55 ? "text-yellow-400" : "text-red-400"
+                        }`}
+                      >
+                        {analysis.waistToHeight.toFixed(2)}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">Vita / Altezza</p>
+                      <p className="text-[9px] text-muted-foreground mt-0.5">riferimento &lt; 0.50</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Lettura del BMI: il valore standard non cambia mai */}
+              {analysis.reading && analysis.reading.key !== "STANDARD" && (
+                <div
+                  className={`rounded-xl border p-3 ${
+                    analysis.reading.tone === "info"
+                      ? "bg-blue-400/10 border-blue-400/20"
+                      : analysis.reading.tone === "warning"
+                        ? "bg-yellow-400/10 border-yellow-400/20"
+                        : "bg-muted/30 border-border/50"
+                  }`}
+                >
+                  <div className="flex items-start gap-2.5">
+                    <div
+                      className={`mt-0.5 shrink-0 ${
+                        analysis.reading.tone === "info"
+                          ? "text-blue-400"
+                          : analysis.reading.tone === "warning"
+                            ? "text-yellow-400"
+                            : "text-muted-foreground"
+                      }`}
+                    >
+                      {analysis.reading.tone === "warning" ? (
+                        <AlertTriangle className="h-4 w-4" />
+                      ) : (
+                        <Info className="h-4 w-4" />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold leading-snug">{analysis.reading.title}</p>
+                      <p className="text-[11px] text-muted-foreground leading-relaxed mt-0.5">
+                        {analysis.reading.body}
+                      </p>
+                      {analysis.trendNote && (
+                        <p className="text-[11px] text-muted-foreground leading-relaxed mt-1.5">
+                          {analysis.trendNote}
+                        </p>
+                      )}
+                      {analysis.missingSignals.length > 0 && (
+                        <p className="text-[10px] text-muted-foreground/70 mt-1.5">
+                          Per una lettura più precisa puoi aggiungere {analysis.missingSignals.join(" o ")} in
+                          Misurazioni Corporee (facoltativo).
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}

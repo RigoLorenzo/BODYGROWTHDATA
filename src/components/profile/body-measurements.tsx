@@ -20,27 +20,30 @@ interface Measurement {
   weight?: number | null;
   bodyFat?: number | null;
   muscleMass?: number | null;
+  waist?: number | null;
 }
 
-type TrendMetric = "weight" | "bodyFat" | "muscleMass";
+type TrendMetric = "weight" | "bodyFat" | "muscleMass" | "waist";
 
 const METRIC_CONFIG: Record<TrendMetric, { label: string; unit: string; color: string }> = {
   weight: { label: "Peso", unit: "kg", color: "#22c55e" },
   bodyFat: { label: "Body Fat", unit: "%", color: "#f97316" },
   muscleMass: { label: "Massa Musc.", unit: "kg", color: "#3b82f6" },
+  waist: { label: "Vita", unit: "cm", color: "#a855f7" },
 };
 
 interface MeasurementForm {
   weight: string;
   bodyFat: string;
   muscleMass: string;
+  waist: string;
 }
 
 export function BodyMeasurements() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [trendMetric, setTrendMetric] = useState<TrendMetric>("weight");
-  const [form, setForm] = useState<MeasurementForm>({ weight: "", bodyFat: "", muscleMass: "" });
+  const [form, setForm] = useState<MeasurementForm>({ weight: "", bodyFat: "", muscleMass: "", waist: "" });
 
   const { data, isLoading } = useQuery<Measurement[]>({
     queryKey: ["measurements"],
@@ -65,7 +68,7 @@ export function BodyMeasurements() {
       queryClient.invalidateQueries({ queryKey: ["measurements"] });
       toast({ title: "Misurazione salvata!" });
       setOpen(false);
-      setForm({ weight: "", bodyFat: "", muscleMass: "" });
+      setForm({ weight: "", bodyFat: "", muscleMass: "", waist: "" });
     },
     onError: () => {
       toast({ title: "Errore", description: "Impossibile salvare la misurazione", variant: "destructive" });
@@ -77,6 +80,7 @@ export function BodyMeasurements() {
     if (form.weight) payload.weight = parseFloat(form.weight);
     if (form.bodyFat) payload.bodyFat = parseFloat(form.bodyFat);
     if (form.muscleMass) payload.muscleMass = parseFloat(form.muscleMass);
+    if (form.waist) payload.waist = parseFloat(form.waist);
     if (Object.keys(payload).length === 0) return;
     addMutation.mutate(payload);
   };
@@ -121,8 +125,8 @@ export function BodyMeasurements() {
                 <p className="text-xs text-muted-foreground mb-2">
                   Ultima: {format(new Date(latest.date), "d MMM yyyy", { locale: it })}
                 </p>
-                <div className="grid grid-cols-3 gap-2">
-                  {(["weight", "bodyFat", "muscleMass"] as TrendMetric[])
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {(["weight", "bodyFat", "muscleMass", "waist"] as TrendMetric[])
                     .filter((k) => latest[k] != null)
                     .map((k) => {
                       const c = METRIC_CONFIG[k];
@@ -240,11 +244,24 @@ export function BodyMeasurements() {
                     onChange={(e) => setForm((f) => ({ ...f, muscleMass: e.target.value }))}
                   />
                 </div>
+                <div className="space-y-1.5">
+                  <Label>Circonferenza Vita (cm)</Label>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    placeholder="es. 82"
+                    value={form.waist}
+                    onChange={(e) => setForm((f) => ({ ...f, waist: e.target.value }))}
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    Facoltativa: migliora l&apos;interpretazione del BMI nei Dati Fisici.
+                  </p>
+                </div>
 
                 <Button
                   className="w-full mt-2"
                   onClick={handleSubmit}
-                  disabled={addMutation.isPending || (!form.weight && !form.bodyFat && !form.muscleMass)}
+                  disabled={addMutation.isPending || (!form.weight && !form.bodyFat && !form.muscleMass && !form.waist)}
                 >
                   {addMutation.isPending ? "Salvataggio..." : "Salva Misurazione"}
                 </Button>
