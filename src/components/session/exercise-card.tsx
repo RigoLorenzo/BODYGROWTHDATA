@@ -51,6 +51,7 @@ export function ExerciseCard({ exercise }: Props) {
   const unconfirmedSets = exercise.sets.filter(
     (s) => !s.completed && !s.prefilled && (s.weight != null || s.reps != null)
   ).length;
+  const pendingSetNumber = exercise.sets.findIndex((s) => !s.completed) + 1;
 
   const handleAddSet = () => {
     // Riparte dall'ultima serie con dei dati, non dall'ultima in assoluto
@@ -179,9 +180,9 @@ export function ExerciseCard({ exercise }: Props) {
           </Button>
 
           {unconfirmedSets > 0 && !exercise.finishedAt && (
-            <p className="text-[11px] text-amber-500 text-center">
-              {unconfirmedSets === 1 ? "1 serie compilata" : `${unconfirmedSets} serie compilate`} da confermare
-              con ✓ — verranno registrate anche premendo &ldquo;Fine esercizio&rdquo;.
+            <p className="text-[11px] text-muted-foreground text-center">
+              {unconfirmedSets === 1 ? "1 serie compilata" : `${unconfirmedSets} serie compilate`} non ancora
+              registrate: usa &ldquo;Fine serie&rdquo; nella barra in basso oppure il ✓.
             </p>
           )}
 
@@ -193,18 +194,21 @@ export function ExerciseCard({ exercise }: Props) {
 
           {/* Ciclo dell'esercizio: inizia → fine → recupero */}
           {isRestingHere ? (
-            <p className="flex items-center justify-center gap-1.5 text-[11px] text-amber-500 py-1.5">
-              <Timer className="h-3 w-3" />
-              Recupero dopo questo esercizio — riprendi dalla barra in basso
+            <p className="flex items-center justify-center gap-1.5 text-[11px] text-amber-500 py-1.5 text-center">
+              <Timer className="h-3 w-3 shrink-0" />
+              {pendingSetNumber > 0
+                ? `Recupero prima della serie ${pendingSetNumber} — prosegui dalla barra in basso`
+                : "Recupero dopo questo esercizio — dalla barra in basso passi al prossimo"}
             </p>
           ) : isWorking ? (
             <Button
               size="sm"
-              className="w-full text-xs bg-amber-500 hover:bg-amber-600 text-black"
+              variant="outline"
+              className="w-full text-xs"
               onClick={() => finishExercise(exercise.id)}
             >
               <Flag className="h-3.5 w-3.5 mr-1" />
-              Fine esercizio — avvia recupero
+              Termina esercizio senza le serie rimanenti
             </Button>
           ) : (
             <div className="space-y-1.5">

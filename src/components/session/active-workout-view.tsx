@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
-import { useSessionStore, getPhase } from "@/store/session-store";
+import { useSessionStore, getPhase, getOpenRest } from "@/store/session-store";
 import { useWorkoutSession } from "@/hooks/use-workout-session";
 import { useSessionTimers } from "@/hooks/use-rest-timer";
 import { Button } from "@/components/ui/button";
@@ -73,9 +73,15 @@ export function ActiveWorkoutView({ session, onCompleted }: Props) {
         ],
       };
       addExercise(newExercise);
-      // Se non stavi facendo nulla, il nuovo esercizio parte subito: il
-      // cronometro non resta mai scollegato da un esercizio.
-      if (getPhase(useSessionStore.getState().activeSession) === "IDLE") {
+
+      // Il nuovo esercizio parte subito se non stavi facendo nulla oppure se il
+      // recupero in corso è quello che segue un esercizio già concluso: così
+      // dopo l'ultima serie si passa direttamente al prossimo esercizio.
+      const state = useSessionStore.getState().activeSession;
+      const openRest = getOpenRest(state);
+      const restExercise = state?.exercises.find((ex) => ex.id === openRest?.exerciseId);
+      const restIsBetweenExercises = !!openRest && !restExercise?.sets.some((set) => !set.completed);
+      if (getPhase(state) === "IDLE" || restIsBetweenExercises) {
         startExercise(newExercise.id);
       }
       setShowExerciseSelector(false);
