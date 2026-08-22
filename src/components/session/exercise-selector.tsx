@@ -26,9 +26,13 @@ export function ExerciseSelector({ onSelect, onClose }: Props) {
   const [showCreate, setShowCreate] = useState(false);
   const [editingExercise, setEditingExercise] = useState<ExerciseSearchResult | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Area realmente visibile: con la tastiera aperta su iOS il pannello si
+  // rimpicciolisce invece di finirci sotto.
+  const [viewport, setViewport] = useState<{ height: number; offsetTop: number } | null>(null);
 
   useEffect(() => {
-    inputRef.current?.focus();
+    const timer = setTimeout(() => inputRef.current?.focus(), 250);
+    return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
@@ -37,14 +41,27 @@ export function ExerciseSelector({ onSelect, onClose }: Props) {
   }, [query]);
 
   useEffect(() => {
-    const update = () => {
-      const h = window.visualViewport?.height ?? window.innerHeight;
-      document.documentElement.style.setProperty("--vh", `${h / 100}px`);
-    };
-    update();
     const vv = window.visualViewport;
+    const update = () =>
+      setViewport({
+        height: vv?.height ?? window.innerHeight,
+        offsetTop: vv?.offsetTop ?? 0,
+      });
+    update();
     vv?.addEventListener("resize", update);
-    return () => vv?.removeEventListener("resize", update);
+    vv?.addEventListener("scroll", update);
+    window.addEventListener("resize", update);
+
+    // Blocca lo scroll della pagina sotto al pannello
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      vv?.removeEventListener("resize", update);
+      vv?.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+      document.body.style.overflow = previousOverflow;
+    };
   }, []);
 
   const { data: exercises, isLoading } = useExerciseSearch(debouncedQuery, selectedMuscle);
@@ -62,21 +79,24 @@ export function ExerciseSelector({ onSelect, onClose }: Props) {
         animate={{ y: 0 }}
         exit={{ y: "100%" }}
         transition={{ type: "spring", damping: 30, stiffness: 300 }}
-        className="absolute bottom-0 left-0 right-0 bg-card rounded-t-2xl border-t border-border flex flex-col"
-        style={{ height: "calc(var(--vh, 1vh) * 85)" }}
-        onClick={(e) => e.stopPropagation()}
+        className="fixed left-0 right-0 top-0 bg-card sm:rounded-t-2xl border-t border-border flex flex-col"
+        style={{
+          height: viewport ? `${viewport.height}px` : "100dvh",
+          transform: viewport ? `translateY(${viewport.offsetTop}px)` : undefined,
+        }}
+        onClick={(ev) => ev.stopPropagation()}
       >
-        {/* Handle */}
-        <div className="flex justify-center pt-3 pb-2 shrink-0">
-          <div className="h-1 w-10 rounded-full bg-muted-foreground/30" />
-        </div>
-
-        {/* Header */}
-        <div className="px-4 pb-3 shrink-0">
+        {/* Header + ricerca: restano sempre visibili sopra la tastiera */}
+        <div className="px-4 pt-4 pb-3 shrink-0 border-b border-border/50">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-semibold">Seleziona Esercizio</h2>
             <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon-sm" onClick={() => { setEditingExercise(null); setShowCreate(true); }} title="Crea esercizio">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => { setEditingExercise(null); setShowCreate(true); }}
+                title="Crea esercizio"
+              >
                 <Plus className="h-4 w-4" />
               </Button>
               <Button variant="ghost" size="icon-sm" onClick={onClose}>
@@ -85,19 +105,26 @@ export function ExerciseSelector({ onSelect, onClose }: Props) {
             </div>
           </div>
 
-          {/* Search */}
           <div className="relative mb-3">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               ref={inputRef}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Cerca esercizi (in italiano o inglese)..."
-              className="pl-9"
+              placeholder="Cerca in italiano o inglese..."
+              className="pl-9 text-base"
+              enterKeyHint="search"
+              autoCorrect="off"
+              autoCapitalize="none"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  inputRef.current?.blur();
+                }
+              }}
             />
           </div>
 
-          {/* Muscle filter */}
           <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
             <button
               onClick={() => setSelectedMuscle(undefined)}
@@ -126,8 +153,8 @@ export function ExerciseSelector({ onSelect, onClose }: Props) {
           </div>
         </div>
 
-        {/* Exercise list */}
-        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pb-8 space-y-1">
+        {/* Risultati */}
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-2 space-y-1">
           {isLoading && (
             <div className="py-8 text-center text-muted-foreground text-sm">Caricamento...</div>
           )}
@@ -149,9 +176,9 @@ export function ExerciseSelector({ onSelect, onClose }: Props) {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm">{exercise.name}</p>
+                    <p className="font-medium text-sm">{exercise.nameIt ?? exercise.name}</p>
                     {exercise.nameIt && (
-                      <p className="text-xs text-muted-foreground/80 leading-tight">{exercise.nameIt}</p>
+                      <p className="text-xs text-muted-foreground/80 leading-tight">{exercise.name}</p>
                     )}
                     <div className="flex flex-wrap gap-1 mt-1">
                       {exercise.equipment?.slice(0, 2).map((eq: string) => (

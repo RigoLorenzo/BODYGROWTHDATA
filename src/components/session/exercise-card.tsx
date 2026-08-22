@@ -3,6 +3,7 @@
 import { useState } from "react";
 import {
   useSessionStore,
+  getOpenRest,
   getRestAfterSet,
   getRestAfterExercise,
 } from "@/store/session-store";
@@ -30,6 +31,7 @@ export function ExerciseCard({ exercise }: Props) {
     completedSets.map((s) => ({ weight: s.weight, reps: s.reps, type: s.type, rpe: s.rpe }))
   );
 
+  const isResting = !!getOpenRest(activeSession);
   const restAfterExercise = getRestAfterExercise(activeSession, exercise.id);
   const setRests = exercise.sets
     .map((_, i) => getRestAfterSet(activeSession, exercise.id, i))
@@ -39,12 +41,13 @@ export function ExerciseCard({ exercise }: Props) {
     : undefined;
 
   const handleAddSet = () => {
-    const lastSet = exercise.sets[exercise.sets.length - 1];
+    // Riparte dall'ultima serie con dei dati, non dall'ultima in assoluto
+    const reference = [...exercise.sets].reverse().find((s) => s.weight != null || s.reps != null);
     addSet(exercise.id, {
       setNumber: exercise.sets.length + 1,
-      type: "WORKING",
-      weight: lastSet?.weight,
-      reps: lastSet?.reps,
+      type: reference?.type === "WARMUP" ? "WORKING" : reference?.type ?? "WORKING",
+      weight: reference?.weight,
+      reps: reference?.reps,
       completed: false,
     });
   };
@@ -159,6 +162,12 @@ export function ExerciseCard({ exercise }: Props) {
                 Ricomincia esercizio
               </Button>
             </div>
+          ) : isResting ? (
+            // Il recupero è già in corso: si gestisce dalla barra in basso
+            <p className="flex items-center justify-center gap-1.5 text-[11px] text-amber-500 py-1.5">
+              <Timer className="h-3 w-3" />
+              Recupero in corso
+            </p>
           ) : (
             <Button
               variant="outline"

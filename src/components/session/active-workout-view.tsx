@@ -10,10 +10,10 @@ import { useSessionTimers } from "@/hooks/use-rest-timer";
 import { Button } from "@/components/ui/button";
 import { ExerciseCard } from "./exercise-card";
 import { ExerciseSelector } from "./exercise-selector";
-import { RestTimerOverlay } from "./rest-timer-overlay";
+import { WorkoutPhaseBar } from "./workout-phase-bar";
 import { formatVolume, formatClock, cn } from "@/lib/utils";
 import { calculateSessionVolume } from "@/lib/volume-calculator";
-import { Plus, CheckCircle, X, Flag, Play } from "lucide-react";
+import { Plus, CheckCircle, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import type { ActiveSession, ActiveExercise } from "@/types";
 import type { Prisma } from "@prisma/client";
@@ -35,16 +35,7 @@ export function ActiveWorkoutView({ session, onCompleted }: Props) {
   const router = useRouter();
   const { addExercise, endSession } = useSessionStore();
   const { completeWorkout, isCompleting } = useWorkoutSession();
-  const {
-    rest,
-    isResting,
-    restElapsed,
-    totalSeconds,
-    restSeconds,
-    activeSeconds,
-    finishExercise,
-    endRest,
-  } = useSessionTimers();
+  const { isResting, totalSeconds, restSeconds, activeSeconds } = useSessionTimers();
   const [showExerciseSelector, setShowExerciseSelector] = useState(false);
   const [showFinishConfirm, setShowFinishConfirm] = useState(false);
   const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
@@ -111,9 +102,14 @@ export function ActiveWorkoutView({ session, onCompleted }: Props) {
   };
 
   return (
-    <div className="bg-background pb-32">
+    <div className="bg-background pb-44">
       {/* Header */}
-      <div className="sticky top-0 z-30 bg-black/90 backdrop-blur-xl border-b border-white/5">
+      <div
+        className={cn(
+          "sticky top-0 z-30 backdrop-blur-xl border-b transition-colors",
+          isResting ? "bg-amber-950/90 border-amber-500/30" : "bg-black/90 border-white/5"
+        )}
+      >
         <div className="container max-w-2xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
@@ -124,7 +120,7 @@ export function ActiveWorkoutView({ session, onCompleted }: Props) {
                 <p className="text-xs text-muted-foreground truncate">
                   {session.programDayName ? `Piano · ${session.programDayName}` : "Allenamento in corso"}
                 </p>
-                <p className="text-2xl font-bold font-mono tabular-nums text-green-400">{formatClock(totalSeconds)}</p>
+                <p className="text-2xl font-bold font-mono tabular-nums text-foreground">{formatClock(totalSeconds)}</p>
               </div>
             </div>
             <div className="text-right">
@@ -142,30 +138,19 @@ export function ActiveWorkoutView({ session, onCompleted }: Props) {
             </Button>
           </div>
 
-          {/* Cronometri: totale, recupero, lavoro effettivo */}
-          <div className="grid grid-cols-3 gap-1.5 mt-2">
-            <div className="rounded-lg bg-white/5 px-2 py-1.5 text-center">
-              <p className="text-[10px] text-muted-foreground">Totale</p>
-              <p className="text-sm font-semibold tabular-nums">{formatClock(totalSeconds)}</p>
+          {/* Totali della sessione: il tempo della fase in corso è nella barra in basso */}
+          <div className="grid grid-cols-2 gap-1.5 mt-2">
+            <div className="rounded-lg bg-white/5 px-2 py-1.5 flex items-center justify-between">
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Recupero totale</span>
+              <span className="text-sm font-semibold tabular-nums text-amber-400">{formatClock(restSeconds)}</span>
             </div>
-            <div className={cn("rounded-lg px-2 py-1.5 text-center", isResting ? "bg-amber-500/15" : "bg-white/5")}>
-              <p className="text-[10px] text-muted-foreground">Recupero</p>
-              <p className={cn("text-sm font-semibold tabular-nums", isResting && "text-amber-400")}>
-                {formatClock(restSeconds)}
-              </p>
-            </div>
-            <div className="rounded-lg bg-white/5 px-2 py-1.5 text-center">
-              <p className="text-[10px] text-muted-foreground">Effettivo</p>
-              <p className="text-sm font-semibold tabular-nums text-green-400">{formatClock(activeSeconds)}</p>
+            <div className="rounded-lg bg-white/5 px-2 py-1.5 flex items-center justify-between">
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Effettivo</span>
+              <span className="text-sm font-semibold tabular-nums text-green-400">{formatClock(activeSeconds)}</span>
             </div>
           </div>
         </div>
       </div>
-
-      {/* Rest Timer */}
-      <AnimatePresence>
-        {rest && <RestTimerOverlay />}
-      </AnimatePresence>
 
       {/* Exercise list */}
       <div className="container max-w-2xl mx-auto px-4 py-4 space-y-4">
@@ -190,28 +175,6 @@ export function ActiveWorkoutView({ session, onCompleted }: Props) {
           </div>
         )}
 
-        {/* Recupero: fine esercizio → cronometro, ricomincia → si ferma */}
-        {session.exercises.length > 0 && (
-          isResting ? (
-            <Button
-              className="w-full h-12 bg-green-600 hover:bg-green-700 text-white"
-              onClick={endRest}
-            >
-              <Play className="h-4 w-4 mr-2" />
-              Ricomincia esercizio · recupero {formatClock(restElapsed)}
-            </Button>
-          ) : (
-            <Button
-              variant="outline"
-              className="w-full h-12 border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
-              onClick={() => currentExerciseId && finishExercise(currentExerciseId)}
-            >
-              <Flag className="h-4 w-4 mr-2" />
-              Fine esercizio — avvia recupero
-            </Button>
-          )
-        )}
-
         <Button
           variant="outline"
           className="w-full border-dashed"
@@ -231,6 +194,8 @@ export function ActiveWorkoutView({ session, onCompleted }: Props) {
           />
         )}
       </AnimatePresence>
+
+      <WorkoutPhaseBar currentExerciseId={currentExerciseId} />
 
       {/* Finish confirm */}
       <AnimatePresence>
