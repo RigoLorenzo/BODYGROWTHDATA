@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { startOfWeek, endOfWeek, subWeeks, subDays, differenceInDays, format } from "date-fns";
+import { computeProgressScore } from "@/lib/progress-score";
 
 export async function GET(req: Request) {
   const session = await auth().catch(() => null);
@@ -58,6 +59,13 @@ export async function GET(req: Request) {
       volumeChange: Math.round(volumeChange),
       streak: streak?.currentStreak ?? 0,
       longestStreak: streak?.longestStreak ?? 0,
+    });
+  }
+
+  if (type === "progress") {
+    const progress = await computeProgressScore(userId);
+    return NextResponse.json(progress, {
+      headers: { "Cache-Control": "private, max-age=300" },
     });
   }
 
