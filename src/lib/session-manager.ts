@@ -64,8 +64,8 @@ export async function finalizeSession(
   // Check PRs per exercise
   const prCandidates = session.exercises.map((ex) => {
     const workingSets = ex.sets.filter((s) => s.type !== "WARMUP" && s.weight && s.reps);
-    const maxWeight = Math.max(...workingSets.map((s) => s.weight ?? 0));
-    const maxReps = Math.max(...workingSets.map((s) => s.reps ?? 0));
+    const maxWeight = workingSets.length ? Math.max(...workingSets.map((s) => s.weight ?? 0)) : 0;
+    const maxReps = workingSets.length ? Math.max(...workingSets.map((s) => s.reps ?? 0)) : 0;
     const volume = workingSets.reduce((sum, s) => sum + (s.weight ?? 0) * (s.reps ?? 0), 0);
 
     return {

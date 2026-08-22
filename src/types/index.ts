@@ -96,6 +96,8 @@ export interface ActiveExercise {
 export interface ActiveSet {
   id?: string;
   setNumber: number;
+  /** Valori solo proposti (copiati dalla serie precedente), non ancora inseriti dall'utente */
+  prefilled?: boolean;
   type: "WARMUP" | "WORKING" | "DROPSET" | "FAILURE" | "MYOREP";
   weight?: number;
   reps?: number;

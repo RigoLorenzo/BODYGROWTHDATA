@@ -103,7 +103,10 @@ export function SetRow({ exerciseId, set, index, restSeconds, onRemove }: Props)
             setWeight(e.target.value);
             updateSet(exerciseId, index, { weight: parseFloat(e.target.value) || undefined });
           }}
-          className="w-12 text-center text-sm font-semibold bg-transparent tabular-nums border-0 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          className={cn(
+            "w-12 text-center text-sm font-semibold bg-transparent tabular-nums border-0 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+            set.prefilled && !set.completed && "text-muted-foreground/60"
+          )}
           placeholder="0"
           disabled={set.completed}
         />
@@ -133,7 +136,10 @@ export function SetRow({ exerciseId, set, index, restSeconds, onRemove }: Props)
             setReps(e.target.value);
             updateSet(exerciseId, index, { reps: parseInt(e.target.value) || undefined });
           }}
-          className="w-10 text-center text-sm font-semibold bg-transparent tabular-nums border-0 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          className={cn(
+            "w-10 text-center text-sm font-semibold bg-transparent tabular-nums border-0 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+            set.prefilled && !set.completed && "text-muted-foreground/60"
+          )}
           placeholder="0"
           disabled={set.completed}
         />

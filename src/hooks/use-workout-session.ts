@@ -150,10 +150,19 @@ export function useWorkoutSession() {
     mutationFn: async (sessionId: string) => {
       // Chiude il recupero eventualmente ancora in corso, così finisce nei totali
       useSessionStore.getState().endRest();
+
+      // Registra le serie compilate ma non spuntate: chiudere l'allenamento non
+      // deve far perdere quello che hai inserito.
+      const store = useSessionStore.getState();
+      for (const ex of store.activeSession?.exercises ?? []) {
+        store.confirmFilledSets(ex.id);
+      }
+
       const { activeSession } = useSessionStore.getState();
 
       const exercises = (activeSession?.exercises ?? [])
         .map((ex, idx) => ({
+          started: !!ex.startedAt,
           exerciseId: ex.exerciseId,
           orderIndex: ex.orderIndex ?? idx,
           restTimerSeconds: ex.restTimerSeconds,
@@ -171,7 +180,14 @@ export function useWorkoutSession() {
               restSeconds,
             })),
         }))
-        .filter((ex) => ex.sets.length > 0);
+        // Si salva ciò che hai davvero fatto: gli esercizi con serie registrate e
+        // quelli iniziati anche senza serie (es. stretching o mobilità).
+        .filter((ex) => ex.sets.length > 0 || ex.started)
+        .map((ex) => {
+          const payload = { ...ex } as Partial<typeof ex>;
+          delete payload.started;
+          return payload;
+        });
 
       const totalRestSeconds = getTotalRestSeconds(activeSession);
 

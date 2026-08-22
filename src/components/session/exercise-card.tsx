@@ -47,6 +47,10 @@ export function ExerciseCard({ exercise }: Props) {
   const avgSetRest = setRests.length
     ? Math.round(setRests.reduce((a, b) => a + b, 0) / setRests.length)
     : undefined;
+  // Serie con dati inseriti ma non ancora confermate col ✓
+  const unconfirmedSets = exercise.sets.filter(
+    (s) => !s.completed && !s.prefilled && (s.weight != null || s.reps != null)
+  ).length;
 
   const handleAddSet = () => {
     // Riparte dall'ultima serie con dei dati, non dall'ultima in assoluto
@@ -56,6 +60,8 @@ export function ExerciseCard({ exercise }: Props) {
       type: reference?.type === "WARMUP" ? "WORKING" : reference?.type ?? "WORKING",
       weight: reference?.weight,
       reps: reference?.reps,
+      // Valori proposti: diventano "inseriti" appena li tocchi o li confermi
+      prefilled: reference != null,
       completed: false,
     });
   };
@@ -171,6 +177,19 @@ export function ExerciseCard({ exercise }: Props) {
             <Plus className="h-3.5 w-3.5 mr-1" />
             Aggiungi serie
           </Button>
+
+          {unconfirmedSets > 0 && !exercise.finishedAt && (
+            <p className="text-[11px] text-amber-500 text-center">
+              {unconfirmedSets === 1 ? "1 serie compilata" : `${unconfirmedSets} serie compilate`} da confermare
+              con ✓ — verranno registrate anche premendo &ldquo;Fine esercizio&rdquo;.
+            </p>
+          )}
+
+          {exercise.finishedAt && completedSets.length === 0 && (
+            <p className="text-[11px] text-muted-foreground text-center">
+              Esercizio svolto senza serie registrate.
+            </p>
+          )}
 
           {/* Ciclo dell'esercizio: inizia → fine → recupero */}
           {isRestingHere ? (
