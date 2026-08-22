@@ -35,3 +35,14 @@ try {
   console.error("❌ Schema push failed:", error.message);
   process.exit(1);
 }
+
+// Libreria esercizi e obiettivi: upsert idempotente, così ogni deploy allinea
+// il catalogo senza bisogno di chiamare /api/setup a mano.
+console.log("🌱 Seeding exercise library...");
+try {
+  execSync("npx tsx prisma/seed.ts", { stdio: "inherit" });
+} catch (error) {
+  // Un seed fallito non deve bloccare il deploy: l'app resta usabile e la
+  // libreria si può ricaricare dalle impostazioni.
+  console.error("⚠️  Seed failed (deploy continues):", error.message);
+}

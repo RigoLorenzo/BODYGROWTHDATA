@@ -21,10 +21,30 @@ export async function POST(req: Request) {
 
   const existing = await prisma.workoutSession.findFirst({
     where: { userId: session.user.id, status: "ACTIVE" },
-    select: { id: true },
+    select: {
+      id: true,
+      startedAt: true,
+      workoutType: true,
+      programDayId: true,
+      _count: { select: { exercises: true } },
+    },
   });
   if (existing) {
-    return NextResponse.json({ error: "Workout already in progress" }, { status: 409 });
+    // Il client usa questi dati per proporre di riprendere o scartare
+    // l'allenamento rimasto aperto (magari su un altro dispositivo).
+    return NextResponse.json(
+      {
+        error: "Workout already in progress",
+        activeSession: {
+          id: existing.id,
+          startedAt: existing.startedAt,
+          workoutType: existing.workoutType,
+          programDayId: existing.programDayId,
+          exerciseCount: existing._count.exercises,
+        },
+      },
+      { status: 409 }
+    );
   }
 
   const workout = await prisma.workoutSession.create({

@@ -168,6 +168,19 @@ export const useSessionStore = create<SessionState>()(
 
       completeSet: (exerciseId, setIndex) => {
         get().updateSet(exerciseId, setIndex, { completed: true });
+
+        // La serie successiva parte con gli stessi peso/ripetizioni, così non si
+        // riscrive tutto ogni volta (resta modificabile).
+        const done = get()
+          .activeSession?.exercises.find((e) => e.id === exerciseId)
+          ?.sets[setIndex];
+        const next = get()
+          .activeSession?.exercises.find((e) => e.id === exerciseId)
+          ?.sets[setIndex + 1];
+        if (done && next && !next.completed && next.weight == null && next.reps == null) {
+          get().updateSet(exerciseId, setIndex + 1, { weight: done.weight, reps: done.reps });
+        }
+
         const session = get().activeSession;
         if (!session) return;
         const ex = session.exercises.find((e) => e.id === exerciseId);

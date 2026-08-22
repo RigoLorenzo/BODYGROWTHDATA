@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSessionStore } from "@/store/session-store";
 import { Check, Minus, Plus, X } from "lucide-react";
 import { cn, formatClock } from "@/lib/utils";
@@ -27,6 +27,22 @@ export function SetRow({ exerciseId, set, index, restSeconds, onRemove }: Props)
   const { updateSet, completeSet } = useSessionStore();
   const [weight, setWeight] = useState(set.weight?.toString() ?? "");
   const [reps, setReps] = useState(set.reps?.toString() ?? "");
+
+  // Se il valore arriva dallo store (serie precompilata dalla precedente)
+  // aggiorno il campo, senza disturbare quello che si sta digitando.
+  useEffect(() => {
+    const typed = parseFloat(weight);
+    const current = Number.isNaN(typed) ? null : typed;
+    if ((set.weight ?? null) !== current) setWeight(set.weight?.toString() ?? "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [set.weight]);
+
+  useEffect(() => {
+    const typed = parseInt(reps);
+    const current = Number.isNaN(typed) ? null : typed;
+    if ((set.reps ?? null) !== current) setReps(set.reps?.toString() ?? "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [set.reps]);
 
   const handleComplete = () => {
     const w = parseFloat(weight) || undefined;

@@ -53,9 +53,22 @@ export function useSessionTimers() {
     ? Math.max(0, Math.floor((now - new Date(activeSession.startedAt).getTime()) / 1000))
     : 0;
 
+  // Da quanto dura la fase corrente: se sei in recupero è il recupero in corso,
+  // altrimenti è il tempo trascorso dall'ultima ripresa (o dall'inizio).
+  const lastRestEnd = (activeSession?.restIntervals ?? []).reduce(
+    (max, r) => (r.endedAt && r.endedAt > max ? r.endedAt : max),
+    0
+  );
+  const workStartedAt = activeSession
+    ? Math.max(lastRestEnd, new Date(activeSession.startedAt).getTime())
+    : now;
+  const phaseSeconds = rest ? restElapsed : Math.max(0, Math.floor((now - workStartedAt) / 1000));
+
   return {
     rest,
     isResting: !!rest,
+    phase: (rest ? "REST" : "WORK") as "REST" | "WORK",
+    phaseSeconds,
     restElapsed,
     restTarget,
     totalSeconds,
@@ -64,17 +77,5 @@ export function useSessionTimers() {
     endRest,
     resumeExercise,
     finishExercise,
-  };
-}
-
-/** Compatibilità con i componenti che leggevano solo il recupero in corso. */
-export function useRestTimer() {
-  const timers = useSessionTimers();
-  return {
-    restTimer: timers.rest,
-    isActive: timers.isResting,
-    elapsed: timers.restElapsed,
-    target: timers.restTarget,
-    stop: timers.endRest,
   };
 }

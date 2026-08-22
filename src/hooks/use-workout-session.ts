@@ -3,9 +3,48 @@
 import { useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSessionStore, getRestAfterSet, getRestAfterExercise, getTotalRestSeconds } from "@/store/session-store";
+import { useUIStore } from "@/store/ui-store";
 import { useRouter } from "next/navigation";
 import { toast } from "@/hooks/use-toast";
-import type { ActiveExercise } from "@/types";
+import type { ActiveExercise, ActiveSession, ServerActiveSession } from "@/types";
+
+/** Il server ha già un allenamento aperto: non è un errore, è una scelta da fare */
+class ActiveWorkoutConflict extends Error {
+  constructor(
+    readonly info: { sessionId: string; startedAt: string; exerciseCount: number }
+  ) {
+    super("Workout already in progress");
+    this.name = "ActiveWorkoutConflict";
+  }
+}
+
+/** Ricostruisce la sessione locale a partire da quella salvata sul server */
+export function toLocalSession(workout: ServerActiveSession): ActiveSession {
+  return {
+    id: workout.id,
+    startedAt: new Date(workout.startedAt),
+    restIntervals: [],
+    programDayId: workout.programDayId ?? undefined,
+    exercises: workout.exercises.map((ex, idx) => ({
+      id: `srv-${ex.id}`,
+      exerciseId: ex.exerciseId,
+      exerciseName: ex.exercise.name,
+      exerciseNameIt: ex.exercise.nameIt,
+      orderIndex: ex.orderIndex ?? idx,
+      restTimerSeconds: ex.restTimerSeconds ?? 90,
+      sets: ex.sets.length
+        ? ex.sets.map((set) => ({
+            setNumber: set.setNumber,
+            type: (set.type ?? "WORKING") as ActiveExercise["sets"][number]["type"],
+            weight: set.weight ?? undefined,
+            reps: set.reps ?? undefined,
+            rpe: set.rpe ?? undefined,
+            completed: true,
+          }))
+        : [{ setNumber: 1, type: "WORKING" as const, completed: false }],
+    })),
+  };
+}
 
 type PlanExerciseInput = {
   exerciseId: string;
@@ -29,6 +68,7 @@ export function useWorkoutSession() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { activeSession, startSession } = useSessionStore();
+  const setWorkoutConflict = useUIStore((s) => s.setWorkoutConflict);
   const planExercisesRef = useRef<PlanExerciseInput[]>([]);
 
   const startMutation = useMutation({
@@ -44,6 +84,14 @@ export function useWorkoutSession() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+      if (res.status === 409) {
+        const body = await res.json().catch(() => ({}));
+        throw new ActiveWorkoutConflict({
+          sessionId: body?.activeSession?.id ?? "",
+          startedAt: body?.activeSession?.startedAt ?? new Date().toISOString(),
+          exerciseCount: body?.activeSession?.exerciseCount ?? 0,
+        });
+      }
       if (!res.ok) throw new Error("Failed to start session");
       return res.json();
     },
@@ -78,7 +126,16 @@ export function useWorkoutSession() {
       router.push(`/workout/active`);
       toast({ title: "Allenamento iniziato!", description: "Dai tutto!" });
     },
-    onError: () => {
+    onError: (error, variables) => {
+      if (error instanceof ActiveWorkoutConflict && error.info.sessionId) {
+        // Allenamento già aperto (magari su un altro dispositivo): l'utente sceglie
+        // se riprenderlo o scartarlo, invece di restare bloccato.
+        setWorkoutConflict({
+          ...error.info,
+          retry: { data: variables as Record<string, unknown>, planExercises: planExercisesRef.current },
+        });
+        return;
+      }
       toast({ title: "Errore", description: "Impossibile avviare l'allenamento", variant: "destructive" });
     },
   });
@@ -145,6 +202,7 @@ export function useWorkoutSession() {
       return;
     }
     planExercisesRef.current = planExercises ?? [];
+    setWorkoutConflict(null);
     startMutation.mutate(data ?? {});
   };
 
@@ -327,4 +385,68 @@ export function useHeatmapData(year: number, initialData?: Record<string, { volu
     staleTime: 10 * 60 * 1000,
     initialData,
   });
+}
+
+/**
+ * Allenamento rimasto aperto sul server: permette di riprenderlo su questo
+ * dispositivo oppure di scartarlo per iniziarne uno nuovo.
+ */
+export function useServerActiveSession() {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const startSession = useSessionStore((s) => s.startSession);
+  const activeSession = useSessionStore((s) => s.activeSession);
+
+  const query = useQuery<ServerActiveSession | null>({
+    queryKey: ["sessions", "active"],
+    queryFn: async () => {
+      const res = await fetch("/api/sessions/active");
+      if (!res.ok) return null;
+      return res.json();
+    },
+    staleTime: 30_000,
+  });
+
+  const resume = useMutation({
+    mutationFn: async (sessionId?: string) => {
+      const res = await fetch("/api/sessions/active");
+      if (!res.ok) throw new Error("Failed to load active session");
+      const workout: ServerActiveSession | null = await res.json();
+      if (!workout || (sessionId && workout.id !== sessionId)) {
+        throw new Error("Active session not found");
+      }
+      return workout;
+    },
+    onSuccess: (workout) => {
+      startSession(toLocalSession(workout));
+      router.push("/workout/active");
+      toast({ title: "Allenamento ripreso", description: "Era rimasto aperto su questo account." });
+    },
+    onError: () => {
+      queryClient.invalidateQueries({ queryKey: ["sessions", "active"] });
+      toast({ title: "Errore", description: "Impossibile riprendere l'allenamento", variant: "destructive" });
+    },
+  });
+
+  const discard = useMutation({
+    mutationFn: async (sessionId: string) => {
+      const res = await fetch(`/api/sessions/${sessionId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to discard session");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["analytics"] });
+    },
+    onError: () => {
+      toast({ title: "Errore", description: "Impossibile scartare l'allenamento", variant: "destructive" });
+    },
+  });
+
+  return {
+    // Sessione aperta sul server di cui questo dispositivo non ha copia locale
+    orphanSession: !activeSession && query.data ? query.data : null,
+    isLoading: query.isPending,
+    resume,
+    discard,
+  };
 }

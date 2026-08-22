@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/hooks/use-toast";
-import { Download, Trash2, Moon, Sun, Dumbbell, RefreshCw } from "lucide-react";
+import { Download, Trash2, Moon, Sun, Dumbbell, RefreshCw, ChevronRight } from "lucide-react";
+import Link from "next/link";
 import { signOut } from "next-auth/react";
 import { useUIStore } from "@/store/ui-store";
 
@@ -165,6 +166,43 @@ export function SettingsForm({ user }: Props) {
         </CardContent>
       </Card>
 
+      {/* Esercizi */}
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Esercizi</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Button variant="outline" className="w-full justify-between" asChild>
+            <Link href="/profile/exercises">
+              <span className="flex items-center">
+                <Dumbbell className="h-4 w-4 mr-2" />
+                Gestisci libreria esercizi
+              </span>
+              <ChevronRight className="h-4 w-4" />
+            </Link>
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            Consulta il catalogo, cerca in italiano o inglese e aggiungi i tuoi esercizi personalizzati.
+          </p>
+
+          <Separator />
+
+          <Button
+            variant="outline"
+            className="w-full justify-start"
+            onClick={handleSyncExercises}
+            disabled={isSyncing}
+          >
+            <RefreshCw className={isSyncing ? "h-4 w-4 mr-2 animate-spin" : "h-4 w-4 mr-2"} />
+            {isSyncing ? "Aggiornamento..." : "Aggiorna libreria esercizi"}
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            Ricarica il catalogo completo con i nomi in inglese e in italiano. Serve solo se
+            qualcosa non risulta aggiornato: i tuoi esercizi personalizzati non vengono toccati.
+          </p>
+        </CardContent>
+      </Card>
+
       {/* Dati */}
       <Card className="border-border/50">
         <CardHeader className="pb-3">
@@ -184,21 +222,6 @@ export function SettingsForm({ user }: Props) {
             Scarica tutti i tuoi allenamenti, serie e misurazioni in formato CSV.
           </p>
 
-          <Separator />
-
-          <Button
-            variant="outline"
-            className="w-full justify-start"
-            onClick={handleSyncExercises}
-            disabled={isSyncing}
-          >
-            <RefreshCw className={isSyncing ? "h-4 w-4 mr-2 animate-spin" : "h-4 w-4 mr-2"} />
-            {isSyncing ? "Aggiornamento..." : "Aggiorna libreria esercizi"}
-          </Button>
-          <p className="text-xs text-muted-foreground">
-            Ricarica il catalogo completo degli esercizi con i nomi in inglese e in italiano.
-            I tuoi esercizi personalizzati non vengono toccati.
-          </p>
         </CardContent>
       </Card>
 

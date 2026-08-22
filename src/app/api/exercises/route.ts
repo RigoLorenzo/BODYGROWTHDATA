@@ -10,7 +10,10 @@ export async function GET(req: Request) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
-  const query = searchParams.get("q") ?? "";
+  const query = (searchParams.get("q") ?? "").trim();
+  // Ogni parola deve comparire nel nome inglese, in quello italiano o negli alias:
+  // così "trazioni sbarra" trova "Trazioni alla sbarra".
+  const tokens = query ? query.split(/\s+/).slice(0, 4) : [];
   const muscle = searchParams.get("muscle");
   const equipment = searchParams.get("equipment");
 
@@ -23,14 +26,14 @@ export async function GET(req: Request) {
             { createdById: session.user.id },
           ],
         },
-        query ? {
+        ...tokens.map((token) => ({
           OR: [
-            { name: { contains: query, mode: "insensitive" } },
-            { nameIt: { contains: query, mode: "insensitive" } },
-            { aliases: { has: query.toLowerCase() } },
-            { tags: { hasSome: [query] } },
+            { name: { contains: token, mode: "insensitive" as const } },
+            { nameIt: { contains: token, mode: "insensitive" as const } },
+            { aliases: { has: token.toLowerCase() } },
+            { tags: { has: token.toLowerCase() } },
           ],
-        } : {},
+        })),
         muscle ? { muscleGroups: { has: muscle as MuscleGroup } } : {},
         equipment ? { equipment: { has: equipment as Equipment } } : {},
       ],

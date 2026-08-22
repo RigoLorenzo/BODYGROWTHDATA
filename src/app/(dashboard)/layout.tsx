@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { ActiveSessionBanner } from "@/components/session/active-session-banner";
+import { WorkoutConflictDialog } from "@/components/session/workout-conflict-dialog";
 
 export default async function DashboardLayout({
   children,
@@ -16,6 +17,7 @@ export default async function DashboardLayout({
       <ActiveSessionBanner />
       <main className="min-h-screen">{children}</main>
       <BottomNav />
+      <WorkoutConflictDialog />
     </div>
   );
 }

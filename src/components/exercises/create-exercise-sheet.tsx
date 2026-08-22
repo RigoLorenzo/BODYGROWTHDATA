@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,6 +42,21 @@ export function CreateExerciseSheet({ exercise, onClose }: Props) {
   const [category, setCategory] = useState(exercise?.category ?? "COMPOUND");
   const [equipment, setEquipment] = useState<string[]>(exercise?.equipment ?? []);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [viewport, setViewport] = useState<{ height: number; offsetTop: number } | null>(null);
+
+  // Con la tastiera aperta il pannello si adatta all'area visibile
+  useEffect(() => {
+    const vv = window.visualViewport;
+    const update = () =>
+      setViewport({ height: vv?.height ?? window.innerHeight, offsetTop: vv?.offsetTop ?? 0 });
+    update();
+    vv?.addEventListener("resize", update);
+    vv?.addEventListener("scroll", update);
+    return () => {
+      vv?.removeEventListener("resize", update);
+      vv?.removeEventListener("scroll", update);
+    };
+  }, []);
 
   const createMutation = useCreateExercise();
   const updateMutation = useUpdateExercise();
@@ -96,13 +111,14 @@ export function CreateExerciseSheet({ exercise, onClose }: Props) {
         animate={{ y: 0 }}
         exit={{ y: "100%" }}
         transition={{ type: "spring", damping: 30, stiffness: 300 }}
-        className="absolute bottom-0 left-0 right-0 bg-card rounded-t-2xl border-t border-border max-h-[90vh] flex flex-col"
+        className="fixed left-0 right-0 top-0 bg-card sm:rounded-t-2xl border-t border-border flex flex-col"
+        style={{
+          height: viewport ? `${viewport.height}px` : "100dvh",
+          transform: viewport ? `translateY(${viewport.offsetTop}px)` : undefined,
+        }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Handle */}
-        <div className="flex justify-center pt-3 pb-2 shrink-0">
-          <div className="h-1 w-10 rounded-full bg-muted-foreground/30" />
-        </div>
+        <div className="h-3 shrink-0" />
 
         {/* Header */}
         <div className="flex items-center justify-between px-4 pb-3 shrink-0">
@@ -128,6 +144,7 @@ export function CreateExerciseSheet({ exercise, onClose }: Props) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Es. Barbell Bench Press"
+              className="text-base"
               autoFocus={!isEdit}
             />
           </div>
@@ -139,6 +156,7 @@ export function CreateExerciseSheet({ exercise, onClose }: Props) {
               value={nameIt}
               onChange={(e) => setNameIt(e.target.value)}
               placeholder="Es. Panca piana con bilanciere"
+              className="text-base"
             />
           </div>
 
