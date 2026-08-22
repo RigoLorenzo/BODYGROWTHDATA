@@ -2,7 +2,13 @@
 
 import { useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSessionStore, getRestAfterSet, getRestAfterExercise, getTotalRestSeconds } from "@/store/session-store";
+import {
+  useSessionStore,
+  getRestAfterSet,
+  getRestAfterExercise,
+  getTotalRestSeconds,
+  getExerciseWorkSeconds,
+} from "@/store/session-store";
 import { useUIStore } from "@/store/ui-store";
 import { useRouter } from "next/navigation";
 import { toast } from "@/hooks/use-toast";
@@ -152,6 +158,7 @@ export function useWorkoutSession() {
           orderIndex: ex.orderIndex ?? idx,
           restTimerSeconds: ex.restTimerSeconds,
           restAfterSeconds: getRestAfterExercise(activeSession, ex.id),
+          workSeconds: ex.startedAt ? getExerciseWorkSeconds(activeSession, ex.id) : undefined,
           sets: ex.sets
             .map((s, setIndex) => ({ set: s, restSeconds: getRestAfterSet(activeSession, ex.id, setIndex) }))
             .filter(({ set: s }) => s.completed)

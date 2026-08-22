@@ -6,6 +6,9 @@ import {
   getOpenRest,
   getTotalRestSeconds,
   getActiveSeconds,
+  getPhase,
+  getCurrentExercise,
+  getNextExercise,
 } from "@/store/session-store";
 
 /** Orologio a 1 secondo, attivo solo quando c'è un allenamento in corso. */
@@ -28,7 +31,7 @@ function useNow(enabled: boolean) {
 export function useSessionTimers() {
   const activeSession = useSessionStore((s) => s.activeSession);
   const endRest = useSessionStore((s) => s.endRest);
-  const resumeExercise = useSessionStore((s) => s.resumeExercise);
+  const startExercise = useSessionStore((s) => s.startExercise);
   const finishExercise = useSessionStore((s) => s.finishExercise);
 
   const now = useNow(!!activeSession);
@@ -53,21 +56,31 @@ export function useSessionTimers() {
     ? Math.max(0, Math.floor((now - new Date(activeSession.startedAt).getTime()) / 1000))
     : 0;
 
-  // Da quanto dura la fase corrente: se sei in recupero è il recupero in corso,
-  // altrimenti è il tempo trascorso dall'ultima ripresa (o dall'inizio).
+  // Fase corrente: sempre legata a un esercizio preciso (o IDLE se non ce n'è uno)
+  const phase = getPhase(activeSession);
+  const currentExercise = getCurrentExercise(activeSession);
+  const nextExercise = getNextExercise(activeSession);
+
+  // Da quanto dura la fase: il recupero in corso, oppure il lavoro sull'esercizio
+  // attuale da quando è iniziato o dall'ultimo recupero chiuso.
   const lastRestEnd = (activeSession?.restIntervals ?? []).reduce(
     (max, r) => (r.endedAt && r.endedAt > max ? r.endedAt : max),
     0
   );
-  const workStartedAt = activeSession
-    ? Math.max(lastRestEnd, new Date(activeSession.startedAt).getTime())
-    : now;
-  const phaseSeconds = rest ? restElapsed : Math.max(0, Math.floor((now - workStartedAt) / 1000));
+  const workStartedAt = Math.max(lastRestEnd, currentExercise?.startedAt ?? 0);
+  const phaseSeconds =
+    phase === "REST"
+      ? restElapsed
+      : phase === "WORK" && workStartedAt
+        ? Math.max(0, Math.floor((now - workStartedAt) / 1000))
+        : 0;
 
   return {
     rest,
     isResting: !!rest,
-    phase: (rest ? "REST" : "WORK") as "REST" | "WORK",
+    phase,
+    currentExercise,
+    nextExercise,
     phaseSeconds,
     restElapsed,
     restTarget,
@@ -75,7 +88,7 @@ export function useSessionTimers() {
     restSeconds: getTotalRestSeconds(activeSession, now),
     activeSeconds: getActiveSeconds(activeSession, now),
     endRest,
-    resumeExercise,
+    startExercise,
     finishExercise,
   };
 }

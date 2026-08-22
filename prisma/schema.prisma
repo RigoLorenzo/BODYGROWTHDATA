@@ -335,6 +335,7 @@ model WorkoutExercise {
   orderIndex       Int     @default(0)
   restTimerSeconds Int     @default(90)
   restAfterSeconds Int?
+  workSeconds      Int?
   notes            String? @db.Text
   supersetWith     String?
   createdAt        DateTime @default(now())

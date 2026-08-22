@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
-import { useSessionStore } from "@/store/session-store";
+import { useSessionStore, getPhase } from "@/store/session-store";
 import { useWorkoutSession } from "@/hooks/use-workout-session";
 import { useSessionTimers } from "@/hooks/use-rest-timer";
 import { Button } from "@/components/ui/button";
@@ -33,7 +33,7 @@ interface Props {
 
 export function ActiveWorkoutView({ session, onCompleted }: Props) {
   const router = useRouter();
-  const { addExercise, endSession } = useSessionStore();
+  const { addExercise, endSession, startExercise } = useSessionStore();
   const { completeWorkout, isCompleting } = useWorkoutSession();
   const { isResting, totalSeconds, restSeconds, activeSeconds } = useSessionTimers();
   const [showExerciseSelector, setShowExerciseSelector] = useState(false);
@@ -55,11 +55,6 @@ export function ActiveWorkoutView({ session, onCompleted }: Props) {
     },
   });
 
-  // L'esercizio "corrente": l'ultimo non ancora terminato
-  const currentExerciseId =
-    [...session.exercises].reverse().find((ex) => !ex.finished)?.id ??
-    session.exercises[session.exercises.length - 1]?.id;
-
   const totalVolume = calculateSessionVolume(
     session.exercises.map((ex) => ({ sets: ex.sets.filter((s) => s.completed) }))
   );
@@ -78,9 +73,14 @@ export function ActiveWorkoutView({ session, onCompleted }: Props) {
         ],
       };
       addExercise(newExercise);
+      // Se non stavi facendo nulla, il nuovo esercizio parte subito: il
+      // cronometro non resta mai scollegato da un esercizio.
+      if (getPhase(useSessionStore.getState().activeSession) === "IDLE") {
+        startExercise(newExercise.id);
+      }
       setShowExerciseSelector(false);
     },
-    [addExercise, session.exercises.length]
+    [addExercise, startExercise, session.exercises.length]
   );
 
   const doComplete = async () => {
@@ -102,7 +102,7 @@ export function ActiveWorkoutView({ session, onCompleted }: Props) {
   };
 
   return (
-    <div className="bg-background pb-44">
+    <div className="bg-background pb-52">
       {/* Header */}
       <div
         className={cn(
@@ -195,7 +195,7 @@ export function ActiveWorkoutView({ session, onCompleted }: Props) {
         )}
       </AnimatePresence>
 
-      <WorkoutPhaseBar currentExerciseId={currentExerciseId} />
+      <WorkoutPhaseBar onAddExercise={() => setShowExerciseSelector(true)} />
 
       {/* Finish confirm */}
       <AnimatePresence>

@@ -21,11 +21,11 @@ interface SessionState {
   removeSet: (exerciseId: string, setIndex: number) => void;
   completeSet: (exerciseId: string, setIndex: number) => void;
 
-  // Rest tracking
+  // Ciclo dell'esercizio: inizio → serie → recupero → esercizio successivo
+  startExercise: (exerciseId: string) => void;
+  finishExercise: (exerciseId: string) => void;
   startRest: (kind: RestInterval["kind"], opts?: { exerciseId?: string; setIndex?: number; targetSeconds?: number }) => void;
   endRest: () => void;
-  finishExercise: (exerciseId: string) => void;
-  resumeExercise: (exerciseId?: string) => void;
 
   // UI
   setSessionPanelOpen: (open: boolean) => void;
@@ -75,6 +75,57 @@ export function getRestAfterExercise(session: ActiveSession | null, exerciseId: 
   return Math.max(0, Math.floor((interval.endedAt - interval.startedAt) / 1000));
 }
 
+/** Esercizio a cui si riferisce la fase corrente (lavoro o recupero) */
+export function getCurrentExercise(session: ActiveSession | null): ActiveExercise | null {
+  if (!session) return null;
+  const openRest = getOpenRest(session);
+  const id = openRest?.exerciseId ?? session.currentExerciseId;
+  return session.exercises.find((e) => e.id === id) ?? null;
+}
+
+/** Prossimo esercizio da iniziare: il primo mai avviato, altrimenti uno non terminato */
+export function getNextExercise(session: ActiveSession | null): ActiveExercise | null {
+  if (!session) return null;
+  return (
+    session.exercises.find((e) => !e.startedAt) ??
+    session.exercises.find((e) => !e.finishedAt) ??
+    null
+  );
+}
+
+/**
+ * Fase corrente della sessione:
+ * - REST: recupero in corso (sempre legato a un esercizio)
+ * - WORK: stai svolgendo un esercizio
+ * - IDLE: nessun esercizio in corso, non si cronometra nulla
+ */
+export function getPhase(session: ActiveSession | null): "IDLE" | "WORK" | "REST" {
+  if (!session) return "IDLE";
+  if (getOpenRest(session)) return "REST";
+  const current = session.exercises.find((e) => e.id === session.currentExerciseId);
+  return current && current.startedAt && !current.finishedAt ? "WORK" : "IDLE";
+}
+
+/** Secondi di lavoro effettivo di un esercizio (durata meno i suoi recuperi) */
+export function getExerciseWorkSeconds(
+  session: ActiveSession | null,
+  exerciseId: string,
+  now: number = Date.now()
+): number {
+  const ex = session?.exercises.find((e) => e.id === exerciseId);
+  if (!session || !ex?.startedAt) return 0;
+  const end = ex.finishedAt ?? now;
+  const elapsed = Math.max(0, Math.floor((end - ex.startedAt) / 1000));
+  // Solo i recuperi avvenuti dentro l'esercizio (quello finale è escluso)
+  const restInside = (session.restIntervals ?? [])
+    .filter((r) => r.exerciseId === exerciseId && r.startedAt < end)
+    .reduce(
+      (sum, r) => sum + Math.max(0, Math.floor((Math.min(r.endedAt ?? now, end) - r.startedAt) / 1000)),
+      0
+    );
+  return Math.max(0, elapsed - restInside);
+}
+
 const closeOpenIntervals = (intervals: RestInterval[], at: number): RestInterval[] =>
   intervals.map((r) => (r.endedAt ? r : { ...r, endedAt: at }));
 
@@ -106,10 +157,17 @@ export const useSessionStore = create<SessionState>()(
       removeExercise: (exerciseId) =>
         set((state) => {
           if (!state.activeSession) return state;
+          const now = Date.now();
+          const wasCurrent = state.activeSession.currentExerciseId === exerciseId;
           return {
             activeSession: {
               ...state.activeSession,
               exercises: state.activeSession.exercises.filter((e) => e.id !== exerciseId),
+              currentExerciseId: wasCurrent ? undefined : state.activeSession.currentExerciseId,
+              // I cronometri non restano appesi a un esercizio che non c'è più
+              restIntervals: (state.activeSession.restIntervals ?? []).map((r) =>
+                r.exerciseId === exerciseId && !r.endedAt ? { ...r, endedAt: now } : r
+              ),
             },
           };
         }),
@@ -167,6 +225,13 @@ export const useSessionStore = create<SessionState>()(
         }),
 
       completeSet: (exerciseId, setIndex) => {
+        // Registrare una serie significa che quell'esercizio è in corso
+        const state = get().activeSession;
+        const target = state?.exercises.find((e) => e.id === exerciseId);
+        if (!target?.startedAt || target.finishedAt || state?.currentExerciseId !== exerciseId) {
+          get().startExercise(exerciseId);
+        }
+
         get().updateSet(exerciseId, setIndex, { completed: true });
 
         // La serie successiva parte con gli stessi peso/ripetizioni, così non si
@@ -208,49 +273,65 @@ export const useSessionStore = create<SessionState>()(
           };
         }),
 
+      /** Chiude il recupero e torna a lavorare sull'esercizio a cui era legato */
       endRest: () =>
+        set((state) => {
+          if (!state.activeSession) return state;
+          const now = Date.now();
+          const open = getOpenRest(state.activeSession);
+          const backTo = open?.exerciseId;
+          return {
+            activeSession: {
+              ...state.activeSession,
+              currentExerciseId: backTo ?? state.activeSession.currentExerciseId,
+              restIntervals: closeOpenIntervals(state.activeSession.restIntervals ?? [], now),
+              exercises: state.activeSession.exercises.map((ex) =>
+                backTo && ex.id === backTo && open?.kind === "SET"
+                  ? { ...ex, finishedAt: undefined, finished: false }
+                  : ex
+              ),
+            },
+          };
+        }),
+
+      /** Inizia (o riprende) un esercizio: chiude il recupero e fa partire il lavoro */
+      startExercise: (exerciseId) =>
         set((state) => {
           if (!state.activeSession) return state;
           const now = Date.now();
           return {
             activeSession: {
               ...state.activeSession,
+              currentExerciseId: exerciseId,
               restIntervals: closeOpenIntervals(state.activeSession.restIntervals ?? [], now),
+              exercises: state.activeSession.exercises.map((ex) =>
+                ex.id === exerciseId
+                  ? { ...ex, startedAt: ex.startedAt ?? now, finishedAt: undefined, finished: false }
+                  : ex
+              ),
             },
           };
         }),
 
+      /** Fine esercizio: chiude il lavoro e fa partire il recupero verso il prossimo */
       finishExercise: (exerciseId) => {
         set((state) => {
           if (!state.activeSession) return state;
+          const now = Date.now();
           return {
             activeSession: {
               ...state.activeSession,
+              currentExerciseId: exerciseId,
               exercises: state.activeSession.exercises.map((ex) =>
-                ex.id === exerciseId ? { ...ex, finished: true } : ex
+                ex.id === exerciseId
+                  ? { ...ex, startedAt: ex.startedAt ?? now, finishedAt: now, finished: true }
+                  : ex
               ),
             },
           };
         });
-        const session = get().activeSession;
-        const ex = session?.exercises.find((e) => e.id === exerciseId);
+        const ex = get().activeSession?.exercises.find((e) => e.id === exerciseId);
         get().startRest("EXERCISE", { exerciseId, targetSeconds: ex?.restTimerSeconds ?? 120 });
-      },
-
-      resumeExercise: (exerciseId) => {
-        get().endRest();
-        if (!exerciseId) return;
-        set((state) => {
-          if (!state.activeSession) return state;
-          return {
-            activeSession: {
-              ...state.activeSession,
-              exercises: state.activeSession.exercises.map((ex) =>
-                ex.id === exerciseId ? { ...ex, finished: false } : ex
-              ),
-            },
-          };
-        });
       },
 
       setSessionPanelOpen: (open) => set({ isSessionPanelOpen: open }),
