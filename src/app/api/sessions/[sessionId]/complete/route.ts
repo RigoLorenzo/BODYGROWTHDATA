@@ -20,6 +20,7 @@ interface IncomingExercise {
   orderIndex: number;
   restTimerSeconds?: number;
   restAfterSeconds?: number;
+  workSeconds?: number;
   sets: IncomingSet[];
 }
 
@@ -48,6 +49,7 @@ export async function POST(req: Request, { params }: Params) {
               orderIndex: ex.orderIndex,
               restTimerSeconds: ex.restTimerSeconds ?? 90,
               restAfterSeconds: ex.restAfterSeconds ?? null,
+              workSeconds: ex.workSeconds ?? null,
             },
           });
 

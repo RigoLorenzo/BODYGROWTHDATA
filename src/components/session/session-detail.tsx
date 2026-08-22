@@ -112,6 +112,13 @@ export function SessionDetail({ workout }: Props) {
                   {ex.exercise?.nameIt && (
                     <p className="text-xs text-muted-foreground">{ex.exercise.nameIt}</p>
                   )}
+                  {(ex.workSeconds || ex.restAfterSeconds) && (
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      {ex.workSeconds ? `lavoro ${formatClock(ex.workSeconds)}` : ""}
+                      {ex.workSeconds && ex.restAfterSeconds ? " · " : ""}
+                      {ex.restAfterSeconds ? `recupero dopo ${formatClock(ex.restAfterSeconds)}` : ""}
+                    </p>
+                  )}
                 </div>
                 {ex.exercise?.primaryMuscle && (
                   <Badge

@@ -51,6 +51,8 @@ export interface ActiveSession {
   id: string;
   startedAt: Date;
   exercises: ActiveExercise[];
+  /** Esercizio che stai svolgendo ora (o a cui si riferisce il recupero in corso) */
+  currentExerciseId?: string;
   /** Intervalli di recupero cronometrati durante l'allenamento */
   restIntervals: RestInterval[];
   programDayId?: string;
@@ -80,6 +82,10 @@ export interface ActiveExercise {
   orderIndex: number;
   restTimerSeconds: number;
   fromPlan?: boolean;
+  /** Momento in cui hai iniziato l'esercizio (assente = non ancora iniziato) */
+  startedAt?: number;
+  /** Momento in cui hai premuto "Fine esercizio" */
+  finishedAt?: number;
   finished?: boolean;
   targetSets?: number;
   targetRepsMin?: number;
