@@ -7,10 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Pencil, X, Activity, Info, AlertTriangle } from "lucide-react";
+import { Pencil, X, Activity, Info, AlertTriangle, Scale } from "lucide-react";
+import { format } from "date-fns";
+import { it } from "date-fns/locale";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "@/hooks/use-toast";
 import { analyzeBodyComposition } from "@/lib/body-composition";
+import { useUIStore } from "@/store/ui-store";
 
 interface Profile {
   height?: number | null;
@@ -38,7 +41,8 @@ const EXP_LABELS: Record<string, string> = {
 export function BodyStatsCard() {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ height: "", weight: "", experienceLevel: "" });
+  const setMeasurementFormOpen = useUIStore((s) => s.setMeasurementFormOpen);
+  const [form, setForm] = useState({ height: "", experienceLevel: "" });
 
   const { data: profile } = useQuery<Profile>({
     queryKey: ["user-profile"],
@@ -84,7 +88,6 @@ export function BodyStatsCard() {
   const handleOpen = () => {
     setForm({
       height: profile?.height?.toString() ?? "",
-      weight: profile?.weight?.toString() ?? "",
       experienceLevel: profile?.experienceLevel ?? "BEGINNER",
     });
     setEditing(true);
@@ -93,12 +96,12 @@ export function BodyStatsCard() {
   const handleSave = () => {
     const payload: Record<string, unknown> = {};
     if (form.height) payload.height = parseFloat(form.height);
-    if (form.weight) payload.weight = parseFloat(form.weight);
     if (form.experienceLevel) payload.experienceLevel = form.experienceLevel;
     updateMutation.mutate(payload);
   };
 
-  const weight = profile?.weight ?? latestMeasurement?.weight ?? null;
+  // Unica fonte del peso: l'ultima misurazione (il profilo la rispecchia)
+  const weight = latestMeasurement?.weight ?? profile?.weight ?? null;
   const height = profile?.height;
   const hp = weight && height ? weight - (height - 100) : null;
 
@@ -147,10 +150,18 @@ export function BodyStatsCard() {
                   </div>
                 )}
                 {weight && (
-                  <div className="text-center p-3 rounded-xl bg-muted/30">
+                  <button
+                    onClick={() => setMeasurementFormOpen(true)}
+                    className="text-center p-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors"
+                  >
                     <p className="text-xl font-bold tabular-nums">{weight}<span className="text-sm font-normal text-muted-foreground">kg</span></p>
                     <p className="text-[10px] text-muted-foreground mt-0.5">Peso</p>
-                  </div>
+                    <p className="text-[9px] text-muted-foreground/70 mt-0.5">
+                      {latestMeasurement?.weight
+                        ? `da misurazione ${format(new Date(latestMeasurement.date), "d MMM", { locale: it })}`
+                        : "tocca per aggiornare"}
+                    </p>
+                  </button>
                 )}
               </div>
 
@@ -260,7 +271,13 @@ export function BodyStatsCard() {
             <div className="text-center py-6">
               <Activity className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
               <p className="text-sm text-muted-foreground mb-3">Nessun dato fisico inserito</p>
-              <Button size="sm" variant="outline" onClick={handleOpen}>Inserisci dati</Button>
+              <div className="flex flex-col gap-2 items-center">
+                <Button size="sm" variant="outline" onClick={handleOpen}>Inserisci altezza</Button>
+                <Button size="sm" variant="ghost" onClick={() => setMeasurementFormOpen(true)}>
+                  <Scale className="h-3.5 w-3.5 mr-1.5" />
+                  Registra il peso
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
@@ -291,27 +308,35 @@ export function BodyStatsCard() {
               </div>
 
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label>Altezza (cm)</Label>
-                    <Input
-                      type="number"
-                      inputMode="decimal"
-                      placeholder="175"
-                      value={form.height}
-                      onChange={(e) => setForm((f) => ({ ...f, height: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Peso (kg)</Label>
-                    <Input
-                      type="number"
-                      inputMode="decimal"
-                      placeholder="75"
-                      value={form.weight}
-                      onChange={(e) => setForm((f) => ({ ...f, weight: e.target.value }))}
-                    />
-                  </div>
+                <div className="space-y-1.5">
+                  <Label>Altezza (cm)</Label>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    placeholder="175"
+                    value={form.height}
+                    onChange={(e) => setForm((f) => ({ ...f, height: e.target.value }))}
+                  />
+                </div>
+
+                <div className="rounded-xl bg-muted/40 p-3">
+                  <p className="text-xs font-medium">Peso</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Si aggiorna registrando una misurazione, così Dati Fisici e Misurazioni Corporee
+                    non possono discordare.
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full mt-2"
+                    onClick={() => {
+                      setEditing(false);
+                      setMeasurementFormOpen(true);
+                    }}
+                  >
+                    <Scale className="h-3.5 w-3.5 mr-1.5" />
+                    Registra misurazione
+                  </Button>
                 </div>
 
                 <div className="space-y-1.5">

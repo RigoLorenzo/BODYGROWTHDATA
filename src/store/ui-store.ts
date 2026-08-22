@@ -18,12 +18,15 @@ interface UIState {
   isExerciseSelectorOpen: boolean;
   selectedExerciseForSession: string | null;
   workoutConflict: WorkoutConflict | null;
+  /** Apre il form delle Misurazioni Corporee (unica fonte di peso e composizione) */
+  measurementFormOpen: boolean;
 
   setTheme: (theme: "dark" | "light") => void;
   setUnits: (units: "kg" | "lbs") => void;
   openExerciseSelector: (exerciseId?: string) => void;
   closeExerciseSelector: () => void;
   setWorkoutConflict: (conflict: WorkoutConflict | null) => void;
+  setMeasurementFormOpen: (open: boolean) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -32,6 +35,7 @@ export const useUIStore = create<UIState>((set) => ({
   isExerciseSelectorOpen: false,
   selectedExerciseForSession: null,
   workoutConflict: null,
+  measurementFormOpen: false,
 
   setTheme: (theme) => set({ theme }),
   setUnits: (units) => set({ units }),
@@ -40,4 +44,5 @@ export const useUIStore = create<UIState>((set) => ({
   closeExerciseSelector: () =>
     set({ isExerciseSelectorOpen: false, selectedExerciseForSession: null }),
   setWorkoutConflict: (workoutConflict) => set({ workoutConflict }),
+  setMeasurementFormOpen: (measurementFormOpen) => set({ measurementFormOpen }),
 }));

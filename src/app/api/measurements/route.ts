@@ -46,5 +46,15 @@ export async function POST(req: Request) {
     },
   });
 
+  // Il peso ha una sola fonte: la misurazione più recente. Il profilo viene
+  // allineato, così i Dati Fisici non possono divergere dalle Misurazioni.
+  if (data.weight != null) {
+    await prisma.profile.upsert({
+      where: { userId: session.user.id },
+      update: { weight: data.weight },
+      create: { userId: session.user.id, weight: data.weight },
+    });
+  }
+
   return NextResponse.json(measurement, { status: 201 });
 }

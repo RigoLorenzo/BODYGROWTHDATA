@@ -12,6 +12,7 @@ import { it } from "date-fns/locale";
 import { Skeleton } from "@/components/ui/skeleton";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "@/hooks/use-toast";
+import { useUIStore } from "@/store/ui-store";
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 
 interface Measurement {
@@ -41,7 +42,9 @@ interface MeasurementForm {
 
 export function BodyMeasurements() {
   const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
+  // Il form può essere aperto anche dalla card Dati Fisici
+  const open = useUIStore((s) => s.measurementFormOpen);
+  const setOpen = useUIStore((s) => s.setMeasurementFormOpen);
   const [trendMetric, setTrendMetric] = useState<TrendMetric>("weight");
   const [form, setForm] = useState<MeasurementForm>({ weight: "", bodyFat: "", muscleMass: "", waist: "" });
 
