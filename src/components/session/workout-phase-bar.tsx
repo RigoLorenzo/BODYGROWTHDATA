@@ -2,22 +2,29 @@
 
 import { motion } from "framer-motion";
 import { useSessionTimers } from "@/hooks/use-rest-timer";
-import { Dumbbell, Timer, Play, Flag, Plus } from "lucide-react";
+import { useSessionStore } from "@/store/session-store";
+import { Dumbbell, Timer, Play, Check, Plus } from "lucide-react";
 import { formatClock, cn } from "@/lib/utils";
+import type { ActiveExercise } from "@/types";
 
 interface Props {
   /** Apre il selettore quando non c'è nessun esercizio da iniziare */
   onAddExercise: () => void;
 }
 
+const label = (ex?: ActiveExercise | null) => (ex ? ex.exerciseNameIt ?? ex.exerciseName : "");
+
+/** Indice della prossima serie da fare (la prima non ancora registrata) */
+const nextSetIndex = (ex?: ActiveExercise | null) =>
+  ex ? ex.sets.findIndex((s) => !s.completed) : -1;
+
 /**
- * Barra fissa in basso: guida il ciclo dell'esercizio.
+ * Barra fissa in basso: porta avanti l'allenamento serie per serie.
  *
- *   nessun esercizio → [Inizia esercizio] → lavoro su X → [Fine esercizio]
- *   → recupero dopo X → [Inizia il prossimo] → lavoro su Y → ...
+ *   [Fine serie] → recupero → [Prosegui: serie 2] → ... → ultima serie
+ *   → recupero → [Inizia il prossimo esercizio] o [Nuovo esercizio]
  *
- * Ogni fase è sempre legata a un esercizio preciso: senza esercizio in corso
- * non si cronometra né lavoro né recupero.
+ * Premere "Fine serie" registra la serie corrente: non serve spuntarla a mano.
  */
 export function WorkoutPhaseBar({ onAddExercise }: Props) {
   const {
@@ -31,18 +38,89 @@ export function WorkoutPhaseBar({ onAddExercise }: Props) {
     startExercise,
     finishExercise,
   } = useSessionTimers();
+  const completeSet = useSessionStore((s) => s.completeSet);
+  const activeSession = useSessionStore((s) => s.activeSession);
 
   const isResting = phase === "REST";
   const target = restTarget || 90;
   const progress = Math.min(100, (phaseSeconds / target) * 100);
   const overTarget = isResting && phaseSeconds >= target;
-  const label = (ex?: { exerciseName: string; exerciseNameIt?: string | null } | null) =>
-    ex ? ex.exerciseNameIt ?? ex.exerciseName : "";
 
-  // Dopo un recupero di fine esercizio si passa al prossimo; dopo un recupero
-  // tra le serie si torna sullo stesso esercizio.
-  const restIsBetweenExercises = rest?.kind === "EXERCISE";
-  const resumeTarget = restIsBetweenExercises ? nextExercise : currentExercise;
+  // Esercizio a cui si riferisce il recupero in corso
+  const restExercise = activeSession?.exercises.find((e) => e.id === rest?.exerciseId) ?? null;
+  const pendingAfterRest = nextSetIndex(restExercise);
+  const workingSetIndex = nextSetIndex(currentExercise);
+
+  // Testo della fase
+  let title = "Nessun esercizio in corso";
+  let subtitle = nextExercise
+    ? `Inizia ${label(nextExercise)} per far partire il cronometro`
+    : "Aggiungi un esercizio per iniziare";
+
+  if (phase === "WORK" && currentExercise) {
+    title = "In allenamento";
+    subtitle =
+      workingSetIndex >= 0
+        ? `${label(currentExercise)} · serie ${workingSetIndex + 1} di ${currentExercise.sets.length}`
+        : label(currentExercise);
+  } else if (isResting && restExercise) {
+    title = "In recupero";
+    subtitle =
+      pendingAfterRest >= 0
+        ? `${label(restExercise)} · prossima: serie ${pendingAfterRest + 1} di ${restExercise.sets.length}`
+        : `dopo ${label(restExercise)}`;
+  }
+
+  // Azione principale, sempre riferita alla serie o all'esercizio in corso
+  let action: { text: string; icon: typeof Play; onClick: () => void; tone: "green" | "amber" } | null = null;
+
+  if (isResting) {
+    if (restExercise && pendingAfterRest >= 0) {
+      action = {
+        text: `Serie ${pendingAfterRest + 1}`,
+        icon: Play,
+        onClick: endRest,
+        tone: "green",
+      };
+    } else if (nextExercise) {
+      action = {
+        text: label(nextExercise),
+        icon: Play,
+        onClick: () => startExercise(nextExercise.id),
+        tone: "green",
+      };
+    } else {
+      action = { text: "Esercizio", icon: Plus, onClick: onAddExercise, tone: "green" };
+    }
+  } else if (phase === "WORK" && currentExercise) {
+    action =
+      workingSetIndex >= 0
+        ? {
+            text: "Fine serie",
+            icon: Check,
+            onClick: () => completeSet(currentExercise.id, workingSetIndex),
+            tone: "amber",
+          }
+        : {
+            text: "Fine",
+            icon: Check,
+            onClick: () => finishExercise(currentExercise.id),
+            tone: "amber",
+          };
+  } else if (nextExercise) {
+    action = {
+      text: "Inizia",
+      icon: Play,
+      onClick: () => startExercise(nextExercise.id),
+      tone: "green",
+    };
+  } else {
+    action = { text: "Esercizio", icon: Plus, onClick: onAddExercise, tone: "green" };
+  }
+
+  if (!activeSession) return null;
+
+  const ActionIcon = action.icon;
 
   return (
     <motion.div
@@ -74,10 +152,13 @@ export function WorkoutPhaseBar({ onAddExercise }: Props) {
             <div className="flex items-center gap-1.5">
               {phase === "REST" ? (
                 <Timer className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-              ) : phase === "WORK" ? (
-                <Dumbbell className="h-3.5 w-3.5 text-green-500 shrink-0" />
               ) : (
-                <Dumbbell className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <Dumbbell
+                  className={cn(
+                    "h-3.5 w-3.5 shrink-0",
+                    phase === "WORK" ? "text-green-500" : "text-muted-foreground"
+                  )}
+                />
               )}
               <p
                 className={cn(
@@ -89,16 +170,12 @@ export function WorkoutPhaseBar({ onAddExercise }: Props) {
                       : "text-muted-foreground"
                 )}
               >
-                {phase === "REST" ? "In recupero" : phase === "WORK" ? "In allenamento" : "Nessun esercizio in corso"}
+                {title}
               </p>
             </div>
 
             {phase === "IDLE" ? (
-              <p className="text-sm text-muted-foreground mt-0.5">
-                {nextExercise
-                  ? `Inizia ${label(nextExercise)} per far partire il cronometro`
-                  : "Aggiungi un esercizio per iniziare"}
-              </p>
+              <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>
             ) : (
               <>
                 <p
@@ -110,64 +187,25 @@ export function WorkoutPhaseBar({ onAddExercise }: Props) {
                   {formatClock(phaseSeconds)}
                 </p>
                 <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                  <span className="truncate">
-                    {isResting
-                      ? `${restIsBetweenExercises ? "dopo" : "durante"} ${label(currentExercise)}`
-                      : label(currentExercise)}
-                  </span>
+                  <span className="truncate">{subtitle}</span>
                   {isResting && <span className="shrink-0">· obiettivo {formatClock(target)}</span>}
                 </div>
               </>
             )}
           </div>
 
-          {phase === "REST" ? (
-            resumeTarget ? (
-              <button
-                onClick={() =>
-                  restIsBetweenExercises ? startExercise(resumeTarget.id) : endRest()
-                }
-                className="shrink-0 max-w-[45%] h-14 px-4 rounded-xl bg-green-600 hover:bg-green-700 active:scale-[0.98] text-white font-semibold text-sm flex flex-col items-center justify-center gap-0.5 transition-all"
-              >
-                <Play className="h-4 w-4" />
-                <span className="truncate max-w-full">
-                  {restIsBetweenExercises ? label(resumeTarget) : "Riprendi"}
-                </span>
-              </button>
-            ) : (
-              <button
-                onClick={onAddExercise}
-                className="shrink-0 h-14 px-4 rounded-xl bg-green-600 hover:bg-green-700 active:scale-[0.98] text-white font-semibold text-sm flex flex-col items-center justify-center gap-0.5 transition-all"
-              >
-                <Plus className="h-4 w-4" />
-                Esercizio
-              </button>
-            )
-          ) : phase === "WORK" ? (
-            <button
-              onClick={() => currentExercise && finishExercise(currentExercise.id)}
-              className="shrink-0 h-14 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-[0.98] text-black font-semibold text-sm flex flex-col items-center justify-center gap-0.5 transition-all"
-            >
-              <Flag className="h-4 w-4" />
-              Fine
-            </button>
-          ) : nextExercise ? (
-            <button
-              onClick={() => startExercise(nextExercise.id)}
-              className="shrink-0 h-14 px-4 rounded-xl bg-green-600 hover:bg-green-700 active:scale-[0.98] text-white font-semibold text-sm flex flex-col items-center justify-center gap-0.5 transition-all"
-            >
-              <Play className="h-4 w-4" />
-              Inizia
-            </button>
-          ) : (
-            <button
-              onClick={onAddExercise}
-              className="shrink-0 h-14 px-4 rounded-xl bg-primary text-primary-foreground active:scale-[0.98] font-semibold text-sm flex flex-col items-center justify-center gap-0.5 transition-all"
-            >
-              <Plus className="h-4 w-4" />
-              Esercizio
-            </button>
-          )}
+          <button
+            onClick={action.onClick}
+            className={cn(
+              "shrink-0 max-w-[45%] h-14 px-4 rounded-xl active:scale-[0.98] font-semibold text-sm flex flex-col items-center justify-center gap-0.5 transition-all",
+              action.tone === "green"
+                ? "bg-green-600 hover:bg-green-700 text-white"
+                : "bg-amber-500 hover:bg-amber-600 text-black"
+            )}
+          >
+            <ActionIcon className="h-4 w-4" />
+            <span className="truncate max-w-full">{action.text}</span>
+          </button>
         </div>
       </div>
     </motion.div>

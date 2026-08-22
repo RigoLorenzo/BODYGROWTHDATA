@@ -96,6 +96,8 @@ export interface ActiveExercise {
 export interface ActiveSet {
   id?: string;
   setNumber: number;
+  /** Valori solo proposti (copiati dalla serie precedente), non ancora inseriti dall'utente */
+  prefilled?: boolean;
   type: "WARMUP" | "WORKING" | "DROPSET" | "FAILURE" | "MYOREP";
   weight?: number;
   reps?: number;
@@ -155,4 +157,22 @@ export interface ServerActiveSession {
       rpe: number | null;
     }[];
   }[];
+}
+
+/** Risposta di GET /api/analytics?type=weekly */
+export interface WeeklyAnalytics {
+  weeks: {
+    weekStart: string;
+    label: string;
+    /** Volume Load: peso × ripetizioni */
+    tonnage: number;
+    /** Serie di lavoro totali (escluse le warm-up) */
+    workingSets: number;
+    sessions: number;
+    effectiveSetsByMuscle: Record<string, number>;
+    directSetsByMuscle: Record<string, number>;
+  }[];
+  /** Allenamenti a settimana, sulle settimane in cui ti sei allenato */
+  trainingFrequency: number;
+  weeklyAverageWorkingSets: number;
 }

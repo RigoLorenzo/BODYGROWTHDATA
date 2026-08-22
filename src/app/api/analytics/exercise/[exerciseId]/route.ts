@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { format } from "date-fns";
-import { calculateOneRM } from "@/lib/one-rm-calculator";
+import { bestEstimatedOneRM } from "@/lib/one-rm-calculator";
 
 interface Params { params: Promise<{ exerciseId: string }> }
 
@@ -46,14 +46,16 @@ export async function GET(req: Request, { params }: Params) {
       const maxWeight = maxWeightSet.weight ?? 0;
       const maxReps = maxWeightSet.reps ?? 0;
       const volume = workingSets.reduce((sum, set) => sum + (set.weight ?? 0) * (set.reps ?? 0), 0);
-      const oneRM = calculateOneRM(maxWeight, maxReps);
+      // Il massimale stimato privilegia le serie in 1-8 ripetizioni
+      const estimate = bestEstimatedOneRM(workingSets);
 
       return {
         date: format(s.startedAt, "d MMM"),
         maxWeight,
         maxReps,
         volume,
-        oneRM: Math.round(oneRM * 10) / 10,
+        oneRM: estimate ? Math.round(estimate.oneRM * 10) / 10 : 0,
+        oneRMFromStrengthRange: estimate?.fromStrengthRange ?? false,
       };
     })
   ).filter(Boolean);

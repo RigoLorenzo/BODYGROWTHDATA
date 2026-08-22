@@ -4,6 +4,12 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { startOfWeek, endOfWeek, subWeeks, subDays, differenceInDays, format } from "date-fns";
 import { computeProgressScore } from "@/lib/progress-score";
+import {
+  accumulateMuscleSets,
+  countWorkingSets,
+  roundSets,
+  type MuscleSetTotals,
+} from "@/lib/muscle-volume";
 
 export async function GET(req: Request) {
   const session = await auth().catch(() => null);
@@ -92,34 +98,40 @@ export async function GET(req: Request) {
   }
 
   if (type === "muscle-balance") {
+    // Il bilanciamento si legge sulle serie efficaci per muscolo; il
+    // tonnellaggio resta come statistica separata.
     const sessions = await prisma.workoutSession.findMany({
       where: { userId, status: "COMPLETED", startedAt: { gte: subWeeks(new Date(), 8) } },
       include: {
         exercises: {
           include: {
-            exercise: { select: { primaryMuscle: true } },
-            sets: { where: { type: { not: "WARMUP" } }, select: { volume: true, reps: true } },
+            exercise: { select: { primaryMuscle: true, muscleGroups: true, muscleContributions: true } },
+            sets: {
+              where: { type: { not: "WARMUP" } },
+              select: { weight: true, reps: true, rpe: true, type: true },
+            },
           },
         },
       },
     });
 
-    const muscleData: Record<string, { tonnage: number; volume: number }> = {};
+    const muscleData: Record<string, MuscleSetTotals> = {};
     for (const session of sessions) {
       for (const ex of session.exercises) {
-        const muscle = ex.exercise.primaryMuscle;
-        if (!muscle) continue;
-        if (!muscleData[muscle]) muscleData[muscle] = { tonnage: 0, volume: 0 };
-        for (const s of ex.sets) {
-          muscleData[muscle].tonnage += s.volume; // volume field = weight × reps
-          muscleData[muscle].volume += s.reps ?? 0; // pure reps = volume without weight
-        }
+        accumulateMuscleSets(muscleData, ex.exercise, ex.sets);
       }
     }
 
     const result = Object.entries(muscleData)
-      .map(([muscle, d]) => ({ muscle, tonnage: d.tonnage, volume: d.volume }))
-      .sort((a, b) => b.tonnage - a.tonnage);
+      .map(([muscle, d]) => ({
+        muscle,
+        directSets: d.directSets,
+        indirectSets: d.indirectSets,
+        effectiveSets: roundSets(d.effectiveSets),
+        tonnage: Math.round(d.tonnage),
+        volume: Math.round(d.reps),
+      }))
+      .sort((a, b) => b.effectiveSets - a.effectiveSets);
 
     return NextResponse.json(result);
   }
@@ -131,19 +143,49 @@ export async function GET(req: Request) {
       include: {
         exercises: {
           include: {
-            exercise: { select: { primaryMuscle: true } },
-            sets: { where: { type: { not: "WARMUP" } }, select: { volume: true, reps: true, weight: true } },
+            exercise: { select: { primaryMuscle: true, muscleGroups: true, muscleContributions: true } },
+            sets: {
+              where: { type: { not: "WARMUP" } },
+              select: { volume: true, reps: true, weight: true, rpe: true, type: true },
+            },
           },
         },
       },
     });
 
-    const stats: Record<string, { totalSets: number; totalReps: number; tonnage: number; volume: number }> = {};
+    // Serie attribuite ai muscoli (dirette, indirette, efficaci)
+    const muscleData: Record<string, MuscleSetTotals> = {};
+    // Statistiche del solo muscolo primario, come prima
+    const stats: Record<
+      string,
+      {
+        totalSets: number;
+        totalReps: number;
+        tonnage: number;
+        volume: number;
+        directSets: number;
+        indirectSets: number;
+        effectiveSets: number;
+      }
+    > = {};
+
     for (const session of sessions) {
       for (const ex of session.exercises) {
+        accumulateMuscleSets(muscleData, ex.exercise, ex.sets);
+
         const muscle = ex.exercise.primaryMuscle;
         if (!muscle) continue;
-        if (!stats[muscle]) stats[muscle] = { totalSets: 0, totalReps: 0, tonnage: 0, volume: 0 };
+        if (!stats[muscle]) {
+          stats[muscle] = {
+            totalSets: 0,
+            totalReps: 0,
+            tonnage: 0,
+            volume: 0,
+            directSets: 0,
+            indirectSets: 0,
+            effectiveSets: 0,
+          };
+        }
         stats[muscle].totalSets += ex.sets.length;
         for (const s of ex.sets) {
           stats[muscle].totalReps += s.reps ?? 0;
@@ -153,7 +195,100 @@ export async function GET(req: Request) {
       }
     }
 
+    for (const [muscle, totals] of Object.entries(muscleData)) {
+      if (!stats[muscle]) {
+        stats[muscle] = {
+          totalSets: 0,
+          totalReps: 0,
+          tonnage: 0,
+          volume: 0,
+          directSets: 0,
+          indirectSets: 0,
+          effectiveSets: 0,
+        };
+      }
+      stats[muscle].directSets = totals.directSets;
+      stats[muscle].indirectSets = totals.indirectSets;
+      stats[muscle].effectiveSets = roundSets(totals.effectiveSets);
+    }
+
     return NextResponse.json(stats);
+  }
+
+  if (type === "weekly") {
+    // Ultime 8 settimane: tonnellaggio (Volume Load), serie di lavoro,
+    // frequenza e serie efficaci per muscolo.
+    const weeks = Math.min(parseInt(searchParams.get("weeks") ?? "8"), 26);
+    const firstWeekStart = startOfWeek(subWeeks(new Date(), weeks - 1), { weekStartsOn: 1 });
+
+    const sessions = await prisma.workoutSession.findMany({
+      where: { userId, status: "COMPLETED", startedAt: { gte: firstWeekStart } },
+      select: {
+        startedAt: true,
+        totalVolume: true,
+        exercises: {
+          select: {
+            exercise: { select: { primaryMuscle: true, muscleGroups: true, muscleContributions: true } },
+            sets: {
+              where: { type: { not: "WARMUP" } },
+              select: { weight: true, reps: true, rpe: true, type: true },
+            },
+          },
+        },
+      },
+    });
+
+    const buckets = Array.from({ length: weeks }, (_, i) => {
+      const start = startOfWeek(subWeeks(new Date(), weeks - 1 - i), { weekStartsOn: 1 });
+      return {
+        weekStart: format(start, "yyyy-MM-dd"),
+        label: format(start, "d MMM"),
+        start,
+        end: endOfWeek(start, { weekStartsOn: 1 }),
+        tonnage: 0,
+        workingSets: 0,
+        sessions: 0,
+        muscles: {} as Record<string, MuscleSetTotals>,
+      };
+    });
+
+    for (const session of sessions) {
+      const bucket = buckets.find((b) => session.startedAt >= b.start && session.startedAt <= b.end);
+      if (!bucket) continue;
+      bucket.sessions += 1;
+      bucket.tonnage += session.totalVolume ?? 0;
+      for (const ex of session.exercises) {
+        bucket.workingSets += countWorkingSets(ex.sets);
+        accumulateMuscleSets(bucket.muscles, ex.exercise, ex.sets);
+      }
+    }
+
+    const weeksPayload = buckets.map((b) => ({
+      weekStart: b.weekStart,
+      label: b.label,
+      tonnage: Math.round(b.tonnage),
+      workingSets: b.workingSets,
+      sessions: b.sessions,
+      effectiveSetsByMuscle: Object.fromEntries(
+        Object.entries(b.muscles).map(([muscle, totals]) => [muscle, roundSets(totals.effectiveSets)])
+      ),
+      directSetsByMuscle: Object.fromEntries(
+        Object.entries(b.muscles).map(([muscle, totals]) => [muscle, totals.directSets])
+      ),
+    }));
+
+    const activeWeeks = weeksPayload.filter((w) => w.sessions > 0).length;
+    const totalSessions = weeksPayload.reduce((sum, w) => sum + w.sessions, 0);
+
+    return NextResponse.json({
+      weeks: weeksPayload,
+      // Frequenza di allenamento: media a settimana sulle settimane in cui ti sei allenato
+      trainingFrequency: activeWeeks > 0 ? Math.round((totalSessions / activeWeeks) * 10) / 10 : 0,
+      weeklyAverageWorkingSets:
+        activeWeeks > 0
+          ? Math.round(weeksPayload.reduce((sum, w) => sum + w.workingSets, 0) / activeWeeks)
+          : 0,
+    });
   }
 
   if (type === "muscle-frequency") {

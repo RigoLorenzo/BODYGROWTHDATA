@@ -10,7 +10,7 @@ import type { ProgressScoreResult, ProgressCategoryKey } from "@/lib/progress-sc
 const CATEGORY_COLOR: Record<ProgressCategoryKey, string> = {
   consistency: "#f97316",
   strength: "#8b5cf6",
-  volume: "#22c55e",
+  muscleVolume: "#22c55e",
   records: "#eab308",
   body: "#3b82f6",
 };
@@ -102,6 +102,9 @@ export function ProgressScore() {
                       style={{ background: CATEGORY_COLOR[category.key] }}
                     />
                     <p className="text-sm font-medium">{category.label}</p>
+                    <span className="text-[10px] text-muted-foreground/70">
+                      {Math.round(category.weight * 100)}%
+                    </span>
                     {catDelta != null && catDelta !== 0 && (
                       <Badge
                         variant={catDelta > 0 ? "success" : "warning"}
@@ -126,8 +129,9 @@ export function ProgressScore() {
           })}
 
           <p className="text-[10px] text-muted-foreground/70 pt-1">
-            Vengono usate solo le categorie con dati sufficienti: quelle mancanti non abbassano il
-            punteggio.
+            Media pesata delle sole categorie con dati sufficienti: quelle mancanti non abbassano il
+            punteggio, il loro peso si redistribuisce sulle altre. Il riferimento personale è il
+            miglior periodo degli ultimi 6 mesi.
           </p>
         </CardContent>
       </Card>

@@ -4,9 +4,9 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
+// Il peso non si aggiorna da qui: arriva dalle Misurazioni Corporee
 const updateProfileSchema = z.object({
   height: z.number().min(100).max(250).optional(),
-  weight: z.number().min(30).max(300).optional(),
   experienceLevel: z.enum(["BEGINNER", "INTERMEDIATE", "ADVANCED", "ELITE"]).optional(),
   bio: z.string().max(500).optional(),
 });

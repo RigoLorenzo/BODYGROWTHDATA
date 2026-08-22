@@ -8,10 +8,21 @@ import { getMuscleLabel, formatVolume } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-interface MuscleEntry { muscle: string; tonnage: number; volume: number }
+interface MuscleEntry {
+  muscle: string;
+  directSets: number;
+  indirectSets: number;
+  effectiveSets: number;
+  tonnage: number;
+  volume: number;
+}
+
+type BalanceMetric = "effectiveSets" | "directSets" | "tonnage";
 
 export function MuscleBalanceChart() {
-  const [metric, setMetric] = useState<"tonnage" | "volume">("tonnage");
+  // Il bilanciamento si legge sulle serie per muscolo; il tonnellaggio resta
+  // consultabile come statistica separata.
+  const [metric, setMetric] = useState<BalanceMetric>("effectiveSets");
 
   const { data, isLoading } = useQuery<MuscleEntry[]>({
     queryKey: ["analytics", "muscle-balance"],
@@ -24,7 +35,7 @@ export function MuscleBalanceChart() {
 
   const chartData = (data ?? []).map((d) => ({
     muscle: getMuscleLabel(d.muscle),
-    value: metric === "tonnage" ? d.tonnage : d.volume,
+    value: metric === "tonnage" ? d.tonnage : metric === "directSets" ? d.directSets : d.effectiveSets,
   }));
 
   const btnCls = (active: boolean) =>
@@ -37,11 +48,14 @@ export function MuscleBalanceChart() {
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm">Distribuzione Muscolare</CardTitle>
           <div className="flex gap-1">
+            <button className={btnCls(metric === "effectiveSets")} onClick={() => setMetric("effectiveSets")}>
+              Serie efficaci
+            </button>
+            <button className={btnCls(metric === "directSets")} onClick={() => setMetric("directSets")}>
+              Dirette
+            </button>
             <button className={btnCls(metric === "tonnage")} onClick={() => setMetric("tonnage")}>
               Tonnellaggio
-            </button>
-            <button className={btnCls(metric === "volume")} onClick={() => setMetric("volume")}>
-              Volume
             </button>
           </div>
         </div>
@@ -66,17 +80,31 @@ export function MuscleBalanceChart() {
         {(data?.length ?? 0) > 0 && (
           <div className="mt-3 space-y-1.5">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-2">
-              {metric === "tonnage" ? "Tonnellaggio (kg)" : "Volume (reps)"}
+              {metric === "tonnage"
+                ? "Volume Load (kg) · 8 settimane"
+                : metric === "directSets"
+                  ? "Serie dirette · 8 settimane"
+                  : "Serie efficaci · 8 settimane"}
             </p>
             {(data ?? [])
               .slice()
-              .sort((a, b) => (metric === "tonnage" ? b.tonnage - a.tonnage : b.volume - a.volume))
+              .sort((a, b) =>
+                metric === "tonnage"
+                  ? b.tonnage - a.tonnage
+                  : metric === "directSets"
+                    ? b.directSets - a.directSets
+                    : b.effectiveSets - a.effectiveSets
+              )
               .slice(0, 6)
               .map((d) => (
                 <div key={d.muscle} className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">{getMuscleLabel(d.muscle)}</span>
                   <span className="font-medium tabular-nums">
-                    {metric === "tonnage" ? formatVolume(d.tonnage) : `${d.volume.toLocaleString()} reps`}
+                    {metric === "tonnage"
+                      ? formatVolume(d.tonnage)
+                      : metric === "directSets"
+                        ? `${d.directSets} dirette · ${d.indirectSets} indirette`
+                        : `${d.effectiveSets} serie`}
                   </span>
                 </div>
               ))}

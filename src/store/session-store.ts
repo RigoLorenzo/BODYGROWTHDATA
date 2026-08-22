@@ -21,6 +21,9 @@ interface SessionState {
   removeSet: (exerciseId: string, setIndex: number) => void;
   completeSet: (exerciseId: string, setIndex: number) => void;
 
+  /** Conferma le serie compilate ma non ancora spuntate */
+  confirmFilledSets: (exerciseId: string) => void;
+
   // Ciclo dell'esercizio: inizio → serie → recupero → esercizio successivo
   startExercise: (exerciseId: string) => void;
   finishExercise: (exerciseId: string) => void;
@@ -181,11 +184,21 @@ export const useSessionStore = create<SessionState>()(
       addSet: (exerciseId, newSet) =>
         set((state) => {
           if (!state.activeSession) return state;
+          const target = state.activeSession.exercises.find((ex) => ex.id === exerciseId);
+          const reopening = !!target?.finishedAt;
           return {
             activeSession: {
               ...state.activeSession,
+              // Aggiungere una serie a un esercizio chiuso lo riapre
+              currentExerciseId: reopening ? exerciseId : state.activeSession.currentExerciseId,
               exercises: state.activeSession.exercises.map((ex) =>
-                ex.id === exerciseId ? { ...ex, sets: [...ex.sets, newSet] } : ex
+                ex.id === exerciseId
+                  ? {
+                      ...ex,
+                      sets: [...ex.sets, newSet],
+                      ...(reopening ? { finishedAt: undefined, finished: false } : {}),
+                    }
+                  : ex
               ),
             },
           };
@@ -194,6 +207,11 @@ export const useSessionStore = create<SessionState>()(
       updateSet: (exerciseId, setIndex, updates) =>
         set((state) => {
           if (!state.activeSession) return state;
+          // Se peso o ripetizioni arrivano dall'utente, la serie non è più un suggerimento
+          const touched =
+            ("weight" in updates || "reps" in updates) && updates.prefilled === undefined
+              ? { prefilled: false }
+              : {};
           return {
             activeSession: {
               ...state.activeSession,
@@ -201,7 +219,7 @@ export const useSessionStore = create<SessionState>()(
                 ex.id === exerciseId
                   ? {
                       ...ex,
-                      sets: ex.sets.map((s, i) => (i === setIndex ? { ...s, ...updates } : s)),
+                      sets: ex.sets.map((s, i) => (i === setIndex ? { ...s, ...updates, ...touched } : s)),
                     }
                   : ex
               ),
@@ -243,13 +261,39 @@ export const useSessionStore = create<SessionState>()(
           .activeSession?.exercises.find((e) => e.id === exerciseId)
           ?.sets[setIndex + 1];
         if (done && next && !next.completed && next.weight == null && next.reps == null) {
-          get().updateSet(exerciseId, setIndex + 1, { weight: done.weight, reps: done.reps });
+          get().updateSet(exerciseId, setIndex + 1, {
+            weight: done.weight,
+            reps: done.reps,
+            prefilled: true,
+          });
         }
 
         const session = get().activeSession;
         if (!session) return;
         const ex = session.exercises.find((e) => e.id === exerciseId);
-        // Il recupero tra le serie parte da solo: si ferma quando riprendi.
+        const allDone = !!ex && ex.sets.every((s) => s.completed);
+
+        if (allDone) {
+          // Ultima serie: l'esercizio è finito, il recupero porta al prossimo
+          const now = Date.now();
+          set((state) => {
+            if (!state.activeSession) return state;
+            return {
+              activeSession: {
+                ...state.activeSession,
+                exercises: state.activeSession.exercises.map((e) =>
+                  e.id === exerciseId
+                    ? { ...e, startedAt: e.startedAt ?? now, finishedAt: now, finished: true }
+                    : e
+                ),
+              },
+            };
+          });
+          get().startRest("EXERCISE", { exerciseId, targetSeconds: ex?.restTimerSeconds ?? 120 });
+          return;
+        }
+
+        // Recupero tra le serie: si ferma quando prosegui con la serie successiva
         get().startRest("SET", { exerciseId, setIndex, targetSeconds: ex?.restTimerSeconds ?? 90 });
       },
 
@@ -294,6 +338,33 @@ export const useSessionStore = create<SessionState>()(
           };
         }),
 
+      /**
+       * Conferma le serie che l'utente ha compilato ma non ha spuntato.
+       * Le serie solo suggerite (copiate dalla precedente) restano fuori: i dati
+       * non inseriti non vengono mai registrati.
+       */
+      confirmFilledSets: (exerciseId) =>
+        set((state) => {
+          if (!state.activeSession) return state;
+          return {
+            activeSession: {
+              ...state.activeSession,
+              exercises: state.activeSession.exercises.map((ex) =>
+                ex.id === exerciseId
+                  ? {
+                      ...ex,
+                      sets: ex.sets.map((s) =>
+                        !s.completed && !s.prefilled && (s.weight != null || s.reps != null)
+                          ? { ...s, completed: true }
+                          : s
+                      ),
+                    }
+                  : ex
+              ),
+            },
+          };
+        }),
+
       /** Inizia (o riprende) un esercizio: chiude il recupero e fa partire il lavoro */
       startExercise: (exerciseId) =>
         set((state) => {
@@ -313,8 +384,9 @@ export const useSessionStore = create<SessionState>()(
           };
         }),
 
-      /** Fine esercizio: chiude il lavoro e fa partire il recupero verso il prossimo */
+      /** Fine esercizio: registra le serie compilate, chiude il lavoro e avvia il recupero */
       finishExercise: (exerciseId) => {
+        get().confirmFilledSets(exerciseId);
         set((state) => {
           if (!state.activeSession) return state;
           const now = Date.now();
