@@ -134,6 +134,7 @@ export const exerciseLibrary: SeedExercise[] = [
   e("Cable Shrug", "Scrollate al cavo", "ISOLATION", ["BACK"], "BACK", ["CABLE"], 1),
   e("Trap Bar Shrug", "Scrollate con trap bar", "ISOLATION", ["BACK"], "BACK", ["TRAP_BAR"], 1),
   e("Smith Machine Shrug", "Scrollate allo Smith", "ISOLATION", ["BACK"], "BACK", ["SMITH_MACHINE"], 1),
+  e("Kelso Shrug", "Kelso shrug su panca inclinata", "ISOLATION", ["BACK", "SHOULDERS"], "BACK", ["DUMBBELL"], 2, ["kelso", "scrollate su panca inclinata", "trapezio medio"]),
   e("Rope Climb", "Salita alla fune", "COMPOUND", ["BACK", "BICEPS", "FOREARMS"], "BACK", ["BODYWEIGHT"], 4),
 
   // ─── SPALLE ─────────────────────────────────────────────────────────────────

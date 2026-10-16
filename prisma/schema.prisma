@@ -583,3 +583,13 @@ model Notification {
   @@index([userId, read])
   @@index([userId, createdAt])
 }
+
+// ─── Data provisioning ────────────────────────────────────────────────────────
+
+// Interventi sui dati eseguiti una sola volta al deploy (es. caricare una scheda
+// e attivarla). La riga marca l'intervento come applicato: i deploy successivi
+// non lo ripetono, così le scelte fatte dall'app non vengono sovrascritte.
+model DataProvision {
+  key       String   @id
+  appliedAt DateTime @default(now())
+}
