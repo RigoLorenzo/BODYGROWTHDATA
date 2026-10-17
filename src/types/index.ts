@@ -68,6 +68,10 @@ export interface ActiveExercise {
   targetRepsMax?: number;
   /** Note del piano (es. "Forza — RIR 1") */
   notes?: string;
+  /** Serie di lavoro dell'ultima volta che hai fatto l'esercizio */
+  lastSets?: { weight: number | null; reps: number | null }[];
+  /** Proposta di oggi: aumento di carico o stessi numeri da battere */
+  progression?: { increase: boolean; previousTop: number };
   sets: ActiveSet[];
 }
 
@@ -121,6 +125,8 @@ export interface ServerActiveSession {
   id: string;
   startedAt: string;
   programDayId: string | null;
+  /** Bozza salvata durante l'allenamento (vedi lib/session-draft) */
+  draft?: unknown;
   workoutType: string;
   exercises: {
     id: string;
@@ -154,4 +160,27 @@ export interface WeeklyAnalytics {
   /** Allenamenti a settimana, sulle settimane in cui ti sei allenato */
   trainingFrequency: number;
   weeklyAverageWorkingSets: number;
+}
+
+/** Esercizio di un giorno del piano, completo di tutti i parametri */
+export interface ProgramDetailExercise extends Omit<PlanExercise, "exercise"> {
+  id: string;
+  exercise:
+    | (NonNullable<PlanExercise["exercise"]> & { muscleGroups?: string[]; muscleContributions?: unknown })
+    | null;
+  orderIndex: number;
+  restSeconds: number;
+  rpe: number | null;
+}
+
+/** Risposta di GET /api/programs/[id] */
+export interface ProgramDetail {
+  id: string;
+  name: string;
+  description: string | null;
+  frequency: number;
+  durationWeeks: number;
+  splitType: string;
+  isActive: boolean;
+  days: (Omit<PlanDay, "exercises"> & { exercises: ProgramDetailExercise[] })[];
 }

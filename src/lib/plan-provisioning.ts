@@ -1,5 +1,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
-import type { PlanDay, PlanDefinition } from "./plans/types";
+import type { PlanDefinition } from "./plans/types";
+import type { ProgramInput } from "./program-schema";
+import { createProgram, updateProgram } from "./program-writer";
 import { multifrequenza4x } from "./plans/multifrequenza-4x";
 
 /**
@@ -44,61 +46,21 @@ async function resolveExerciseIds(
   return ids;
 }
 
-const buildExercises = (day: PlanDay, ids: Map<string, string>) =>
-  day.exercises.map(({ name, ...fields }, orderIndex) => ({
-    exerciseId: ids.get(name)!,
-    orderIndex,
-    ...fields,
-  }));
-
-const programFields = (plan: PlanDefinition) => ({
-  name: plan.name,
-  description: plan.description,
-  frequency: plan.frequency,
-  durationWeeks: plan.durationWeeks,
-  splitType: plan.splitType,
-});
-
-async function createProgram(tx: Tx, ownerId: string, plan: PlanDefinition, ids: Map<string, string>) {
-  return tx.program.create({
-    data: {
-      ...programFields(plan),
-      creatorId: ownerId,
-      days: {
-        create: plan.days.map((day, dayIndex) => ({
-          dayIndex,
-          name: day.name,
-          workoutType: day.workoutType,
-          exercises: { create: buildExercises(day, ids) },
-        })),
-      },
-    },
-  });
-}
-
-/** Riallinea giorni ed esercizi alla definizione, mantenendo gli id dei giorni */
-async function replaceProgram(tx: Tx, programId: string, plan: PlanDefinition, ids: Map<string, string>) {
-  await tx.program.update({ where: { id: programId }, data: programFields(plan) });
-  const existing = await tx.programDay.findMany({ where: { programId }, select: { id: true, dayIndex: true } });
-  const byIndex = new Map(existing.map((d) => [d.dayIndex, d.id]));
-
-  for (const [dayIndex, day] of plan.days.entries()) {
-    const dayId = byIndex.get(dayIndex);
-    const exercises = buildExercises(day, ids);
-    if (!dayId) {
-      await tx.programDay.create({
-        data: { programId, dayIndex, name: day.name, workoutType: day.workoutType, exercises: { create: exercises } },
-      });
-      continue;
-    }
-    await tx.programExercise.deleteMany({ where: { dayId } });
-    await tx.programDay.update({
-      where: { id: dayId },
-      data: { name: day.name, workoutType: day.workoutType, exercises: { create: exercises } },
-    });
-  }
-
-  await tx.programDay.deleteMany({ where: { programId, dayIndex: { gte: plan.days.length } } });
+/** Definizione per nome → input del writer, con gli id della libreria */
+function toProgramInput(plan: PlanDefinition, ids: Map<string, string>, dayIds: (string | undefined)[] = []): ProgramInput {
+  return {
+    name: plan.name,
+    description: plan.description,
+    frequency: plan.frequency,
+    durationWeeks: plan.durationWeeks,
+    splitType: plan.splitType,
+    days: plan.days.map((day, dayIndex) => ({
+      id: dayIds[dayIndex],
+      name: day.name,
+      workoutType: day.workoutType,
+      exercises: day.exercises.map(({ name, ...fields }) => ({ exerciseId: ids.get(name)!, ...fields })),
+    })),
+  };
 }
 
 /** La scheda diventa quella attuale; se lo era già, il progresso resta dov'è */
@@ -134,10 +96,16 @@ async function applyProvision(
 
     let programId: string;
     if (existing) {
-      await replaceProgram(tx, existing.id, plan, ids);
+      // Stessa posizione = stesso giorno: lo storico resta collegato
+      const days = await tx.programDay.findMany({
+        where: { programId: existing.id },
+        orderBy: { dayIndex: "asc" },
+        select: { id: true },
+      });
+      await updateProgram(tx, existing.id, toProgramInput(plan, ids, days.map((d) => d.id)));
       programId = existing.id;
     } else {
-      programId = (await createProgram(tx, owner.id, plan, ids)).id;
+      programId = (await createProgram(tx, owner.id, toProgramInput(plan, ids))).id;
     }
 
     await activate(tx, owner.id, programId);

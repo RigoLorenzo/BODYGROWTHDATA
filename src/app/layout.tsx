@@ -5,6 +5,8 @@ import { Providers } from "@/components/providers";
 import { Toaster } from "@/components/ui/toaster";
 import { PwaRegister } from "@/components/pwa-register";
 import { Analytics } from "@vercel/analytics/next";
+import { ThemeSync } from "@/components/theme-sync";
+import { themeBootScript } from "@/lib/theme";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -48,7 +50,10 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#000000",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#000000" },
+  ],
 };
 
 export default function RootLayout({
@@ -58,11 +63,16 @@ export default function RootLayout({
 }) {
   return (
     <html lang="it" suppressHydrationWarning className={`${inter.variable} ${display.variable}`}>
+      <head>
+        {/* Tema applicato prima del primo disegno: niente lampo chiaro/scuro */}
+        <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
+      </head>
       <body className="min-h-screen bg-background font-sans antialiased">
         <Providers>
           {children}
           <Toaster />
           <PwaRegister />
+          <ThemeSync />
         </Providers>
         <Analytics />
       </body>

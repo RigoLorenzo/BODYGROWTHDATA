@@ -2,11 +2,11 @@
 
 import { memo, useCallback, useState } from "react";
 import { useSessionStore, isFilledUnconfirmed } from "@/store/session-store";
-import { useLastExerciseSession } from "@/hooks/use-workout-session";
+import { formatLoggedSets } from "@/lib/progression";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SetRow } from "./set-row";
-import { Plus, ChevronDown, ChevronUp, Trash2, TrendingUp, CheckCircle2 } from "lucide-react";
+import { Plus, ChevronDown, ChevronUp, Trash2, TrendingUp, CheckCircle2, History } from "lucide-react";
 import { calculateExerciseVolume } from "@/lib/volume-calculator";
 import { formatVolume, cn } from "@/lib/utils";
 import type { ActiveExercise } from "@/types";
@@ -15,6 +15,8 @@ interface Props {
   exercise: ActiveExercise;
 }
 
+const formatKg = (kg?: number) => (kg == null ? "" : String(kg).replace(".", ","));
+
 function ExerciseCardComponent({ exercise }: Props) {
   const addSet = useSessionStore((s) => s.addSet);
   const removeSet = useSessionStore((s) => s.removeSet);
@@ -22,7 +24,6 @@ function ExerciseCardComponent({ exercise }: Props) {
   // Si chiude solo a mano: niente salti di layout mentre scorri la lista
   const [collapsed, setCollapsed] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
-  const { data: lastSession } = useLastExerciseSession(exercise.exerciseId);
 
   const completedSets = exercise.sets.filter((s) => s.completed);
   const allDone = exercise.sets.length > 0 && completedSets.length === exercise.sets.length;
@@ -123,15 +124,21 @@ function ExerciseCardComponent({ exercise }: Props) {
         <CardContent className="p-3 pt-2 space-y-1">
           {exercise.notes && <p className="text-xs text-primary/80 px-1">{exercise.notes}</p>}
 
-          {lastSession && lastSession.maxWeight > 0 && (
-            <div className="flex items-center gap-1.5 px-1 text-xs text-muted-foreground">
-              <TrendingUp className="h-3 w-3 text-primary/70" />
-              <span>
-                Ultima volta:{" "}
-                <span className="font-semibold text-foreground">
-                  {lastSession.maxWeight}kg × {lastSession.maxReps}
+          {exercise.lastSets && (
+            <div className="space-y-1 px-1 text-xs text-muted-foreground">
+              <p className="flex items-start gap-1.5">
+                <History className="mt-0.5 h-3 w-3 shrink-0 text-primary/70" />
+                <span>
+                  Ultima volta: <span className="font-semibold text-foreground">{formatLoggedSets(exercise.lastSets)}</span>
                 </span>
-              </span>
+              </p>
+              {exercise.progression?.increase && (
+                <p className="flex items-center gap-1.5 font-medium text-green-600 dark:text-green-400">
+                  <TrendingUp className="h-3 w-3 shrink-0" />
+                  Hai chiuso tutte le ripetizioni: oggi prova{" "}
+                  {formatKg(exercise.sets[0]?.weight)} kg
+                </p>
+              )}
             </div>
           )}
 

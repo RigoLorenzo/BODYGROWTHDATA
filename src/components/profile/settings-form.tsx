@@ -1,24 +1,34 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/hooks/use-toast";
-import { Download, Trash2, Moon, Sun, Dumbbell, RefreshCw, ChevronRight } from "lucide-react";
+import { Download, Trash2, Moon, Sun, Dumbbell, RefreshCw, ChevronRight, Smartphone } from "lucide-react";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
-import { useUIStore } from "@/store/ui-store";
+import { cn } from "@/lib/utils";
+import { readTheme, saveTheme, type Theme } from "@/lib/theme";
+
+const THEME_OPTIONS: { value: Theme; label: string; icon: typeof Sun }[] = [
+  { value: "system", label: "Sistema", icon: Smartphone },
+  { value: "light", label: "Chiaro", icon: Sun },
+  { value: "dark", label: "Scuro", icon: Moon },
+];
 
 interface Props {
   user: { name?: string | null; email?: string | null };
 }
 
 export function SettingsForm({ user }: Props) {
-  const { units, setUnits } = useUIStore();
-  const [theme, setThemeState] = useState<"dark" | "light" | "oled">("dark");
-  const [restDefault, setRestDefault] = useState(90);
+  const [theme, setTheme] = useState<Theme>("system");
+  useEffect(() => setTheme(readTheme()), []);
+
+  const changeTheme = (value: Theme) => {
+    setTheme(value);
+    saveTheme(value);
+  };
   const [isExporting, setIsExporting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -98,71 +108,33 @@ export function SettingsForm({ user }: Props) {
         </CardContent>
       </Card>
 
-      {/* Preferenze */}
+      {/* Aspetto */}
       <Card className="border-border/50">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Preferenze</CardTitle>
+          <CardTitle className="text-base">Tema</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">Unità di misura</p>
-              <p className="text-xs text-muted-foreground">Pesi visualizzati in</p>
-            </div>
-            <Select value={units} onValueChange={(v) => setUnits(v as "kg" | "lbs")}>
-              <SelectTrigger className="w-24 h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="kg">kg</SelectItem>
-                <SelectItem value="lbs">lbs</SelectItem>
-              </SelectContent>
-            </Select>
+        <CardContent className="space-y-2">
+          <div className="grid grid-cols-3 gap-1.5 rounded-xl bg-muted p-1" role="radiogroup" aria-label="Tema">
+            {THEME_OPTIONS.map(({ value, label, icon: Icon }) => (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={theme === value}
+                onClick={() => changeTheme(value)}
+                className={cn(
+                  "flex h-11 items-center justify-center gap-1.5 rounded-lg text-sm font-medium transition-colors",
+                  theme === value ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                {label}
+              </button>
+            ))}
           </div>
-
-          <Separator />
-
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">Tema</p>
-              <p className="text-xs text-muted-foreground">Aspetto dell&apos;app</p>
-            </div>
-            <Select value={theme} onValueChange={(v) => setThemeState(v as typeof theme)}>
-              <SelectTrigger className="w-28 h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="dark">
-                  <span className="flex items-center gap-1.5"><Moon className="h-3 w-3" /> Scuro</span>
-                </SelectItem>
-                <SelectItem value="light">
-                  <span className="flex items-center gap-1.5"><Sun className="h-3 w-3" /> Chiaro</span>
-                </SelectItem>
-                <SelectItem value="oled">
-                  <span className="flex items-center gap-1.5"><Dumbbell className="h-3 w-3" /> OLED</span>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <Separator />
-
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">Recupero default</p>
-              <p className="text-xs text-muted-foreground">Secondi tra le serie</p>
-            </div>
-            <Select value={restDefault.toString()} onValueChange={(v) => setRestDefault(parseInt(v))}>
-              <SelectTrigger className="w-20 h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {[30, 60, 90, 120, 180, 240, 300].map((s) => (
-                  <SelectItem key={s} value={s.toString()}>{s}s</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <p className="text-xs text-muted-foreground">
+            &ldquo;Sistema&rdquo; segue il tema del telefono. La scelta vale per questo dispositivo.
+          </p>
         </CardContent>
       </Card>
 

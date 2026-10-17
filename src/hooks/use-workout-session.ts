@@ -3,6 +3,8 @@
 import { useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSessionStore } from "@/store/session-store";
+import { buildActiveExercise, fetchExerciseHistory } from "@/lib/active-exercise";
+import { sessionFromDraft } from "@/lib/session-draft";
 import { useUIStore } from "@/store/ui-store";
 import { useRouter } from "next/navigation";
 import { toast } from "@/hooks/use-toast";
@@ -20,6 +22,10 @@ class ActiveWorkoutConflict extends Error {
 
 /** Ricostruisce la sessione locale a partire da quella salvata sul server */
 export function toLocalSession(workout: ServerActiveSession): ActiveSession {
+  // La bozza contiene anche le serie non ancora spuntate: è la copia più fedele
+  const fromDraft = sessionFromDraft(workout, workout.draft);
+  if (fromDraft) return fromDraft;
+
   return {
     id: workout.id,
     startedAt: new Date(workout.startedAt),
@@ -93,28 +99,31 @@ export function useWorkoutSession() {
         });
       }
       if (!res.ok) throw new Error("Failed to start session");
-      return res.json();
+      const session = await res.json();
+      // Ultima volta di ogni esercizio del piano: serve per precompilare le serie
+      const history = await fetchExerciseHistory(planExercisesRef.current.map((ex) => ex.exerciseId));
+      return { session, history };
     },
-    onSuccess: (session, variables) => {
-      const exercises: ActiveExercise[] = planExercisesRef.current.map((ex, idx) => ({
-        id: `plan-${ex.exerciseId}-${Date.now()}-${idx}`,
-        exerciseId: ex.exerciseId,
-        exerciseName: ex.exerciseName,
-        exerciseNameIt: ex.exerciseNameIt ?? null,
-        orderIndex: idx,
-        restTimerSeconds: ex.restSeconds ?? 90,
-        fromPlan: true,
-        targetSets: ex.sets,
-        targetRepsMin: ex.repsMin,
-        targetRepsMax: ex.repsMax,
-        notes: ex.notes,
-        // Serie pre-caricate come da piano, pronte da compilare
-        sets: Array.from({ length: Math.max(1, ex.sets ?? 1) }, (_, i) => ({
-          setNumber: i + 1,
-          type: "WORKING" as const,
-          completed: false,
-        })),
-      }));
+    onSuccess: ({ session, history }, variables) => {
+      const now = Date.now();
+      const exercises: ActiveExercise[] = planExercisesRef.current.map((ex, idx) =>
+        buildActiveExercise(
+          {
+            id: `plan-${ex.exerciseId}-${now}-${idx}`,
+            exerciseId: ex.exerciseId,
+            exerciseName: ex.exerciseName,
+            exerciseNameIt: ex.exerciseNameIt,
+            orderIndex: idx,
+            restSeconds: ex.restSeconds,
+            sets: ex.sets,
+            repsMin: ex.repsMin,
+            repsMax: ex.repsMax,
+            notes: ex.notes,
+            fromPlan: true,
+          },
+          history[ex.exerciseId]
+        )
+      );
       startSession({
         id: session.id,
         startedAt: new Date(session.startedAt),
@@ -184,6 +193,8 @@ export function useWorkoutSession() {
       queryClient.invalidateQueries({ queryKey: ["sessions"] });
       queryClient.invalidateQueries({ queryKey: ["analytics"] });
       queryClient.invalidateQueries({ queryKey: ["records"] });
+      // Il server ha fatto avanzare il piano al giorno successivo
+      queryClient.invalidateQueries({ queryKey: ["programs"] });
     },
     onError: () => {
       toast({ title: "Errore", description: "Impossibile salvare l'allenamento", variant: "destructive" });
@@ -351,28 +362,6 @@ export function useDeleteExercise() {
     onError: () => {
       toast({ title: "Errore", description: "Impossibile eliminare l'esercizio", variant: "destructive" });
     },
-  });
-}
-
-interface LastSessionData {
-  date: string;
-  maxWeight: number;
-  maxReps: number;
-  volume: number;
-  oneRM: number;
-}
-
-export function useLastExerciseSession(exerciseId: string) {
-  return useQuery<LastSessionData | null>({
-    queryKey: ["exercise-last", exerciseId],
-    queryFn: async () => {
-      const res = await fetch(`/api/analytics/exercise/${exerciseId}?last=true`);
-      if (!res.ok) return null;
-      const data = await res.json();
-      return data[0] ?? null;
-    },
-    staleTime: 5 * 60 * 1000,
-    enabled: !!exerciseId,
   });
 }
 

@@ -10,7 +10,8 @@ import { useServerActiveSession } from "@/hooks/use-workout-session";
 import { useSessionStore } from "@/store/session-store";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn, getMuscleColor, getMuscleLabel } from "@/lib/utils";
-import type { ActiveProgramResponse, PlanDay } from "@/types";
+import { repsLabel, setsByMuscle, splitDayName } from "@/lib/plan-format";
+import type { ActiveProgramResponse } from "@/types";
 
 /* ─── Superficie "lavagna": scura in entrambi i temi, il punto focale della home ─── */
 
@@ -38,26 +39,6 @@ const Eyebrow = ({ children }: { children: React.ReactNode }) => (
 
 const ctaClass =
   "flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-lime-400 font-display text-xl font-bold uppercase tracking-wide text-zinc-950 shadow-[0_8px_30px_-8px_rgba(163,230,53,0.6)] transition-transform active:scale-[0.98] disabled:opacity-60 touch-manipulation";
-
-/* ─── Helpers ─── */
-
-/** "G2 — Gambe A · Deltoidi" → { code: "G2", title: "Gambe A · Deltoidi" } */
-function splitDayName(name: string, index: number) {
-  const [head, ...rest] = name.split(" — ");
-  if (rest.length && head.length <= 4) return { code: head, title: rest.join(" — ") };
-  return { code: `G${index + 1}`, title: name };
-}
-
-function setsByMuscle(day: PlanDay) {
-  const totals = new Map<string, number>();
-  for (const ex of day.exercises) {
-    const muscle = ex.exercise?.primaryMuscle ?? "FULL_BODY";
-    totals.set(muscle, (totals.get(muscle) ?? 0) + ex.sets);
-  }
-  return Array.from(totals.entries()).sort((a, b) => b[1] - a[1]);
-}
-
-const repsLabel = (min: number, max: number) => (min === max ? `${min}` : `${min}-${max}`);
 
 /* ─── Stati della card ─── */
 
@@ -109,10 +90,10 @@ function OrphanWorkoutSlab() {
 
   return (
     <Slab className="p-5">
-      <Eyebrow>Allenamento aperto</Eyebrow>
+      <Eyebrow>Allenamento non concluso</Eyebrow>
       <p className="mt-2 text-sm text-zinc-300">
-        Iniziato alle {format(new Date(orphanSession.startedAt), "HH:mm 'del' d MMMM", { locale: it })}, probabilmente su
-        un altro dispositivo.
+        Iniziato alle {format(new Date(orphanSession.startedAt), "HH:mm 'del' d MMMM", { locale: it })}. Riprendilo
+        da dove eri rimasto: le serie salvate vengono ripristinate.
       </p>
       <button className={cn(ctaClass, "mt-5")} onClick={() => resume.mutate(orphanSession.id)} disabled={busy}>
         <Play className="h-5 w-5" /> {resume.isPending ? "Ripresa..." : "Riprendi qui"}
@@ -158,7 +139,7 @@ function PlanSlab({ active }: { active: ActiveProgramResponse }) {
   const day = active.days[index];
   const { code, title } = splitDayName(day.name, index);
   const totalSets = day.exercises.reduce((sum, ex) => sum + ex.sets, 0);
-  const muscles = setsByMuscle(day);
+  const muscles = setsByMuscle(day.exercises);
   const visible = showAll ? day.exercises : day.exercises.slice(0, 4);
 
   return (
@@ -169,7 +150,7 @@ function PlanSlab({ active }: { active: ActiveProgramResponse }) {
             Settimana {Math.min(active.weekProgress, active.program.durationWeeks)}/{active.program.durationWeeks}
           </Eyebrow>
           <Link
-            href="/programs"
+            href={`/programs/${active.programId}`}
             className="-mr-2 flex h-8 min-w-0 items-center gap-0.5 rounded-lg px-2 text-xs text-zinc-400 active:bg-white/5"
           >
             <span className="truncate">{active.program.name.split(" — ")[0]}</span>
@@ -234,7 +215,7 @@ function PlanSlab({ active }: { active: ActiveProgramResponse }) {
 
 
         {/* Azione principale subito visibile, senza scorrere */}
-        <button className={cn(ctaClass, "mt-5")} onClick={() => startDay(day, index)} disabled={isLoading}>
+        <button className={cn(ctaClass, "mt-5")} onClick={() => startDay(day)} disabled={isLoading}>
           <Play className="h-5 w-5 fill-current" />
           {isLoading ? "Avvio..." : `Inizia ${code}`}
         </button>

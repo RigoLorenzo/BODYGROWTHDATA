@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { useSessionStore, isFilledUnconfirmed } from "@/store/session-store";
 import { useWorkoutSession } from "@/hooks/use-workout-session";
+import { useSessionDraftSync } from "@/hooks/use-session-draft-sync";
 import { Button } from "@/components/ui/button";
 import { ExerciseCard } from "./exercise-card";
 import { ExerciseSelector } from "./exercise-selector";
@@ -13,7 +14,8 @@ import { formatVolume } from "@/lib/utils";
 import { calculateSessionVolume } from "@/lib/volume-calculator";
 import { Plus, CheckCircle, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import type { ActiveSession, ActiveExercise } from "@/types";
+import type { ActiveSession } from "@/types";
+import { buildActiveExercise, fetchExerciseHistory } from "@/lib/active-exercise";
 import type { Prisma } from "@prisma/client";
 
 type CompletedWorkout = Prisma.WorkoutSessionGetPayload<{
@@ -45,6 +47,7 @@ export function ActiveWorkoutView({ session, onCompleted }: Props) {
   const addExercise = useSessionStore((s) => s.addExercise);
   const endSession = useSessionStore((s) => s.endSession);
   const { completeWorkout, isCompleting } = useWorkoutSession();
+  useSessionDraftSync();
   const [showExerciseSelector, setShowExerciseSelector] = useState(false);
   const [showFinishConfirm, setShowFinishConfirm] = useState(false);
   const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
@@ -71,18 +74,22 @@ export function ActiveWorkoutView({ session, onCompleted }: Props) {
   );
 
   const handleAddExercise = useCallback(
-    (exercise: { id: string; name: string; nameIt?: string | null }) => {
-      const newExercise: ActiveExercise = {
-        id: `ex-${Date.now()}`,
-        exerciseId: exercise.id,
-        exerciseName: exercise.name,
-        exerciseNameIt: exercise.nameIt ?? null,
-        orderIndex: session.exercises.length,
-        restTimerSeconds: 90,
-        sets: [{ setNumber: 1, type: "WORKING", completed: false }],
-      };
-      addExercise(newExercise);
+    async (exercise: { id: string; name: string; nameIt?: string | null }) => {
       setShowExerciseSelector(false);
+      // Stesse serie (e stessi pesi) dell'ultima volta, se l'hai già fatto
+      const history = await fetchExerciseHistory([exercise.id]);
+      addExercise(
+        buildActiveExercise(
+          {
+            id: `ex-${Date.now()}`,
+            exerciseId: exercise.id,
+            exerciseName: exercise.name,
+            exerciseNameIt: exercise.nameIt,
+            orderIndex: session.exercises.length,
+          },
+          history[exercise.id]
+        )
+      );
     },
     [addExercise, session.exercises.length]
   );
