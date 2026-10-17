@@ -17,7 +17,7 @@ export function OverviewStats() {
         <Card className="border-border/50">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="p-2 rounded-lg bg-orange-400/10">
-              <Flame className="h-5 w-5 text-orange-400" />
+              <Flame className="h-5 w-5 text-orange-600 dark:text-orange-400" />
             </div>
             <div>
               <p className="text-2xl font-bold tabular-nums">{data?.streak ?? 0}</p>
@@ -28,7 +28,7 @@ export function OverviewStats() {
         <Card className="border-border/50">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="p-2 rounded-lg bg-yellow-400/10">
-              <Trophy className="h-5 w-5 text-yellow-400" />
+              <Trophy className="h-5 w-5 text-yellow-700 dark:text-yellow-400" />
             </div>
             <div>
               <p className="text-2xl font-bold tabular-nums">{data?.longestStreak ?? 0}</p>
@@ -39,7 +39,7 @@ export function OverviewStats() {
         <Card className="border-border/50">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="p-2 rounded-lg bg-blue-400/10">
-              <Dumbbell className="h-5 w-5 text-blue-400" />
+              <Dumbbell className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
               <p className="text-2xl font-bold tabular-nums">{data?.total?.workouts ?? 0}</p>
@@ -50,7 +50,7 @@ export function OverviewStats() {
         <Card className="border-border/50">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="p-2 rounded-lg bg-green-400/10">
-              <TrendingUp className="h-5 w-5 text-green-400" />
+              <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-400" />
             </div>
             <div>
               <p className="text-2xl font-bold tabular-nums">{formatVolume(data?.total?.volume ?? 0)}</p>

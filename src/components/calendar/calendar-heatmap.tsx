@@ -4,7 +4,7 @@ import { useHeatmapData } from "@/hooks/use-workout-session";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format, eachDayOfInterval, startOfYear, endOfYear, getDay } from "date-fns";
 import { it } from "date-fns/locale";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -40,6 +40,16 @@ export function CalendarHeatmap() {
   const year = new Date().getFullYear();
   const { data: heatmap, isLoading } = useHeatmapData(year);
   const [tooltip, setTooltip] = useState<TooltipData | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Si apre sulle settimane recenti, non su gennaio
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || isLoading) return;
+    const now = new Date();
+    const progress = (now.getTime() - startOfYear(now).getTime()) / (endOfYear(now).getTime() - startOfYear(now).getTime());
+    el.scrollLeft = Math.max(0, progress * el.scrollWidth - el.clientWidth * 0.85);
+  }, [isLoading]);
 
   if (isLoading) return <Skeleton className="h-48 rounded-xl" />;
 
@@ -88,7 +98,7 @@ export function CalendarHeatmap() {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto no-scrollbar">
+        <div ref={scrollRef} className="overflow-x-auto no-scrollbar">
           <div className="relative" style={{ minWidth: 720 }}>
             {/* Month labels */}
             <div className="flex mb-1 ml-6">

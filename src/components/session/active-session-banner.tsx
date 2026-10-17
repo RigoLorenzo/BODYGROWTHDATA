@@ -16,7 +16,7 @@ export function ActiveSessionBanner() {
   const done = sets.filter((s) => s.completed).length;
 
   return (
-    <div className="sticky top-0 z-50 bg-green-600 text-white">
+    <div className="sticky top-safe z-50 bg-green-600 text-white">
       <div className="container max-w-4xl mx-auto px-4 py-2 flex items-center gap-3">
         <Dumbbell className="h-4 w-4 shrink-0" />
         <div className="flex-1 min-w-0">

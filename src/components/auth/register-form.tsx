@@ -70,24 +70,27 @@ export function RegisterForm() {
       <CardContent className="space-y-4">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
           <div>
-            <Input placeholder="Nome completo" {...register("name")} className="h-11" />
+            <Input placeholder="Nome completo" autoComplete="name" aria-label="Nome" {...register("name")} className="h-11" />
             {errors.name && <p className="text-xs text-destructive mt-1">{errors.name.message}</p>}
           </div>
           <div>
-            <Input type="email" placeholder="Email" {...register("email")} className="h-11" />
+            <Input type="email" placeholder="Email" autoComplete="email" inputMode="email" aria-label="Email" {...register("email")} className="h-11" />
             {errors.email && <p className="text-xs text-destructive mt-1">{errors.email.message}</p>}
           </div>
           <div className="relative">
             <Input
               type={showPassword ? "text" : "password"}
               placeholder="Password (min. 6 caratteri)"
+              autoComplete="new-password"
+              aria-label="Password"
               {...register("password")}
               className="h-11 pr-10"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+              aria-label={showPassword ? "Nascondi password" : "Mostra password"}
+              className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center text-muted-foreground"
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
@@ -97,6 +100,8 @@ export function RegisterForm() {
             <Input
               type={showPassword ? "text" : "password"}
               placeholder="Conferma password"
+              autoComplete="new-password"
+              aria-label="Conferma password"
               {...register("confirm")}
               className="h-11"
             />

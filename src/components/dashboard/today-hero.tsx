@@ -151,7 +151,7 @@ function PlanSlab({ active }: { active: ActiveProgramResponse }) {
           </Eyebrow>
           <Link
             href={`/programs/${active.programId}`}
-            className="-mr-2 flex h-8 min-w-0 items-center gap-0.5 rounded-lg px-2 text-xs text-zinc-400 active:bg-white/5"
+            className="-mr-2 flex h-10 min-w-0 items-center gap-0.5 rounded-lg px-2 text-xs text-zinc-400 active:bg-white/5"
           >
             <span className="truncate">{active.program.name.split(" — ")[0]}</span>
             <ChevronRight className="h-3.5 w-3.5 shrink-0" />

@@ -175,7 +175,7 @@ export function BodyStatsCard() {
                     <p className={`text-[9px] mt-0.5 ${bmiCategory?.color}`}>{bmiCategory?.label}</p>
                   </div>
                   <div className="text-center p-3 rounded-xl bg-muted/30">
-                    <p className={`text-xl font-bold tabular-nums ${hp >= 0 ? "text-green-400" : "text-red-400"}`}>
+                    <p className={`text-xl font-bold tabular-nums ${hp >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
                       {hp > 0 ? "+" : ""}{hp.toFixed(1)}
                     </p>
                     <p className="text-[10px] text-muted-foreground mt-0.5">HP</p>
@@ -200,7 +200,7 @@ export function BodyStatsCard() {
                     <div className="text-center p-3 rounded-xl bg-muted/30">
                       <p
                         className={`text-xl font-bold tabular-nums ${
-                          analysis.waistToHeight < 0.5 ? "text-green-400" : analysis.waistToHeight < 0.55 ? "text-yellow-400" : "text-red-400"
+                          analysis.waistToHeight < 0.5 ? "text-green-600 dark:text-green-400" : analysis.waistToHeight < 0.55 ? "text-yellow-700 dark:text-yellow-400" : "text-red-600 dark:text-red-400"
                         }`}
                       >
                         {analysis.waistToHeight.toFixed(2)}
@@ -227,9 +227,9 @@ export function BodyStatsCard() {
                     <div
                       className={`mt-0.5 shrink-0 ${
                         analysis.reading.tone === "info"
-                          ? "text-blue-400"
+                          ? "text-blue-600 dark:text-blue-400"
                           : analysis.reading.tone === "warning"
-                            ? "text-yellow-400"
+                            ? "text-yellow-700 dark:text-yellow-400"
                             : "text-muted-foreground"
                       }`}
                     >
@@ -298,7 +298,7 @@ export function BodyStatsCard() {
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 250 }}
-              className="fixed bottom-0 left-0 right-0 z-50 bg-card rounded-t-2xl p-6 shadow-xl max-w-lg mx-auto"
+              className="fixed bottom-0 left-0 right-0 z-50 bg-card rounded-t-2xl p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-xl max-w-lg mx-auto"
             >
               <div className="flex items-center justify-between mb-5">
                 <h2 className="text-lg font-semibold">Modifica Dati Fisici</h2>

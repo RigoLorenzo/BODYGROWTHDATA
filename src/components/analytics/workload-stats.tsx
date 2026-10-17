@@ -36,28 +36,28 @@ export function WorkloadStats() {
   const cards = [
     {
       icon: Layers,
-      color: "text-violet-400",
+      color: "text-violet-600 dark:text-violet-400",
       bg: "bg-violet-400/10",
       value: workingSets.toLocaleString(),
       label: "Serie di lavoro (28gg)",
     },
     {
       icon: Target,
-      color: "text-green-400",
+      color: "text-green-600 dark:text-green-400",
       bg: "bg-green-400/10",
       value: Math.round(effectiveSets * 10) / 10,
       label: "Serie efficaci (28gg)",
     },
     {
       icon: CalendarCheck,
-      color: "text-orange-400",
+      color: "text-orange-600 dark:text-orange-400",
       bg: "bg-orange-400/10",
       value: data?.trainingFrequency ?? 0,
       label: "Allenamenti a settimana",
     },
     {
       icon: Weight,
-      color: "text-blue-400",
+      color: "text-blue-600 dark:text-blue-400",
       bg: "bg-blue-400/10",
       value: formatVolume(tonnage),
       label: "Volume Load (28gg)",

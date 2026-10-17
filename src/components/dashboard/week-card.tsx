@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { eachDayOfInterval, endOfWeek, format, isSameDay, isFuture, startOfWeek } from "date-fns";
 import { it } from "date-fns/locale";
-import { Flame, TrendingDown, TrendingUp } from "lucide-react";
+import { Flame } from "lucide-react";
 import { useHeatmapData } from "@/hooks/use-workout-session";
 import { useActiveProgram } from "@/hooks/use-active-program";
 import { cn, formatVolume } from "@/lib/utils";
@@ -55,7 +55,6 @@ export function WeekCard({ initialOverview, initialDays }: Props) {
 
   const workouts = overview?.thisWeek.workouts ?? 0;
   const target = plan?.program.frequency;
-  const change = overview?.volumeChange ?? 0;
 
   return (
     <section className="rounded-3xl border border-border/60 bg-card p-5">
@@ -100,20 +99,8 @@ export function WeekCard({ initialOverview, initialDays }: Props) {
           {workouts}
           {target ? <span className="text-base text-muted-foreground">/{target}</span> : null}
         </Metric>
-        <Metric label="Volume">
-          <span className="truncate">{formatVolume(overview?.thisWeek.volume ?? 0)}</span>
-          {change !== 0 && (
-            <span
-              className={cn(
-                "flex items-center font-sans text-[11px] font-semibold",
-                change > 0 ? "text-green-600 dark:text-green-400" : "text-red-500"
-              )}
-            >
-              {change > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-              {Math.abs(change)}%
-            </span>
-          )}
-        </Metric>
+        {/* Niente confronto in percentuale: a metà settimana sarebbe sempre negativo */}
+        <Metric label="Volume">{formatVolume(overview?.thisWeek.volume ?? 0)}</Metric>
         <Metric label="Streak">
           {overview?.streak ?? 0}
           <Flame className={cn("h-4 w-4", (overview?.streak ?? 0) > 0 ? "text-orange-500" : "text-muted-foreground")} />

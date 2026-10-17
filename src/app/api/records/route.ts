@@ -11,7 +11,7 @@ export async function GET() {
     where: { userId: session.user.id },
     orderBy: { dateAchieved: "desc" },
     include: {
-      exercise: { select: { name: true, primaryMuscle: true } },
+      exercise: { select: { name: true, nameIt: true, primaryMuscle: true } },
     },
   });
 
@@ -27,7 +27,7 @@ export async function GET() {
   // Group by exercise
   const grouped = new Map<string, {
     exerciseId: string;
-    exercise: { name: string; primaryMuscle: string | null };
+    exercise: { name: string; nameIt: string | null; primaryMuscle: string | null };
     records: typeof best;
   }>();
 
@@ -38,8 +38,9 @@ export async function GET() {
     grouped.get(r.exerciseId)!.records.push(r);
   }
 
-  const result = Array.from(grouped.values()).sort((a, b) =>
-    a.exercise.name.localeCompare(b.exercise.name)
+  // I record più recenti in alto: sono quelli che interessano dopo l'allenamento
+  const result = Array.from(grouped.values()).sort(
+    (a, b) => b.records[0].dateAchieved.getTime() - a.records[0].dateAchieved.getTime()
   );
 
   return NextResponse.json(result);

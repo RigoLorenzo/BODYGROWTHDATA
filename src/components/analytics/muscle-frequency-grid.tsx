@@ -13,9 +13,9 @@ interface MuscleFreq {
 
 function getColor(daysSince: number | null, count: number) {
   if (count === 0 || daysSince === null) return { bg: "bg-muted/30", text: "text-muted-foreground", dot: "bg-muted-foreground/30" };
-  if (daysSince <= 2) return { bg: "bg-green-500/15", text: "text-green-400", dot: "bg-green-500" };
-  if (daysSince <= 5) return { bg: "bg-yellow-500/15", text: "text-yellow-400", dot: "bg-yellow-500" };
-  return { bg: "bg-red-500/15", text: "text-red-400", dot: "bg-red-500" };
+  if (daysSince <= 2) return { bg: "bg-green-500/15", text: "text-green-600 dark:text-green-400", dot: "bg-green-500" };
+  if (daysSince <= 5) return { bg: "bg-yellow-500/15", text: "text-yellow-700 dark:text-yellow-400", dot: "bg-yellow-500" };
+  return { bg: "bg-red-500/15", text: "text-red-600 dark:text-red-400", dot: "bg-red-500" };
 }
 
 function dayLabel(daysSince: number | null): string {

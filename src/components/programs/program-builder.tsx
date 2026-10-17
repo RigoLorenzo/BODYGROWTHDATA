@@ -157,7 +157,7 @@ function ExerciseEditor({
             aria-label="Sposta su"
             disabled={isFirst}
             onClick={() => onMove(-1)}
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground active:bg-muted disabled:opacity-30"
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground active:bg-muted disabled:opacity-30"
           >
             <ArrowUp className="h-4 w-4" />
           </button>
@@ -166,7 +166,7 @@ function ExerciseEditor({
             aria-label="Sposta giù"
             disabled={isLast}
             onClick={() => onMove(1)}
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground active:bg-muted disabled:opacity-30"
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground active:bg-muted disabled:opacity-30"
           >
             <ArrowDown className="h-4 w-4" />
           </button>
@@ -174,7 +174,7 @@ function ExerciseEditor({
             type="button"
             aria-label="Rimuovi esercizio"
             onClick={onRemove}
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground active:bg-destructive/10 active:text-destructive"
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground active:bg-destructive/10 active:text-destructive"
           >
             <X className="h-4 w-4" />
           </button>
@@ -401,7 +401,7 @@ export function ProgramBuilder({ initial, submitLabel, submitting, onSubmit, onC
                     value={day.workoutType}
                     onValueChange={(v) => updateDay(dayIdx, (d) => ({ ...d, workoutType: v }))}
                   >
-                    <SelectTrigger className="h-9 w-32 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-10 w-32 text-xs"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {WORKOUT_TYPES.map((t) => (
                         <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
@@ -489,7 +489,7 @@ export function ProgramBuilder({ initial, submitLabel, submitting, onSubmit, onC
       </Button>
 
       {/* Barra di salvataggio sopra la navigazione */}
-      <div className="fixed inset-x-0 bottom-16 z-30 border-t border-border/60 bg-background px-4 py-3 md:bottom-0 md:pl-64">
+      <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 border-t border-border/60 bg-background px-4 py-3 md:bottom-0 md:pl-64">
         <div className="mx-auto flex max-w-2xl gap-2">
           <Button type="button" variant="outline" className="h-12 flex-1" onClick={onCancel} disabled={submitting}>
             Annulla

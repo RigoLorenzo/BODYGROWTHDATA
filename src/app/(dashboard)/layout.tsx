@@ -13,7 +13,7 @@ export default async function DashboardLayout({
   if (!session) redirect("/login");
 
   return (
-    <div className="min-h-screen bg-background pb-20 md:pb-0 md:pl-64">
+    <div className="min-h-screen bg-background pt-safe pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0 md:pl-64">
       <ActiveSessionBanner />
       <main className="min-h-screen">{children}</main>
       <BottomNav />

@@ -51,4 +51,18 @@ describe("serie dell'allenamento", () => {
     store().removeSet("ex1", 0);
     expect(sets().map((s) => s.setNumber)).toEqual([1, 2]);
   });
+
+  it("sostituire un esercizio mantiene posizione e id, cambia esercizio e serie", () => {
+    store().replaceExercise("ex1", {
+      id: "ignorato",
+      exerciseId: "e2",
+      exerciseName: "Panca con manubri",
+      orderIndex: 0,
+      restTimerSeconds: 90,
+      sets: [{ setNumber: 1, type: "WORKING", weight: 30, reps: 10, prefilled: true, completed: false }],
+    });
+    const ex = store().activeSession!.exercises[0];
+    expect(ex).toMatchObject({ id: "ex1", exerciseId: "e2", exerciseName: "Panca con manubri" });
+    expect(ex.sets).toHaveLength(1);
+  });
 });

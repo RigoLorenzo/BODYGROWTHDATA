@@ -1,24 +1,39 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { VolumeChart } from "./volume-chart";
-import { StrengthChart } from "./strength-chart";
-import { MuscleBalanceChart } from "./muscle-balance-chart";
+import { Skeleton } from "@/components/ui/skeleton";
 import { MuscleFrequencyGrid } from "./muscle-frequency-grid";
 import { MuscleStatsGrid } from "./muscle-stats-grid";
 import { OverviewStats } from "./overview-stats";
 import { ProgressScore } from "./progress-score";
-import { WeeklyLoadChart } from "./weekly-load-chart";
-import { MuscleTrendChart } from "./muscle-trend-chart";
 import { WorkloadStats } from "./workload-stats";
 import { MuscleVolumeCards } from "./muscle-volume-cards";
+
+// I grafici (recharts) si scaricano solo quando apri la scheda che li usa
+const chartFallback = () => <Skeleton className="h-64 rounded-xl" />;
+const VolumeChart = dynamic(() => import("./volume-chart").then((m) => m.VolumeChart), { ssr: false, loading: chartFallback });
+const StrengthChart = dynamic(() => import("./strength-chart").then((m) => m.StrengthChart), { ssr: false, loading: chartFallback });
+const MuscleBalanceChart = dynamic(() => import("./muscle-balance-chart").then((m) => m.MuscleBalanceChart), {
+  ssr: false,
+  loading: chartFallback,
+});
+const WeeklyLoadChart = dynamic(() => import("./weekly-load-chart").then((m) => m.WeeklyLoadChart), {
+  ssr: false,
+  loading: chartFallback,
+});
+const MuscleTrendChart = dynamic(() => import("./muscle-trend-chart").then((m) => m.MuscleTrendChart), {
+  ssr: false,
+  loading: chartFallback,
+});
+
 
 export function AnalyticsTabs() {
   return (
     <Tabs defaultValue="overview">
-      <TabsList className="w-full grid grid-cols-5">
-        <TabsTrigger value="overview">Overview</TabsTrigger>
-        <TabsTrigger value="progress">Progress</TabsTrigger>
+      <TabsList className="w-full grid grid-cols-5 [&>button]:px-1 [&>button]:text-[13px]">
+        <TabsTrigger value="overview">Riepilogo</TabsTrigger>
+        <TabsTrigger value="progress">Progressi</TabsTrigger>
         <TabsTrigger value="volume">Volume</TabsTrigger>
         <TabsTrigger value="strength">Forza</TabsTrigger>
         <TabsTrigger value="muscle">Muscoli</TabsTrigger>

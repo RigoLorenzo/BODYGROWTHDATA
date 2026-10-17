@@ -133,7 +133,6 @@ export function useWorkoutSession() {
       });
       planExercisesRef.current = [];
       router.push(`/workout/active`);
-      toast({ title: "Allenamento iniziato!", description: "Dai tutto!" });
     },
     onError: (error, variables) => {
       if (error instanceof ActiveWorkoutConflict && error.info.sessionId) {

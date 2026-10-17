@@ -60,8 +60,8 @@ export function SessionDetail({ workout }: Props) {
     <div className="container max-w-2xl mx-auto p-4 space-y-4">
       <div className="flex items-center justify-between pt-2">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon-sm" asChild>
-            <Link href="/dashboard"><ChevronLeft className="h-5 w-5" /></Link>
+          <Button variant="ghost" size="icon-sm" className="shrink-0" asChild>
+            <Link href="/dashboard" aria-label="Indietro"><ChevronLeft className="h-5 w-5" /></Link>
           </Button>
           <div>
             <h1 className="text-xl font-bold">Dettaglio Allenamento</h1>
@@ -71,6 +71,7 @@ export function SessionDetail({ workout }: Props) {
         <Button
           variant="ghost"
           size="icon-sm"
+          aria-label="Elimina allenamento"
           className="text-destructive hover:text-destructive"
           onClick={() => setShowDeleteConfirm(true)}
         >
@@ -86,7 +87,7 @@ export function SessionDetail({ workout }: Props) {
         <Card className="border-green-600/30 bg-green-600/10">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-3">
-              <Star className="h-4 w-4 text-yellow-400" />
+              <Star className="h-4 w-4 text-yellow-700 dark:text-yellow-400" />
               <p className="font-semibold text-sm">Nuovi Personal Records! 🎉</p>
             </div>
             <div className="space-y-1">

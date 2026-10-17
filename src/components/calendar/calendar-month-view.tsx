@@ -37,13 +37,13 @@ export function CalendarMonthView() {
     <Card className="border-border/50">
       <CardContent className="p-4">
         <div className="flex items-center justify-between mb-4">
-          <Button variant="ghost" size="icon-sm" onClick={prev}>
+          <Button variant="ghost" size="icon-sm" onClick={prev} aria-label="Mese precedente">
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <h2 className="font-semibold capitalize">
             {format(currentDate, "MMMM yyyy", { locale: it })}
           </h2>
-          <Button variant="ghost" size="icon-sm" onClick={next}>
+          <Button variant="ghost" size="icon-sm" onClick={next} aria-label="Mese successivo">
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
@@ -68,7 +68,7 @@ export function CalendarMonthView() {
                 className={cn(
                   "aspect-square flex flex-col items-center justify-center rounded-lg text-xs transition-colors",
                   hasWorkout
-                    ? "bg-green-600/20 text-green-400 font-semibold"
+                    ? "bg-green-600/20 text-green-600 dark:text-green-400 font-semibold"
                     : today
                     ? "border border-primary text-foreground"
                     : "text-muted-foreground hover:bg-muted"

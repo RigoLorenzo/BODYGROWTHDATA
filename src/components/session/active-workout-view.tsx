@@ -7,13 +7,15 @@ import { useMutation } from "@tanstack/react-query";
 import { useSessionStore, isFilledUnconfirmed } from "@/store/session-store";
 import { useWorkoutSession } from "@/hooks/use-workout-session";
 import { useSessionDraftSync } from "@/hooks/use-session-draft-sync";
+import { useOnline } from "@/hooks/use-online";
+import { readKeepAwake, useWakeLock } from "@/hooks/use-wake-lock";
 import { Button } from "@/components/ui/button";
 import { ExerciseCard } from "./exercise-card";
 import { ExerciseSelector } from "./exercise-selector";
 import { formatVolume } from "@/lib/utils";
 import { calculateSessionVolume } from "@/lib/volume-calculator";
-import { Plus, CheckCircle, X } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
+import { Plus, CheckCircle, X, WifiOff } from "lucide-react";
+import { dismissAllToasts, toast } from "@/hooks/use-toast";
 import type { ActiveSession } from "@/types";
 import { buildActiveExercise, fetchExerciseHistory } from "@/lib/active-exercise";
 import type { Prisma } from "@prisma/client";
@@ -48,6 +50,9 @@ export function ActiveWorkoutView({ session, onCompleted }: Props) {
   const endSession = useSessionStore((s) => s.endSession);
   const { completeWorkout, isCompleting } = useWorkoutSession();
   useSessionDraftSync();
+  const online = useOnline();
+  const [keepAwake] = useState(readKeepAwake);
+  useWakeLock(keepAwake);
   const [showExerciseSelector, setShowExerciseSelector] = useState(false);
   const [showFinishConfirm, setShowFinishConfirm] = useState(false);
   const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
@@ -95,18 +100,34 @@ export function ActiveWorkoutView({ session, onCompleted }: Props) {
   );
 
   const doComplete = async () => {
+    if (!navigator.onLine) {
+      toast({
+        title: "Sei offline",
+        description: "L'allenamento è al sicuro sul telefono: premi Fine quando torna la connessione.",
+        variant: "destructive",
+      });
+      return;
+    }
     try {
       const data = await completeWorkout(session.id);
+      dismissAllToasts();
       onCompleted(data as CompletedWorkout);
-      toast({ title: "Allenamento completato! 💪", description: "Ottimo lavoro!" });
     } catch {
-      toast({ title: "Errore", description: "Impossibile salvare l'allenamento", variant: "destructive" });
+      toast({
+        title: "Salvataggio non riuscito",
+        description: "Nessun dato perso: riprova tra qualche secondo.",
+        variant: "destructive",
+      });
     }
   };
 
+  // Serie che verrebbero registrate e serie lasciate a metà
+  const savedSets = allSets.filter((s) => s.completed || isFilledUnconfirmed(s)).length;
+  const pendingSets = allSets.length - savedSets;
+
+  /** Chiusura in un tocco solo se è tutto fatto: niente fine allenamento per sbaglio */
   const handleFinish = () => {
-    const nothingToSave = !allSets.some((s) => s.completed || isFilledUnconfirmed(s));
-    if (nothingToSave) {
+    if (pendingSets > 0 || savedSets === 0) {
       setShowFinishConfirm(true);
       return;
     }
@@ -116,14 +137,14 @@ export function ActiveWorkoutView({ session, onCompleted }: Props) {
   return (
     <div className="bg-background pb-8">
       {/* Header: fondo pieno, niente blur, così lo scroll resta fluido sui telefoni */}
-      <div className="sticky top-0 z-30 bg-background border-b border-border/60">
+      <div className="sticky top-safe z-30 bg-background border-b border-border/60">
         <div className="container max-w-2xl mx-auto px-3 py-2 flex items-center gap-2">
           <Button
             variant="ghost"
             size="icon-sm"
             aria-label="Abbandona allenamento"
             onClick={() => setShowAbandonConfirm(true)}
-            className="text-muted-foreground h-9 w-9 shrink-0"
+            className="text-muted-foreground h-11 w-11 shrink-0"
           >
             <X className="h-4 w-4" />
           </Button>
@@ -138,7 +159,7 @@ export function ActiveWorkoutView({ session, onCompleted }: Props) {
           </div>
           <Button
             size="sm"
-            className="bg-green-600 hover:bg-green-700 text-white h-9 shrink-0"
+            className="bg-green-600 hover:bg-green-700 text-white h-11 px-4 shrink-0"
             onClick={handleFinish}
             disabled={isCompleting}
           >
@@ -146,6 +167,12 @@ export function ActiveWorkoutView({ session, onCompleted }: Props) {
             {isCompleting ? "Salvataggio..." : "Fine"}
           </Button>
         </div>
+        {!online && (
+          <p className="flex items-center justify-center gap-1.5 bg-amber-500/15 px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-400">
+            <WifiOff className="h-3.5 w-3.5" />
+            Offline: continua pure, le serie restano sul telefono
+          </p>
+        )}
       </div>
 
       {/* Exercise list */}
@@ -200,21 +227,22 @@ export function ActiveWorkoutView({ session, onCompleted }: Props) {
             >
               <h3 className="font-bold text-lg mb-2">Terminare l&apos;allenamento?</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Non hai registrato nessuna serie: l&apos;allenamento verrà salvato vuoto. Vuoi terminare comunque?
+                {savedSets === 0
+                  ? "Non hai registrato nessuna serie: l'allenamento verrà salvato vuoto."
+                  : `Hai fatto ${savedSets} serie su ${allSets.length}. Le ${pendingSets} non spuntate non verranno registrate.`}
               </p>
               <div className="flex gap-3">
-                <Button variant="outline" className="flex-1" onClick={() => setShowFinishConfirm(false)}>
+                <Button variant="outline" className="h-12 flex-1" onClick={() => setShowFinishConfirm(false)}>
                   Continua
                 </Button>
                 <Button
-                  variant="destructive"
-                  className="flex-1"
+                  className="h-12 flex-1 bg-green-600 text-white hover:bg-green-700"
                   onClick={() => {
                     setShowFinishConfirm(false);
                     doComplete();
                   }}
                 >
-                  Termina
+                  Termina e salva
                 </Button>
               </div>
             </motion.div>

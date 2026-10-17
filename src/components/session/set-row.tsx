@@ -20,7 +20,9 @@ const toNumber = (value: string, parse: (v: string) => number) => {
   return Number.isNaN(n) ? undefined : n;
 };
 
-const formatWeight = (n: number) => (n % 1 === 0 ? n.toString() : n.toFixed(2).replace(/0$/, ""));
+/** Virgola decimale, come nel resto dell'app (82,5) */
+const formatWeight = (n: number) => (n % 1 === 0 ? n.toString() : n.toFixed(2).replace(/0$/, "").replace(".", ","));
+const formatPlain = (n: number) => n.toString();
 
 const stepButton =
   "h-9 w-8 shrink-0 flex items-center justify-center rounded-lg text-muted-foreground active:bg-muted touch-manipulation disabled:opacity-30";
@@ -29,10 +31,10 @@ const numberInput =
   "w-full min-w-0 text-center text-base font-semibold bg-muted/40 rounded-lg h-9 tabular-nums border-0 outline-none focus:ring-1 focus:ring-primary disabled:bg-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
 
 /** Campo numerico locale, riallineato quando il valore cambia dallo store */
-function useSyncedField(value: number | undefined, parse: (v: string) => number) {
-  const [text, setText] = useState(value?.toString() ?? "");
+function useSyncedField(value: number | undefined, parse: (v: string) => number, format = formatPlain) {
+  const [text, setText] = useState(value == null ? "" : format(value));
   useEffect(() => {
-    if ((toNumber(text, parse) ?? null) !== (value ?? null)) setText(value?.toString() ?? "");
+    if ((toNumber(text, parse) ?? null) !== (value ?? null)) setText(value == null ? "" : format(value));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
   return [text, setText] as const;
@@ -42,7 +44,7 @@ function SetRowComponent({ exerciseId, set, index, onRemove }: Props) {
   const updateSet = useSessionStore((s) => s.updateSet);
   const completeSet = useSessionStore((s) => s.completeSet);
   const uncompleteSet = useSessionStore((s) => s.uncompleteSet);
-  const [weight, setWeight] = useSyncedField(set.weight, parseFloat);
+  const [weight, setWeight] = useSyncedField(set.weight, parseFloat, formatWeight);
   const [reps, setReps] = useSyncedField(set.reps, (v) => parseInt(v, 10));
 
   const locked = set.completed;
@@ -77,7 +79,7 @@ function SetRowComponent({ exerciseId, set, index, onRemove }: Props) {
       <span
         className={cn(
           "text-sm font-semibold tabular-nums text-center",
-          set.type === "WARMUP" ? "text-yellow-400" : "text-muted-foreground"
+          set.type === "WARMUP" ? "text-yellow-700 dark:text-yellow-400" : "text-muted-foreground"
         )}
       >
         {set.type === "WARMUP" ? "W" : set.setNumber}
