@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { finalizeSession } from "@/lib/session-manager";
+import { advanceActiveProgram } from "@/lib/program-progress";
 
 interface Params { params: Promise<{ sessionId: string }> }
 
@@ -28,6 +29,14 @@ export async function POST(req: Request, { params }: Params) {
   const { sessionId } = await params;
   const session = await auth().catch(() => null);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Prima di toccare qualsiasi dato: l'allenamento deve essere dell'utente
+  const owned = await prisma.workoutSession.findFirst({
+    where: { id: sessionId, userId: session.user.id },
+    select: { id: true, status: true, programDayId: true },
+  });
+  if (!owned) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const wasActive = owned.status === "ACTIVE";
 
   try {
     const body = await req.json().catch(() => ({}));
@@ -74,14 +83,9 @@ export async function POST(req: Request, { params }: Params) {
     }
 
     // Deviation tracking: compare actual vs. planned if session was linked to a plan day
-    const workoutSession = await prisma.workoutSession.findUnique({
-      where: { id: sessionId },
-      select: { programDayId: true },
-    });
-
-    if (workoutSession?.programDayId) {
+    if (owned.programDayId) {
       const planDay = await prisma.programDay.findUnique({
-        where: { id: workoutSession.programDayId },
+        where: { id: owned.programDayId },
         include: { exercises: { select: { exerciseId: true } } },
       });
       if (planDay) {
@@ -101,6 +105,11 @@ export async function POST(req: Request, { params }: Params) {
     }
 
     await finalizeSession(sessionId, session.user.id, { restSeconds: totalRestSeconds });
+
+    // Il piano avanza solo a allenamento completato (e una volta sola)
+    if (wasActive && owned.programDayId) {
+      await advanceActiveProgram(session.user.id, owned.programDayId);
+    }
 
     const fullWorkout = await prisma.workoutSession.findUnique({
       where: { id: sessionId },

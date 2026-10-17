@@ -184,6 +184,8 @@ export function useWorkoutSession() {
       queryClient.invalidateQueries({ queryKey: ["sessions"] });
       queryClient.invalidateQueries({ queryKey: ["analytics"] });
       queryClient.invalidateQueries({ queryKey: ["records"] });
+      // Il server ha fatto avanzare il piano al giorno successivo
+      queryClient.invalidateQueries({ queryKey: ["programs"] });
     },
     onError: () => {
       toast({ title: "Errore", description: "Impossibile salvare l'allenamento", variant: "destructive" });

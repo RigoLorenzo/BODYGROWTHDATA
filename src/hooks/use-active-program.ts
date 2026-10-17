@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useWorkoutSession } from "@/hooks/use-workout-session";
 import type { ActiveProgramResponse, PlanDay } from "@/types";
 
@@ -33,29 +33,17 @@ const toPlanExercises = (day: PlanDay) =>
       notes: ex.notes ?? undefined,
     }));
 
-/** Avvia un giorno del piano (o un allenamento libero) e fa avanzare il piano */
+/** Avvia un giorno del piano (o un allenamento libero) */
 export function useStartPlanDay() {
-  const queryClient = useQueryClient();
   const { startWorkout, isLoading } = useWorkoutSession();
 
-  const advance = useMutation({
-    mutationFn: async (dayIndex: number) => {
-      await fetch("/api/programs/active", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "advance", dayIndex }),
-      });
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ACTIVE_PROGRAM_KEY }),
-  });
-
-  const startDay = (day: PlanDay, index: number) => {
+  // Il piano avanza al completamento dell'allenamento, lato server: un
+  // allenamento abbandonato non fa saltare il giorno.
+  const startDay = (day: PlanDay) =>
     startWorkout(
       { workoutType: day.workoutType, programDayId: day.id, programDayName: day.name },
       toPlanExercises(day)
     );
-    advance.mutate(index);
-  };
 
   const startFree = () => startWorkout({ workoutType: "CUSTOM" });
 

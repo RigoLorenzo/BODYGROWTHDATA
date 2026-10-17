@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, ChevronLeft, Play, Square, Trash2, CalendarDays } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, Play, Square, Trash2, CalendarDays, Pencil } from "lucide-react";
 import Link from "next/link";
 import { toast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -63,7 +63,7 @@ export default function ProgramsPage() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["programs", "active"] });
+      queryClient.invalidateQueries({ queryKey: ["programs"] });
       toast({ title: "Piano attivato!" });
     },
   });
@@ -78,7 +78,7 @@ export default function ProgramsPage() {
       if (!res.ok) throw new Error("Failed");
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["programs", "active"] });
+      queryClient.invalidateQueries({ queryKey: ["programs"] });
       toast({ title: "Piano disattivato" });
     },
   });
@@ -135,7 +135,10 @@ export default function ProgramsPage() {
           return (
             <Card key={program.id} className={`border-border/50 ${isActive ? "border-primary/50" : ""}`}>
               <CardContent className="p-4">
-                <div className="flex items-start justify-between mb-2">
+                <Link
+                  href={`/programs/${program.id}`}
+                  className="-m-2 flex items-start justify-between gap-2 rounded-xl p-2 mb-0 active:bg-muted/50"
+                >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <p className="font-semibold text-sm truncate">{program.name}</p>
@@ -161,9 +164,16 @@ export default function ProgramsPage() {
                       </div>
                     )}
                   </div>
-                </div>
+                  <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
+                </Link>
 
                 <div className="flex gap-2 mt-3">
+                  <Button variant="outline" size="sm" className="text-xs" asChild>
+                    <Link href={`/programs/${program.id}/edit`}>
+                      <Pencil className="h-3.5 w-3.5 mr-1" />
+                      Modifica
+                    </Link>
+                  </Button>
                   {isActive ? (
                     <Button
                       variant="outline"

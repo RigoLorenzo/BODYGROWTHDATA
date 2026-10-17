@@ -155,3 +155,23 @@ export interface WeeklyAnalytics {
   trainingFrequency: number;
   weeklyAverageWorkingSets: number;
 }
+
+/** Esercizio di un giorno del piano, completo di tutti i parametri */
+export interface ProgramDetailExercise extends PlanExercise {
+  id: string;
+  orderIndex: number;
+  restSeconds: number;
+  rpe: number | null;
+}
+
+/** Risposta di GET /api/programs/[id] */
+export interface ProgramDetail {
+  id: string;
+  name: string;
+  description: string | null;
+  frequency: number;
+  durationWeeks: number;
+  splitType: string;
+  isActive: boolean;
+  days: (Omit<PlanDay, "exercises"> & { exercises: ProgramDetailExercise[] })[];
+}

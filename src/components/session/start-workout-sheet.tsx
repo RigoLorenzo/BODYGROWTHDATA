@@ -19,8 +19,8 @@ export function StartWorkoutSheet({ onClose }: Props) {
   const days = active?.days ?? [];
   const suggested = active?.suggestedDayIndex ?? 0;
 
-  const handleStartDay = (day: PlanDay, index: number) => {
-    startDay(day, index);
+  const handleStartDay = (day: PlanDay) => {
+    startDay(day);
     onClose();
   };
 
@@ -76,7 +76,7 @@ export function StartWorkoutSheet({ onClose }: Props) {
             <button
               key={day.id}
               disabled={isLoading}
-              onClick={() => handleStartDay(day, index)}
+              onClick={() => handleStartDay(day)}
               className={cn(
                 "w-full text-left p-3 rounded-xl border transition-colors active:scale-[0.99]",
                 index === suggested
