@@ -1,17 +1,15 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
-import { useSessionStore, getPhase, getOpenRest } from "@/store/session-store";
+import { useSessionStore, isFilledUnconfirmed } from "@/store/session-store";
 import { useWorkoutSession } from "@/hooks/use-workout-session";
-import { useSessionTimers } from "@/hooks/use-rest-timer";
 import { Button } from "@/components/ui/button";
 import { ExerciseCard } from "./exercise-card";
 import { ExerciseSelector } from "./exercise-selector";
-import { WorkoutPhaseBar } from "./workout-phase-bar";
-import { formatVolume, formatClock, cn } from "@/lib/utils";
+import { formatVolume } from "@/lib/utils";
 import { calculateSessionVolume } from "@/lib/volume-calculator";
 import { Plus, CheckCircle, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
@@ -31,11 +29,22 @@ interface Props {
   onCompleted: (workout: CompletedWorkout) => void;
 }
 
+/** Minuti trascorsi: si aggiorna da solo senza ridisegnare la lista esercizi */
+function ElapsedMinutes({ startedAt }: { startedAt: Date }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+  const minutes = Math.max(0, Math.floor((now - new Date(startedAt).getTime()) / 60_000));
+  return <>{minutes} min</>;
+}
+
 export function ActiveWorkoutView({ session, onCompleted }: Props) {
   const router = useRouter();
-  const { addExercise, endSession, startExercise } = useSessionStore();
+  const addExercise = useSessionStore((s) => s.addExercise);
+  const endSession = useSessionStore((s) => s.endSession);
   const { completeWorkout, isCompleting } = useWorkoutSession();
-  const { isResting, totalSeconds, restSeconds, activeSeconds } = useSessionTimers();
   const [showExerciseSelector, setShowExerciseSelector] = useState(false);
   const [showFinishConfirm, setShowFinishConfirm] = useState(false);
   const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
@@ -55,6 +64,8 @@ export function ActiveWorkoutView({ session, onCompleted }: Props) {
     },
   });
 
+  const allSets = session.exercises.flatMap((ex) => ex.sets);
+  const doneSets = allSets.filter((s) => s.completed).length;
   const totalVolume = calculateSessionVolume(
     session.exercises.map((ex) => ({ sets: ex.sets.filter((s) => s.completed) }))
   );
@@ -68,25 +79,12 @@ export function ActiveWorkoutView({ session, onCompleted }: Props) {
         exerciseNameIt: exercise.nameIt ?? null,
         orderIndex: session.exercises.length,
         restTimerSeconds: 90,
-        sets: [
-          { setNumber: 1, type: "WORKING", completed: false },
-        ],
+        sets: [{ setNumber: 1, type: "WORKING", completed: false }],
       };
       addExercise(newExercise);
-
-      // Il nuovo esercizio parte subito se non stavi facendo nulla oppure se il
-      // recupero in corso è quello che segue un esercizio già concluso: così
-      // dopo l'ultima serie si passa direttamente al prossimo esercizio.
-      const state = useSessionStore.getState().activeSession;
-      const openRest = getOpenRest(state);
-      const restExercise = state?.exercises.find((ex) => ex.id === openRest?.exerciseId);
-      const restIsBetweenExercises = !!openRest && !restExercise?.sets.some((set) => !set.completed);
-      if (getPhase(state) === "IDLE" || restIsBetweenExercises) {
-        startExercise(newExercise.id);
-      }
       setShowExerciseSelector(false);
     },
-    [addExercise, startExercise, session.exercises.length]
+    [addExercise, session.exercises.length]
   );
 
   const doComplete = async () => {
@@ -100,7 +98,8 @@ export function ActiveWorkoutView({ session, onCompleted }: Props) {
   };
 
   const handleFinish = () => {
-    if (session.exercises.length === 0 || session.exercises.every((ex) => ex.sets.every((s) => !s.completed))) {
+    const nothingToSave = !allSets.some((s) => s.completed || isFilledUnconfirmed(s));
+    if (nothingToSave) {
       setShowFinishConfirm(true);
       return;
     }
@@ -108,71 +107,45 @@ export function ActiveWorkoutView({ session, onCompleted }: Props) {
   };
 
   return (
-    <div className="bg-background pb-52">
-      {/* Header */}
-      <div
-        className={cn(
-          "sticky top-0 z-30 backdrop-blur-xl border-b transition-colors",
-          isResting ? "bg-amber-950/90 border-amber-500/30" : "bg-black/90 border-white/5"
-        )}
-      >
-        <div className="container max-w-2xl mx-auto px-4 py-3">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <Button variant="ghost" size="icon-sm" onClick={() => setShowAbandonConfirm(true)} className="text-muted-foreground">
-                <X className="h-4 w-4" />
-              </Button>
-              <div className="min-w-0">
-                <p className="text-xs text-muted-foreground truncate">
-                  {session.programDayName ? `Piano · ${session.programDayName}` : "Allenamento in corso"}
-                </p>
-                <p className="text-2xl font-bold font-mono tabular-nums text-foreground">{formatClock(totalSeconds)}</p>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-xs text-muted-foreground">Volume</p>
-              <p className="text-lg font-bold tabular-nums">{formatVolume(totalVolume)}</p>
-            </div>
-            <Button
-              size="sm"
-              className="bg-green-600 hover:bg-green-700 text-white"
-              onClick={handleFinish}
-              disabled={isCompleting}
-            >
-              <CheckCircle className="h-4 w-4 mr-1.5" />
-              {isCompleting ? "Salvataggio..." : "Fine"}
-            </Button>
+    <div className="bg-background pb-8">
+      {/* Header: fondo pieno, niente blur, così lo scroll resta fluido sui telefoni */}
+      <div className="sticky top-0 z-30 bg-background border-b border-border/60">
+        <div className="container max-w-2xl mx-auto px-3 py-2 flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Abbandona allenamento"
+            onClick={() => setShowAbandonConfirm(true)}
+            className="text-muted-foreground h-9 w-9 shrink-0"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold truncate">{session.programDayName ?? "Allenamento libero"}</p>
+            <p className="text-xs text-muted-foreground tabular-nums truncate">
+              <span className="font-semibold text-foreground">
+                {doneSets}/{allSets.length}
+              </span>{" "}
+              serie · {formatVolume(totalVolume)} · <ElapsedMinutes startedAt={session.startedAt} />
+            </p>
           </div>
-
-          {/* Totali della sessione: il tempo della fase in corso è nella barra in basso */}
-          <div className="grid grid-cols-2 gap-1.5 mt-2">
-            <div className="rounded-lg bg-white/5 px-2 py-1.5 flex items-center justify-between">
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Recupero totale</span>
-              <span className="text-sm font-semibold tabular-nums text-amber-400">{formatClock(restSeconds)}</span>
-            </div>
-            <div className="rounded-lg bg-white/5 px-2 py-1.5 flex items-center justify-between">
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Effettivo</span>
-              <span className="text-sm font-semibold tabular-nums text-green-400">{formatClock(activeSeconds)}</span>
-            </div>
-          </div>
+          <Button
+            size="sm"
+            className="bg-green-600 hover:bg-green-700 text-white h-9 shrink-0"
+            onClick={handleFinish}
+            disabled={isCompleting}
+          >
+            <CheckCircle className="h-4 w-4 mr-1.5" />
+            {isCompleting ? "Salvataggio..." : "Fine"}
+          </Button>
         </div>
       </div>
 
       {/* Exercise list */}
-      <div className="container max-w-2xl mx-auto px-4 py-4 space-y-4">
-        <AnimatePresence initial={false}>
-          {session.exercises.map((exercise, index) => (
-            <motion.div
-              key={exercise.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ delay: index * 0.05 }}
-            >
-              <ExerciseCard exercise={exercise} />
-            </motion.div>
-          ))}
-        </AnimatePresence>
+      <div className="container max-w-2xl mx-auto px-3 py-3 space-y-3">
+        {session.exercises.map((exercise) => (
+          <ExerciseCard key={exercise.id} exercise={exercise} />
+        ))}
 
         {session.exercises.length === 0 && (
           <div className="text-center py-16 text-muted-foreground">
@@ -183,7 +156,7 @@ export function ActiveWorkoutView({ session, onCompleted }: Props) {
 
         <Button
           variant="outline"
-          className="w-full border-dashed"
+          className="w-full h-11 border-dashed"
           onClick={() => setShowExerciseSelector(true)}
         >
           <Plus className="h-4 w-4 mr-2" />
@@ -200,8 +173,6 @@ export function ActiveWorkoutView({ session, onCompleted }: Props) {
           />
         )}
       </AnimatePresence>
-
-      <WorkoutPhaseBar onAddExercise={() => setShowExerciseSelector(true)} />
 
       {/* Finish confirm */}
       <AnimatePresence>
@@ -222,7 +193,7 @@ export function ActiveWorkoutView({ session, onCompleted }: Props) {
             >
               <h3 className="font-bold text-lg mb-2">Terminare l&apos;allenamento?</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Non hai completato nessuna serie. Vuoi terminare comunque?
+                Non hai registrato nessuna serie: l&apos;allenamento verrà salvato vuoto. Vuoi terminare comunque?
               </p>
               <div className="flex gap-3">
                 <Button variant="outline" className="flex-1" onClick={() => setShowFinishConfirm(false)}>

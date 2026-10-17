@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
-import { Star, Clock, Dumbbell, Zap, Share2, ChevronDown, ChevronUp, X, Timer, Activity } from "lucide-react";
+import { Star, Clock, Dumbbell, Zap, Share2, ChevronDown, ChevronUp, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getMuscleColor, getMuscleLabel, formatVolume, formatWorkoutDuration, formatClock } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
@@ -39,16 +39,10 @@ export function WorkoutSummaryCard({ workout, onClose }: Props) {
   const prs = workout.personalRecords ?? [];
   const dateLabel = format(new Date(workout.startedAt), "EEEE d MMMM yyyy", { locale: it });
   const duration = formatWorkoutDuration(new Date(workout.startedAt), workout.endedAt ? new Date(workout.endedAt) : undefined);
-  const restSeconds = workout.restSeconds ?? 0;
-  const activeSeconds = workout.activeSeconds ?? Math.max(0, (workout.duration ?? 0) - restSeconds);
-  const hasRestData = restSeconds > 0;
 
   const handleShare = async () => {
     const muscleText = muscles.map(([m, v]) => `${getMuscleLabel(m)}: ${v.sets} serie`).join(" | ");
-    const timeText = hasRestData
-      ? `⏱ ${duration} (${formatClock(activeSeconds)} effettivi · ${formatClock(restSeconds)} recupero)`
-      : `⏱ ${duration}`;
-    const text = `💪 Allenamento completato!\n📅 ${dateLabel}\n${timeText} · 🏋️ ${formatVolume(totalTonnage)} tonnellaggio · ${workout.totalSets ?? 0} serie\n${muscleText}\n\n#BODYGROWTH #Fitness #Workout`;
+    const text = `💪 Allenamento completato!\n📅 ${dateLabel}\n⏱ ${duration} · 🏋️ ${formatVolume(totalTonnage)} tonnellaggio · ${workout.totalSets ?? 0} serie\n${muscleText}\n\n#BODYGROWTH #Fitness #Workout`;
     if (navigator.share) {
       try {
         await navigator.share({ title: "Il mio allenamento", text });
@@ -104,22 +98,6 @@ export function WorkoutSummaryCard({ workout, onClose }: Props) {
           <p className="text-[10px] text-white/40">Serie</p>
         </div>
       </div>
-
-      {/* Lavoro effettivo vs recupero */}
-      {hasRestData && (
-        <div className="grid grid-cols-2 gap-px mx-5 mb-4">
-          <div className="bg-white/5 rounded-xl p-3 text-center">
-            <Activity className="h-4 w-4 text-green-400/70 mx-auto mb-1" />
-            <p className="text-lg font-bold text-white tabular-nums">{formatClock(activeSeconds)}</p>
-            <p className="text-[10px] text-white/40">Allenamento effettivo</p>
-          </div>
-          <div className="bg-white/5 rounded-xl p-3 text-center">
-            <Timer className="h-4 w-4 text-amber-400/70 mx-auto mb-1" />
-            <p className="text-lg font-bold text-white tabular-nums">{formatClock(restSeconds)}</p>
-            <p className="text-[10px] text-white/40">Recupero totale</p>
-          </div>
-        </div>
-      )}
 
       {/* Muscle breakdown */}
       {muscles.length > 0 && (

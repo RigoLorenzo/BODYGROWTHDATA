@@ -1,190 +1,168 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { useSessionStore } from "@/store/session-store";
 import { Check, Minus, Plus, X } from "lucide-react";
-import { cn, formatClock } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import type { ActiveSet } from "@/types";
 
 interface Props {
   exerciseId: string;
   set: ActiveSet;
   index: number;
-  /** Recupero cronometrato dopo questa serie */
-  restSeconds?: number;
-  onRemove?: () => void;
+  onRemove?: (index: number) => void;
 }
 
-const setTypeShort: Record<string, string> = {
-  WARMUP: "W",
-  WORKING: "●",
-  DROPSET: "D",
-  FAILURE: "F",
-  MYOREP: "M",
+const WEIGHT_STEP = 2.5;
+
+const toNumber = (value: string, parse: (v: string) => number) => {
+  const n = parse(value.replace(",", "."));
+  return Number.isNaN(n) ? undefined : n;
 };
 
-export function SetRow({ exerciseId, set, index, restSeconds, onRemove }: Props) {
-  const { updateSet, completeSet } = useSessionStore();
-  const [weight, setWeight] = useState(set.weight?.toString() ?? "");
-  const [reps, setReps] = useState(set.reps?.toString() ?? "");
+const formatWeight = (n: number) => (n % 1 === 0 ? n.toString() : n.toFixed(2).replace(/0$/, ""));
 
-  // Se il valore arriva dallo store (serie precompilata dalla precedente)
-  // aggiorno il campo, senza disturbare quello che si sta digitando.
+const stepButton =
+  "h-9 w-8 shrink-0 flex items-center justify-center rounded-lg text-muted-foreground active:bg-muted touch-manipulation disabled:opacity-30";
+
+const numberInput =
+  "w-full min-w-0 text-center text-base font-semibold bg-muted/40 rounded-lg h-9 tabular-nums border-0 outline-none focus:ring-1 focus:ring-primary disabled:bg-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
+
+/** Campo numerico locale, riallineato quando il valore cambia dallo store */
+function useSyncedField(value: number | undefined, parse: (v: string) => number) {
+  const [text, setText] = useState(value?.toString() ?? "");
   useEffect(() => {
-    const typed = parseFloat(weight);
-    const current = Number.isNaN(typed) ? null : typed;
-    if ((set.weight ?? null) !== current) setWeight(set.weight?.toString() ?? "");
+    if ((toNumber(text, parse) ?? null) !== (value ?? null)) setText(value?.toString() ?? "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [set.weight]);
+  }, [value]);
+  return [text, setText] as const;
+}
 
-  useEffect(() => {
-    const typed = parseInt(reps);
-    const current = Number.isNaN(typed) ? null : typed;
-    if ((set.reps ?? null) !== current) setReps(set.reps?.toString() ?? "");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [set.reps]);
+function SetRowComponent({ exerciseId, set, index, onRemove }: Props) {
+  const updateSet = useSessionStore((s) => s.updateSet);
+  const completeSet = useSessionStore((s) => s.completeSet);
+  const uncompleteSet = useSessionStore((s) => s.uncompleteSet);
+  const [weight, setWeight] = useSyncedField(set.weight, parseFloat);
+  const [reps, setReps] = useSyncedField(set.reps, (v) => parseInt(v, 10));
 
-  const handleComplete = () => {
-    const w = parseFloat(weight) || undefined;
-    const r = parseInt(reps) || undefined;
-    updateSet(exerciseId, index, { weight: w, reps: r });
+  const locked = set.completed;
+  const suggested = set.prefilled && !set.completed;
+
+  const toggle = () => {
+    if (set.completed) {
+      uncompleteSet(exerciseId, index);
+      return;
+    }
+    updateSet(exerciseId, index, {
+      weight: toNumber(weight, parseFloat),
+      reps: toNumber(reps, (v) => parseInt(v, 10)),
+    });
     completeSet(exerciseId, index);
-    if ("vibrate" in navigator) navigator.vibrate(50);
+    if ("vibrate" in navigator) navigator.vibrate(30);
   };
 
   const adjustWeight = (delta: number) => {
-    const current = parseFloat(weight) || 0;
-    const next = Math.max(0, current + delta);
-    setWeight(next % 1 === 0 ? next.toString() : next.toFixed(2));
+    const next = Math.max(0, (toNumber(weight, parseFloat) ?? 0) + delta);
+    setWeight(formatWeight(next));
     updateSet(exerciseId, index, { weight: next });
   };
 
-  const adjustReps = (delta: number) => {
-    const current = parseInt(reps) || 0;
-    const next = Math.max(1, current + delta);
-    setReps(next.toString());
-    updateSet(exerciseId, index, { reps: next });
-  };
-
   return (
-    <div className="space-y-0.5">
     <div
       className={cn(
-        "grid grid-cols-12 gap-1 items-center rounded-lg p-1.5 transition-colors",
-        set.completed
-          ? "bg-green-500/10 border-l-2 border-green-500/40 pl-1"
-          : "hover:bg-muted/30"
+        "grid grid-cols-[1.25rem_minmax(0,1fr)_3.5rem_2.5rem_1.25rem] gap-1.5 items-center rounded-lg px-1 py-1",
+        set.completed && "bg-green-500/10"
       )}
     >
-      {/* Set number */}
-      <span className="col-span-1 text-sm font-medium text-muted-foreground tabular-nums">{set.setNumber}</span>
+      <span
+        className={cn(
+          "text-sm font-semibold tabular-nums text-center",
+          set.type === "WARMUP" ? "text-yellow-400" : "text-muted-foreground"
+        )}
+      >
+        {set.type === "WARMUP" ? "W" : set.setNumber}
+      </span>
 
-      {/* Type */}
-      <div className="col-span-2 flex justify-center">
-        <span className={cn("text-sm font-bold", set.type === "WARMUP" ? "text-yellow-400" : "text-muted-foreground")}>
-          {setTypeShort[set.type] ?? set.type}
-        </span>
-      </div>
-
-      {/* Weight */}
-      <div className="col-span-3 flex items-center justify-center gap-0.5">
+      <div className="flex items-center gap-0.5 min-w-0">
         <button
-          onClick={() => adjustWeight(-2.5)}
-          className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-          disabled={set.completed}
+          type="button"
+          aria-label="Diminuisci peso"
+          className={stepButton}
+          onClick={() => adjustWeight(-WEIGHT_STEP)}
+          disabled={locked}
         >
-          <Minus className="h-3.5 w-3.5" />
+          <Minus className="h-4 w-4" />
         </button>
         <input
-          type="number"
+          type="text"
           inputMode="decimal"
+          aria-label="Peso in kg"
           value={weight}
+          onFocus={(e) => e.target.select()}
           onChange={(e) => {
             setWeight(e.target.value);
-            updateSet(exerciseId, index, { weight: parseFloat(e.target.value) || undefined });
+            updateSet(exerciseId, index, { weight: toNumber(e.target.value, parseFloat) });
           }}
-          className={cn(
-            "w-12 text-center text-sm font-semibold bg-transparent tabular-nums border-0 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
-            set.prefilled && !set.completed && "text-muted-foreground/60"
-          )}
-          placeholder="0"
-          disabled={set.completed}
+          className={cn(numberInput, suggested && "text-muted-foreground/60")}
+          placeholder="kg"
+          disabled={locked}
         />
         <button
-          onClick={() => adjustWeight(2.5)}
-          className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-          disabled={set.completed}
+          type="button"
+          aria-label="Aumenta peso"
+          className={stepButton}
+          onClick={() => adjustWeight(WEIGHT_STEP)}
+          disabled={locked}
         >
-          <Plus className="h-3.5 w-3.5" />
+          <Plus className="h-4 w-4" />
         </button>
       </div>
 
-      {/* Reps */}
-      <div className="col-span-3 flex items-center justify-center gap-0.5">
-        <button
-          onClick={() => adjustReps(-1)}
-          className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-          disabled={set.completed}
-        >
-          <Minus className="h-3.5 w-3.5" />
-        </button>
-        <input
-          type="number"
-          inputMode="numeric"
-          value={reps}
-          onChange={(e) => {
-            setReps(e.target.value);
-            updateSet(exerciseId, index, { reps: parseInt(e.target.value) || undefined });
-          }}
-          className={cn(
-            "w-10 text-center text-sm font-semibold bg-transparent tabular-nums border-0 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
-            set.prefilled && !set.completed && "text-muted-foreground/60"
-          )}
-          placeholder="0"
-          disabled={set.completed}
-        />
-        <button
-          onClick={() => adjustReps(1)}
-          className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-          disabled={set.completed}
-        >
-          <Plus className="h-3.5 w-3.5" />
-        </button>
-      </div>
+      <input
+        type="text"
+        inputMode="numeric"
+        aria-label="Ripetizioni"
+        value={reps}
+        onFocus={(e) => e.target.select()}
+        onChange={(e) => {
+          setReps(e.target.value);
+          updateSet(exerciseId, index, { reps: toNumber(e.target.value, (v) => parseInt(v, 10)) });
+        }}
+        className={cn(numberInput, suggested && "text-muted-foreground/60")}
+        placeholder="reps"
+        disabled={locked}
+      />
 
-      {/* Complete button */}
-      <div className="col-span-2 flex justify-center">
-        <button
-          onClick={handleComplete}
-          disabled={set.completed}
-          className={cn(
-            "h-8 w-8 rounded-full flex items-center justify-center transition-all",
-            set.completed
-              ? "bg-green-600 text-white scale-90"
-              : "border-2 border-border hover:border-green-600 hover:text-green-600 text-muted-foreground"
-          )}
-        >
-          <Check className="h-3.5 w-3.5" />
-        </button>
-      </div>
+      <button
+        type="button"
+        onClick={toggle}
+        aria-pressed={set.completed}
+        aria-label={set.completed ? "Segna la serie come non fatta" : "Segna la serie come fatta"}
+        className={cn(
+          "h-10 w-10 justify-self-center rounded-full flex items-center justify-center touch-manipulation transition-colors",
+          set.completed
+            ? "bg-green-600 text-white"
+            : "border-2 border-border text-muted-foreground active:border-green-600"
+        )}
+      >
+        <Check className="h-4 w-4" />
+      </button>
 
-      {/* Remove button — only when not completed */}
-      <div className="col-span-1 flex justify-center">
+      <div className="flex justify-center">
         {!set.completed && onRemove && (
           <button
-            onClick={onRemove}
-            className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground/50 hover:text-destructive transition-colors"
+            type="button"
+            aria-label="Elimina serie"
+            onClick={() => onRemove(index)}
+            className="h-8 w-5 flex items-center justify-center text-muted-foreground/50 active:text-destructive touch-manipulation"
           >
-            <X className="h-3 w-3" />
+            <X className="h-3.5 w-3.5" />
           </button>
         )}
       </div>
     </div>
-    {typeof restSeconds === "number" && (
-      <p className="pl-2 text-[10px] text-muted-foreground/70 tabular-nums">
-        recupero {formatClock(restSeconds)}
-      </p>
-    )}
-    </div>
   );
 }
+
+/** Si ridisegna solo quando cambia la sua serie: le liste lunghe restano fluide */
+export const SetRow = memo(SetRowComponent);

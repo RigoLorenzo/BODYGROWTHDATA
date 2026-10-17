@@ -54,6 +54,7 @@ export function StartWorkoutSheet({ onClose }: Props) {
         sets: ex.sets,
         repsMin: ex.repsMin,
         repsMax: ex.repsMax,
+        notes: ex.notes ?? undefined,
       }));
 
     startWorkout(

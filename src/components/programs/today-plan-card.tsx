@@ -17,6 +17,7 @@ interface PlanExercise {
   repsMin: number;
   repsMax: number;
   restSeconds?: number;
+  notes?: string | null;
   exercise: { id: string; name: string; nameIt?: string | null; primaryMuscle: string | null } | null;
 }
 
@@ -79,6 +80,7 @@ export function TodayPlanCard() {
         sets: ex.sets,
         repsMin: ex.repsMin,
         repsMax: ex.repsMax,
+        notes: ex.notes ?? undefined,
       }));
 
     startWorkout(
