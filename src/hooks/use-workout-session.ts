@@ -2,13 +2,7 @@
 
 import { useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  useSessionStore,
-  getRestAfterSet,
-  getRestAfterExercise,
-  getTotalRestSeconds,
-  getExerciseWorkSeconds,
-} from "@/store/session-store";
+import { useSessionStore } from "@/store/session-store";
 import { useUIStore } from "@/store/ui-store";
 import { useRouter } from "next/navigation";
 import { toast } from "@/hooks/use-toast";
@@ -29,7 +23,6 @@ export function toLocalSession(workout: ServerActiveSession): ActiveSession {
   return {
     id: workout.id,
     startedAt: new Date(workout.startedAt),
-    restIntervals: [],
     programDayId: workout.programDayId ?? undefined,
     exercises: workout.exercises.map((ex, idx) => ({
       id: `srv-${ex.id}`,
@@ -60,6 +53,7 @@ type PlanExerciseInput = {
   sets?: number;
   repsMin?: number;
   repsMax?: number;
+  notes?: string;
 };
 
 type StartWorkoutInput = {
@@ -113,6 +107,7 @@ export function useWorkoutSession() {
         targetSets: ex.sets,
         targetRepsMin: ex.repsMin,
         targetRepsMax: ex.repsMax,
+        notes: ex.notes,
         // Serie pre-caricate come da piano, pronte da compilare
         sets: Array.from({ length: Math.max(1, ex.sets ?? 1) }, (_, i) => ({
           setNumber: i + 1,
@@ -124,7 +119,6 @@ export function useWorkoutSession() {
         id: session.id,
         startedAt: new Date(session.startedAt),
         exercises,
-        restIntervals: [],
         programDayId: variables.programDayId,
         programDayName: variables.programDayName,
       });
@@ -148,9 +142,6 @@ export function useWorkoutSession() {
 
   const completeMutation = useMutation({
     mutationFn: async (sessionId: string) => {
-      // Chiude il recupero eventualmente ancora in corso, così finisce nei totali
-      useSessionStore.getState().endRest();
-
       // Registra le serie compilate ma non spuntate: chiudere l'allenamento non
       // deve far perdere quello che hai inserito.
       const store = useSessionStore.getState();
@@ -162,39 +153,27 @@ export function useWorkoutSession() {
 
       const exercises = (activeSession?.exercises ?? [])
         .map((ex, idx) => ({
-          started: !!ex.startedAt,
           exerciseId: ex.exerciseId,
           orderIndex: ex.orderIndex ?? idx,
           restTimerSeconds: ex.restTimerSeconds,
-          restAfterSeconds: getRestAfterExercise(activeSession, ex.id),
-          workSeconds: ex.startedAt ? getExerciseWorkSeconds(activeSession, ex.id) : undefined,
           sets: ex.sets
-            .map((s, setIndex) => ({ set: s, restSeconds: getRestAfterSet(activeSession, ex.id, setIndex) }))
-            .filter(({ set: s }) => s.completed)
-            .map(({ set: s, restSeconds }) => ({
-              setNumber: s.setNumber,
+            .filter((s) => s.completed)
+            .map((s, setIndex) => ({
+              // Numerazione compatta: le serie non fatte non lasciano buchi
+              setNumber: setIndex + 1,
               type: s.type,
               weight: s.weight,
               reps: s.reps,
               rpe: s.rpe,
-              restSeconds,
             })),
         }))
-        // Si salva ciò che hai davvero fatto: gli esercizi con serie registrate e
-        // quelli iniziati anche senza serie (es. stretching o mobilità).
-        .filter((ex) => ex.sets.length > 0 || ex.started)
-        .map((ex) => {
-          const payload = { ...ex } as Partial<typeof ex>;
-          delete payload.started;
-          return payload;
-        });
-
-      const totalRestSeconds = getTotalRestSeconds(activeSession);
+        // Si salva ciò che hai davvero fatto: solo gli esercizi con serie registrate.
+        .filter((ex) => ex.sets.length > 0);
 
       const res = await fetch(`/api/sessions/${sessionId}/complete`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ exercises, totalRestSeconds }),
+        body: JSON.stringify({ exercises }),
       });
       if (!res.ok) throw new Error("Failed to complete session");
       return res.json();

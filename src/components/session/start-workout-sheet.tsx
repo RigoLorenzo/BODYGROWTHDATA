@@ -1,12 +1,11 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { X, Dumbbell, CalendarDays, Check } from "lucide-react";
 import { getMuscleColor, cn } from "@/lib/utils";
-import { useWorkoutSession } from "@/hooks/use-workout-session";
-import type { ActiveProgramResponse, PlanDay } from "@/types";
+import { useActiveProgram, useStartPlanDay } from "@/hooks/use-active-program";
+import type { PlanDay } from "@/types";
 
 interface Props {
   onClose: () => void;
@@ -14,62 +13,19 @@ interface Props {
 
 /** Scelta del giorno del piano da allenare (o allenamento libero). */
 export function StartWorkoutSheet({ onClose }: Props) {
-  const queryClient = useQueryClient();
-  const { startWorkout, isLoading } = useWorkoutSession();
-
-  const { data: active, isLoading: loadingPlan } = useQuery<ActiveProgramResponse | null>({
-    queryKey: ["programs", "active"],
-    queryFn: async () => {
-      const res = await fetch("/api/programs/active");
-      if (!res.ok) return null;
-      return res.json();
-    },
-    staleTime: 60_000,
-  });
-
-  const advanceMutation = useMutation({
-    mutationFn: async (dayIndex: number) => {
-      await fetch("/api/programs/active", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "advance", dayIndex }),
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["programs", "active"] });
-    },
-  });
+  const { data: active, isLoading: loadingPlan } = useActiveProgram();
+  const { startDay, startFree, isLoading } = useStartPlanDay();
 
   const days = active?.days ?? [];
   const suggested = active?.suggestedDayIndex ?? 0;
 
   const handleStartDay = (day: PlanDay, index: number) => {
-    const planExercises = day.exercises
-      .filter((ex) => ex.exercise)
-      .map((ex) => ({
-        exerciseId: ex.exerciseId,
-        exerciseName: ex.exercise!.name,
-        exerciseNameIt: ex.exercise!.nameIt,
-        restSeconds: ex.restSeconds,
-        sets: ex.sets,
-        repsMin: ex.repsMin,
-        repsMax: ex.repsMax,
-      }));
-
-    startWorkout(
-      {
-        workoutType: day.workoutType,
-        programDayId: day.id,
-        programDayName: day.name,
-      },
-      planExercises
-    );
-    advanceMutation.mutate(index);
+    startDay(day, index);
     onClose();
   };
 
   const handleFreeWorkout = () => {
-    startWorkout({ workoutType: "CUSTOM" });
+    startFree();
     onClose();
   };
 

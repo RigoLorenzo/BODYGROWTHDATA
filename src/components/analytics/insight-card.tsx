@@ -26,7 +26,7 @@ export function InsightCard() {
   const bgColor = insight.severity === "warning" ? "bg-yellow-400/10 border-yellow-400/20" : insight.severity === "success" ? "bg-green-400/10 border-green-400/20" : "bg-blue-400/10 border-blue-400/20";
 
   return (
-    <Card className={`border ${bgColor}`}>
+    <Card className={`rounded-3xl border ${bgColor}`}>
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
           <div className={`mt-0.5 ${iconColor}`}>

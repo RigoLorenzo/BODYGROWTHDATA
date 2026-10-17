@@ -1,11 +1,14 @@
-import type { PrismaClient } from "@prisma/client";
-import type { PlanDefinition } from "./plans/types";
+import type { Prisma, PrismaClient } from "@prisma/client";
+import type { PlanDay, PlanDefinition } from "./plans/types";
 import { multifrequenza4x } from "./plans/multifrequenza-4x";
 
 /**
  * Schede da caricare e attivare al deploy, una sola volta per chiave.
- * Dopo l'applicazione la scheda è un piano come gli altri: si può modificare,
- * disattivare o sostituire dall'app e i deploy successivi non la ripristinano.
+ * Se l'utente ha già una scheda con lo stesso nome viene aggiornata sul posto
+ * (stessi giorni, così lo storico resta collegato), altrimenti viene creata.
+ * Dopo l'applicazione è un piano come gli altri: si può modificare, disattivare
+ * o sostituire dall'app e i deploy successivi non la ripristinano.
+ * Per caricare una nuova versione basta cambiare la chiave.
  */
 interface PlanProvision {
   key: string;
@@ -15,13 +18,14 @@ interface PlanProvision {
 
 const provisions: PlanProvision[] = [
   {
-    key: "plan:multifrequenza-4x:v1",
+    key: "plan:multifrequenza-4x:v2",
     ownerEmail: "lorenzo.rigo.vr02@gmail.com",
     plan: multifrequenza4x,
   },
 ];
 
-type ProvisionResult = "applied" | "already-applied" | "owner-missing";
+type ProvisionResult = "created" | "updated" | "already-applied" | "owner-missing";
+type Tx = Prisma.TransactionClient;
 
 async function resolveExerciseIds(
   client: PrismaClient,
@@ -40,19 +44,72 @@ async function resolveExerciseIds(
   return ids;
 }
 
-function buildDays(plan: PlanDefinition, ids: Map<string, string>) {
-  return plan.days.map((day, dayIndex) => ({
-    dayIndex,
-    name: day.name,
-    workoutType: day.workoutType,
-    exercises: {
-      create: day.exercises.map(({ name, ...fields }, orderIndex) => ({
-        exerciseId: ids.get(name)!,
-        orderIndex,
-        ...fields,
-      })),
-    },
+const buildExercises = (day: PlanDay, ids: Map<string, string>) =>
+  day.exercises.map(({ name, ...fields }, orderIndex) => ({
+    exerciseId: ids.get(name)!,
+    orderIndex,
+    ...fields,
   }));
+
+const programFields = (plan: PlanDefinition) => ({
+  name: plan.name,
+  description: plan.description,
+  frequency: plan.frequency,
+  durationWeeks: plan.durationWeeks,
+  splitType: plan.splitType,
+});
+
+async function createProgram(tx: Tx, ownerId: string, plan: PlanDefinition, ids: Map<string, string>) {
+  return tx.program.create({
+    data: {
+      ...programFields(plan),
+      creatorId: ownerId,
+      days: {
+        create: plan.days.map((day, dayIndex) => ({
+          dayIndex,
+          name: day.name,
+          workoutType: day.workoutType,
+          exercises: { create: buildExercises(day, ids) },
+        })),
+      },
+    },
+  });
+}
+
+/** Riallinea giorni ed esercizi alla definizione, mantenendo gli id dei giorni */
+async function replaceProgram(tx: Tx, programId: string, plan: PlanDefinition, ids: Map<string, string>) {
+  await tx.program.update({ where: { id: programId }, data: programFields(plan) });
+  const existing = await tx.programDay.findMany({ where: { programId }, select: { id: true, dayIndex: true } });
+  const byIndex = new Map(existing.map((d) => [d.dayIndex, d.id]));
+
+  for (const [dayIndex, day] of plan.days.entries()) {
+    const dayId = byIndex.get(dayIndex);
+    const exercises = buildExercises(day, ids);
+    if (!dayId) {
+      await tx.programDay.create({
+        data: { programId, dayIndex, name: day.name, workoutType: day.workoutType, exercises: { create: exercises } },
+      });
+      continue;
+    }
+    await tx.programExercise.deleteMany({ where: { dayId } });
+    await tx.programDay.update({
+      where: { id: dayId },
+      data: { name: day.name, workoutType: day.workoutType, exercises: { create: exercises } },
+    });
+  }
+
+  await tx.programDay.deleteMany({ where: { programId, dayIndex: { gte: plan.days.length } } });
+}
+
+/** La scheda diventa quella attuale; se lo era già, il progresso resta dov'è */
+async function activate(tx: Tx, ownerId: string, programId: string) {
+  const current = await tx.activeProgram.findUnique({ where: { userId: ownerId } });
+  if (current?.programId === programId) return;
+  await tx.activeProgram.upsert({
+    where: { userId: ownerId },
+    update: { programId, currentDay: 0, currentWeek: 1, startedAt: new Date(), completedAt: null },
+    create: { userId: ownerId, programId },
+  });
 }
 
 async function applyProvision(
@@ -68,31 +125,25 @@ async function applyProvision(
 
   const ids = await resolveExerciseIds(client, plan);
 
-  await client.$transaction(async (tx) => {
-    const program = await tx.program.create({
-      data: {
-        name: plan.name,
-        description: plan.description,
-        frequency: plan.frequency,
-        durationWeeks: plan.durationWeeks,
-        splitType: plan.splitType,
-        creatorId: owner.id,
-        days: { create: buildDays(plan, ids) },
-      },
+  return client.$transaction(async (tx) => {
+    const existing = await tx.program.findFirst({
+      where: { creatorId: owner.id, name: plan.name },
+      orderBy: { createdAt: "desc" },
+      select: { id: true },
     });
 
-    // Stessa semantica di POST /api/programs/active: il nuovo piano diventa
-    // quello attuale e riparte dal primo giorno.
-    await tx.activeProgram.upsert({
-      where: { userId: owner.id },
-      update: { programId: program.id, currentDay: 0, currentWeek: 1, startedAt: new Date(), completedAt: null },
-      create: { userId: owner.id, programId: program.id },
-    });
+    let programId: string;
+    if (existing) {
+      await replaceProgram(tx, existing.id, plan, ids);
+      programId = existing.id;
+    } else {
+      programId = (await createProgram(tx, owner.id, plan, ids)).id;
+    }
 
+    await activate(tx, owner.id, programId);
     await tx.dataProvision.create({ data: { key } });
-  });
-
-  return "applied";
+    return existing ? "updated" : "created";
+  }, { timeout: 30_000 });
 }
 
 export async function provisionPlans(client: PrismaClient): Promise<void> {

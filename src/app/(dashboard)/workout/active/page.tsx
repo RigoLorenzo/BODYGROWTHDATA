@@ -21,7 +21,7 @@ export default function ActiveWorkoutPage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   // Il riepilogo vive qui: la sessione locale viene chiusa al salvataggio,
-  // ma il resoconto (durata, recupero, effettivo) deve restare a schermo.
+  // ma il resoconto (durata, volume, serie) deve restare a schermo.
   const [completedWorkout, setCompletedWorkout] = useState<CompletedWorkout | null>(null);
 
   useEffect(() => {

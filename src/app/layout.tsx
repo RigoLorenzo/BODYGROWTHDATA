@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Barlow_Condensed } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { Toaster } from "@/components/ui/toaster";
@@ -9,6 +9,14 @@ import { Analytics } from "@vercel/analytics/next";
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-geist-sans",
+  display: "swap",
+});
+
+// Titoli e numeri: condensato sportivo, leggibile anche a colpo d'occhio in palestra
+const display = Barlow_Condensed({
+  subsets: ["latin"],
+  weight: ["600", "700", "800"],
+  variable: "--font-display",
   display: "swap",
 });
 
@@ -49,7 +57,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="it" suppressHydrationWarning className={inter.variable}>
+    <html lang="it" suppressHydrationWarning className={`${inter.variable} ${display.variable}`}>
       <body className="min-h-screen bg-background font-sans antialiased">
         <Providers>
           {children}

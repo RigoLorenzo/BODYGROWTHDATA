@@ -1,9 +1,9 @@
 import type { PlanDefinition } from "./types";
 
 /**
- * Multifrequenza 4x — scheda creata con Claude.
- * Volume diretto settimanale: petto 16, dorso 17, deltoide laterale 11,
- * bicipiti 15, tricipiti 15. Serie per seduta: G1 28, G2 27, G3 26, G4 27.
+ * Multifrequenza 4x — scheda creata con Claude (versione di allineamento:
+ * face pull in G2 e reverse pec deck in G3 per il deltoide posteriore).
+ * Serie per seduta: G1 28, G2 30, G3 29, G4 27 — 114 a settimana.
  */
 export const multifrequenza4x: PlanDefinition = {
   name: "Multifrequenza 4x — Forza + Ipertrofia",
@@ -28,13 +28,14 @@ export const multifrequenza4x: PlanDefinition = {
       ],
     },
     {
-      name: "G2 — Gambe A · Deltoidi laterali · Braccia",
+      name: "G2 — Gambe A · Deltoidi · Braccia",
       workoutType: "LOWER",
       exercises: [
         { name: "Front Squat", sets: 4, repsMin: 5, repsMax: 8, rpe: 8.5, restSeconds: 150 },
         { name: "Bulgarian Split Squat", sets: 3, repsMin: 8, repsMax: 10, restSeconds: 90, notes: "Reps per gamba" },
         { name: "45-Degree Back Extension", sets: 3, repsMin: 10, repsMax: 12, restSeconds: 90, notes: "Zavorrata" },
         { name: "Cable Lateral Raise", sets: 4, repsMin: 12, repsMax: 15, restSeconds: 60 },
+        { name: "Face Pull", sets: 3, repsMin: 15, repsMax: 20, restSeconds: 60, notes: "Deltoide posteriore — rotazione esterna in chiusura" },
         { name: "Standing Calf Raise", sets: 3, repsMin: 10, repsMax: 15, restSeconds: 60, notes: "Alla macchina" },
         { name: "Tibialis Raise", sets: 2, repsMin: 15, repsMax: 15, restSeconds: 45, notes: "Seduto con kettlebell" },
         { name: "EZ-Bar Curl", sets: 4, repsMin: 8, repsMax: 10, restSeconds: 60, notes: "Superset con tricipiti Batman" },
@@ -48,6 +49,7 @@ export const multifrequenza4x: PlanDefinition = {
         { name: "Overhead Press", sets: 4, repsMin: 4, repsMax: 6, rpe: 9, restSeconds: 180, notes: "Military press — forza, RIR 1" },
         { name: "Incline Dumbbell Press", sets: 3, repsMin: 8, repsMax: 10, restSeconds: 120 },
         { name: "Lateral Raise", sets: 3, repsMin: 12, repsMax: 15, restSeconds: 60 },
+        { name: "Reverse Pec Deck", sets: 3, repsMin: 15, repsMax: 20, restSeconds: 60, notes: "Deltoide posteriore" },
         { name: "Pec Deck", sets: 3, repsMin: 12, repsMax: 12, restSeconds: 75, notes: "Croci verticali / ai cavi" },
         { name: "Straight-Arm Pulldown", sets: 3, repsMin: 12, repsMax: 15, restSeconds: 60, notes: "Complementare dorso" },
         { name: "Dumbbell Shrug", sets: 3, repsMin: 10, repsMax: 12, restSeconds: 75, notes: "Pausa 1s in alto — trapezio superiore" },

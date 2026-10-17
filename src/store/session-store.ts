@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import type { ActiveSession, ActiveExercise, ActiveSet, RestInterval } from "@/types";
+import type { ActiveSession, ActiveExercise, ActiveSet } from "@/types";
 
 interface SessionState {
   activeSession: ActiveSession | null;
@@ -19,404 +19,146 @@ interface SessionState {
   addSet: (exerciseId: string, set: ActiveSet) => void;
   updateSet: (exerciseId: string, setIndex: number, updates: Partial<ActiveSet>) => void;
   removeSet: (exerciseId: string, setIndex: number) => void;
+  /** Spunta la serie come fatta e propone gli stessi valori alla successiva */
   completeSet: (exerciseId: string, setIndex: number) => void;
+  /** Toglie la spunta: la serie torna da fare e non viene registrata */
+  uncompleteSet: (exerciseId: string, setIndex: number) => void;
 
   /** Conferma le serie compilate ma non ancora spuntate */
   confirmFilledSets: (exerciseId: string) => void;
-
-  // Ciclo dell'esercizio: inizio → serie → recupero → esercizio successivo
-  startExercise: (exerciseId: string) => void;
-  finishExercise: (exerciseId: string) => void;
-  startRest: (kind: RestInterval["kind"], opts?: { exerciseId?: string; setIndex?: number; targetSeconds?: number }) => void;
-  endRest: () => void;
 
   // UI
   setSessionPanelOpen: (open: boolean) => void;
 }
 
-/** Recupero attualmente in corso (intervallo ancora aperto), se c'è. */
-export function getOpenRest(session: ActiveSession | null): RestInterval | null {
-  if (!session) return null;
-  return (session.restIntervals ?? []).find((r) => !r.endedAt) ?? null;
-}
+type SessionUpdater = (session: ActiveSession) => ActiveSession;
 
-/** Secondi totali di recupero, incluso quello in corso. */
-export function getTotalRestSeconds(session: ActiveSession | null, now: number = Date.now()): number {
-  if (!session) return 0;
-  return (session.restIntervals ?? []).reduce(
-    (sum, r) => sum + Math.max(0, Math.floor(((r.endedAt ?? now) - r.startedAt) / 1000)),
-    0
-  );
-}
-
-/** Secondi di lavoro effettivo = durata totale meno i recuperi. */
-export function getActiveSeconds(session: ActiveSession | null, now: number = Date.now()): number {
-  if (!session) return 0;
-  const total = Math.max(0, Math.floor((now - new Date(session.startedAt).getTime()) / 1000));
-  return Math.max(0, total - getTotalRestSeconds(session, now));
-}
-
-/** Recupero (in secondi) registrato dopo una specifica serie. */
-export function getRestAfterSet(
-  session: ActiveSession | null,
+const mapExercise = (
+  session: ActiveSession,
   exerciseId: string,
-  setIndex: number
-): number | undefined {
-  const interval = (session?.restIntervals ?? []).find(
-    (r) => r.kind === "SET" && r.exerciseId === exerciseId && r.setIndex === setIndex && r.endedAt
-  );
-  if (!interval?.endedAt) return undefined;
-  return Math.max(0, Math.floor((interval.endedAt - interval.startedAt) / 1000));
-}
+  fn: (ex: ActiveExercise) => ActiveExercise
+): ActiveSession => ({
+  ...session,
+  exercises: session.exercises.map((ex) => (ex.id === exerciseId ? fn(ex) : ex)),
+});
 
-/** Recupero (in secondi) registrato dopo un esercizio. */
-export function getRestAfterExercise(session: ActiveSession | null, exerciseId: string): number | undefined {
-  const interval = (session?.restIntervals ?? []).find(
-    (r) => r.kind === "EXERCISE" && r.exerciseId === exerciseId && r.endedAt
-  );
-  if (!interval?.endedAt) return undefined;
-  return Math.max(0, Math.floor((interval.endedAt - interval.startedAt) / 1000));
-}
+const mapSet = (ex: ActiveExercise, setIndex: number, fn: (s: ActiveSet) => ActiveSet): ActiveExercise => ({
+  ...ex,
+  sets: ex.sets.map((s, i) => (i === setIndex ? fn(s) : s)),
+});
 
-/** Esercizio a cui si riferisce la fase corrente (lavoro o recupero) */
-export function getCurrentExercise(session: ActiveSession | null): ActiveExercise | null {
-  if (!session) return null;
-  const openRest = getOpenRest(session);
-  const id = openRest?.exerciseId ?? session.currentExerciseId;
-  return session.exercises.find((e) => e.id === id) ?? null;
-}
-
-/** Prossimo esercizio da iniziare: il primo mai avviato, altrimenti uno non terminato */
-export function getNextExercise(session: ActiveSession | null): ActiveExercise | null {
-  if (!session) return null;
-  return (
-    session.exercises.find((e) => !e.startedAt) ??
-    session.exercises.find((e) => !e.finishedAt) ??
-    null
-  );
-}
-
-/**
- * Fase corrente della sessione:
- * - REST: recupero in corso (sempre legato a un esercizio)
- * - WORK: stai svolgendo un esercizio
- * - IDLE: nessun esercizio in corso, non si cronometra nulla
- */
-export function getPhase(session: ActiveSession | null): "IDLE" | "WORK" | "REST" {
-  if (!session) return "IDLE";
-  if (getOpenRest(session)) return "REST";
-  const current = session.exercises.find((e) => e.id === session.currentExerciseId);
-  return current && current.startedAt && !current.finishedAt ? "WORK" : "IDLE";
-}
-
-/** Secondi di lavoro effettivo di un esercizio (durata meno i suoi recuperi) */
-export function getExerciseWorkSeconds(
-  session: ActiveSession | null,
-  exerciseId: string,
-  now: number = Date.now()
-): number {
-  const ex = session?.exercises.find((e) => e.id === exerciseId);
-  if (!session || !ex?.startedAt) return 0;
-  const end = ex.finishedAt ?? now;
-  const elapsed = Math.max(0, Math.floor((end - ex.startedAt) / 1000));
-  // Solo i recuperi avvenuti dentro l'esercizio (quello finale è escluso)
-  const restInside = (session.restIntervals ?? [])
-    .filter((r) => r.exerciseId === exerciseId && r.startedAt < end)
-    .reduce(
-      (sum, r) => sum + Math.max(0, Math.floor((Math.min(r.endedAt ?? now, end) - r.startedAt) / 1000)),
-      0
-    );
-  return Math.max(0, elapsed - restInside);
-}
-
-const closeOpenIntervals = (intervals: RestInterval[], at: number): RestInterval[] =>
-  intervals.map((r) => (r.endedAt ? r : { ...r, endedAt: at }));
+/** Serie con dati inseriti dall'utente ma non ancora spuntata */
+export const isFilledUnconfirmed = (s: ActiveSet) =>
+  !s.completed && !s.prefilled && (s.weight != null || s.reps != null);
 
 export const useSessionStore = create<SessionState>()(
   persist(
-    (set, get) => ({
-      activeSession: null,
-      isSessionPanelOpen: false,
+    (set) => {
+      const update = (fn: SessionUpdater) =>
+        set((state) => (state.activeSession ? { activeSession: fn(state.activeSession) } : state));
 
-      startSession: (session) =>
-        set({
-          activeSession: { ...session, restIntervals: session.restIntervals ?? [] },
-          isSessionPanelOpen: true,
-        }),
+      return {
+        activeSession: null,
+        isSessionPanelOpen: false,
 
-      endSession: () => set({ activeSession: null, isSessionPanelOpen: false }),
+        startSession: (session) => set({ activeSession: session, isSessionPanelOpen: true }),
 
-      addExercise: (exercise) =>
-        set((state) => {
-          if (!state.activeSession) return state;
-          return {
-            activeSession: {
-              ...state.activeSession,
-              exercises: [...state.activeSession.exercises, exercise],
-            },
-          };
-        }),
+        endSession: () => set({ activeSession: null, isSessionPanelOpen: false }),
 
-      removeExercise: (exerciseId) =>
-        set((state) => {
-          if (!state.activeSession) return state;
-          const now = Date.now();
-          const wasCurrent = state.activeSession.currentExerciseId === exerciseId;
-          return {
-            activeSession: {
-              ...state.activeSession,
-              exercises: state.activeSession.exercises.filter((e) => e.id !== exerciseId),
-              currentExerciseId: wasCurrent ? undefined : state.activeSession.currentExerciseId,
-              // I cronometri non restano appesi a un esercizio che non c'è più
-              restIntervals: (state.activeSession.restIntervals ?? []).map((r) =>
-                r.exerciseId === exerciseId && !r.endedAt ? { ...r, endedAt: now } : r
-              ),
-            },
-          };
-        }),
+        addExercise: (exercise) =>
+          update((session) => ({ ...session, exercises: [...session.exercises, exercise] })),
 
-      reorderExercises: (exercises) =>
-        set((state) => {
-          if (!state.activeSession) return state;
-          return { activeSession: { ...state.activeSession, exercises } };
-        }),
+        removeExercise: (exerciseId) =>
+          update((session) => ({
+            ...session,
+            exercises: session.exercises.filter((e) => e.id !== exerciseId),
+          })),
 
-      addSet: (exerciseId, newSet) =>
-        set((state) => {
-          if (!state.activeSession) return state;
-          const target = state.activeSession.exercises.find((ex) => ex.id === exerciseId);
-          const reopening = !!target?.finishedAt;
-          return {
-            activeSession: {
-              ...state.activeSession,
-              // Aggiungere una serie a un esercizio chiuso lo riapre
-              currentExerciseId: reopening ? exerciseId : state.activeSession.currentExerciseId,
-              exercises: state.activeSession.exercises.map((ex) =>
-                ex.id === exerciseId
-                  ? {
-                      ...ex,
-                      sets: [...ex.sets, newSet],
-                      ...(reopening ? { finishedAt: undefined, finished: false } : {}),
-                    }
-                  : ex
-              ),
-            },
-          };
-        }),
+        reorderExercises: (exercises) => update((session) => ({ ...session, exercises })),
 
-      updateSet: (exerciseId, setIndex, updates) =>
-        set((state) => {
-          if (!state.activeSession) return state;
-          // Se peso o ripetizioni arrivano dall'utente, la serie non è più un suggerimento
-          const touched =
-            ("weight" in updates || "reps" in updates) && updates.prefilled === undefined
-              ? { prefilled: false }
-              : {};
-          return {
-            activeSession: {
-              ...state.activeSession,
-              exercises: state.activeSession.exercises.map((ex) =>
-                ex.id === exerciseId
-                  ? {
-                      ...ex,
-                      sets: ex.sets.map((s, i) => (i === setIndex ? { ...s, ...updates, ...touched } : s)),
-                    }
-                  : ex
-              ),
-            },
-          };
-        }),
+        addSet: (exerciseId, newSet) =>
+          update((session) => mapExercise(session, exerciseId, (ex) => ({ ...ex, sets: [...ex.sets, newSet] }))),
 
-      removeSet: (exerciseId, setIndex) =>
-        set((state) => {
-          if (!state.activeSession) return state;
-          return {
-            activeSession: {
-              ...state.activeSession,
-              exercises: state.activeSession.exercises.map((ex) =>
-                ex.id === exerciseId
-                  ? { ...ex, sets: ex.sets.filter((_, i) => i !== setIndex) }
-                  : ex
-              ),
-            },
-          };
-        }),
+        updateSet: (exerciseId, setIndex, updates) =>
+          update((session) => {
+            // Se peso o ripetizioni arrivano dall'utente, la serie non è più un suggerimento
+            const touched =
+              ("weight" in updates || "reps" in updates) && updates.prefilled === undefined
+                ? { prefilled: false }
+                : {};
+            return mapExercise(session, exerciseId, (ex) =>
+              mapSet(ex, setIndex, (s) => ({ ...s, ...updates, ...touched }))
+            );
+          }),
 
-      completeSet: (exerciseId, setIndex) => {
-        // Registrare una serie significa che quell'esercizio è in corso
-        const state = get().activeSession;
-        const target = state?.exercises.find((e) => e.id === exerciseId);
-        if (!target?.startedAt || target.finishedAt || state?.currentExerciseId !== exerciseId) {
-          get().startExercise(exerciseId);
-        }
+        removeSet: (exerciseId, setIndex) =>
+          update((session) =>
+            mapExercise(session, exerciseId, (ex) => ({
+              ...ex,
+              sets: ex.sets
+                .filter((_, i) => i !== setIndex)
+                .map((s, i) => ({ ...s, setNumber: i + 1 })),
+            }))
+          ),
 
-        get().updateSet(exerciseId, setIndex, { completed: true });
+        completeSet: (exerciseId, setIndex) =>
+          update((session) =>
+            mapExercise(session, exerciseId, (ex) => {
+              const done = { ...ex.sets[setIndex], completed: true, prefilled: false };
+              const next = ex.sets[setIndex + 1];
+              // La serie successiva parte con gli stessi peso/ripetizioni, così non si
+              // riscrive tutto ogni volta (resta modificabile).
+              const prefillNext = next && !next.completed && next.weight == null && next.reps == null;
+              return {
+                ...ex,
+                sets: ex.sets.map((s, i) => {
+                  if (i === setIndex) return done;
+                  if (i === setIndex + 1 && prefillNext) {
+                    return { ...s, weight: done.weight, reps: done.reps, prefilled: true };
+                  }
+                  return s;
+                }),
+              };
+            })
+          ),
 
-        // La serie successiva parte con gli stessi peso/ripetizioni, così non si
-        // riscrive tutto ogni volta (resta modificabile).
-        const done = get()
-          .activeSession?.exercises.find((e) => e.id === exerciseId)
-          ?.sets[setIndex];
-        const next = get()
-          .activeSession?.exercises.find((e) => e.id === exerciseId)
-          ?.sets[setIndex + 1];
-        if (done && next && !next.completed && next.weight == null && next.reps == null) {
-          get().updateSet(exerciseId, setIndex + 1, {
-            weight: done.weight,
-            reps: done.reps,
-            prefilled: true,
-          });
-        }
+        uncompleteSet: (exerciseId, setIndex) =>
+          update((session) =>
+            mapExercise(session, exerciseId, (ex) =>
+              // I valori restano come proposta: a fine allenamento non vengono
+              // registrati finché non la spunti di nuovo o li modifichi.
+              mapSet(ex, setIndex, (s) => ({ ...s, completed: false, prefilled: true }))
+            )
+          ),
 
-        const session = get().activeSession;
-        if (!session) return;
-        const ex = session.exercises.find((e) => e.id === exerciseId);
-        const allDone = !!ex && ex.sets.every((s) => s.completed);
+        /**
+         * Conferma le serie che l'utente ha compilato ma non ha spuntato.
+         * Le serie solo suggerite (copiate dalla precedente o tolte dalla spunta)
+         * restano fuori: i dati non inseriti non vengono mai registrati.
+         */
+        confirmFilledSets: (exerciseId) =>
+          update((session) =>
+            mapExercise(session, exerciseId, (ex) => ({
+              ...ex,
+              sets: ex.sets.map((s) => (isFilledUnconfirmed(s) ? { ...s, completed: true } : s)),
+            }))
+          ),
 
-        if (allDone) {
-          // Ultima serie: l'esercizio è finito, il recupero porta al prossimo
-          const now = Date.now();
-          set((state) => {
-            if (!state.activeSession) return state;
-            return {
-              activeSession: {
-                ...state.activeSession,
-                exercises: state.activeSession.exercises.map((e) =>
-                  e.id === exerciseId
-                    ? { ...e, startedAt: e.startedAt ?? now, finishedAt: now, finished: true }
-                    : e
-                ),
-              },
-            };
-          });
-          get().startRest("EXERCISE", { exerciseId, targetSeconds: ex?.restTimerSeconds ?? 120 });
-          return;
-        }
-
-        // Recupero tra le serie: si ferma quando prosegui con la serie successiva
-        get().startRest("SET", { exerciseId, setIndex, targetSeconds: ex?.restTimerSeconds ?? 90 });
-      },
-
-      startRest: (kind, opts = {}) =>
-        set((state) => {
-          if (!state.activeSession) return state;
-          const now = Date.now();
-          const interval: RestInterval = {
-            id: `rest-${now}-${Math.random().toString(36).slice(2, 7)}`,
-            kind,
-            startedAt: now,
-            exerciseId: opts.exerciseId,
-            setIndex: opts.setIndex,
-            targetSeconds: opts.targetSeconds,
-          };
-          return {
-            activeSession: {
-              ...state.activeSession,
-              restIntervals: [...closeOpenIntervals(state.activeSession.restIntervals ?? [], now), interval],
-            },
-          };
-        }),
-
-      /** Chiude il recupero e torna a lavorare sull'esercizio a cui era legato */
-      endRest: () =>
-        set((state) => {
-          if (!state.activeSession) return state;
-          const now = Date.now();
-          const open = getOpenRest(state.activeSession);
-          const backTo = open?.exerciseId;
-          return {
-            activeSession: {
-              ...state.activeSession,
-              currentExerciseId: backTo ?? state.activeSession.currentExerciseId,
-              restIntervals: closeOpenIntervals(state.activeSession.restIntervals ?? [], now),
-              exercises: state.activeSession.exercises.map((ex) =>
-                backTo && ex.id === backTo && open?.kind === "SET"
-                  ? { ...ex, finishedAt: undefined, finished: false }
-                  : ex
-              ),
-            },
-          };
-        }),
-
-      /**
-       * Conferma le serie che l'utente ha compilato ma non ha spuntato.
-       * Le serie solo suggerite (copiate dalla precedente) restano fuori: i dati
-       * non inseriti non vengono mai registrati.
-       */
-      confirmFilledSets: (exerciseId) =>
-        set((state) => {
-          if (!state.activeSession) return state;
-          return {
-            activeSession: {
-              ...state.activeSession,
-              exercises: state.activeSession.exercises.map((ex) =>
-                ex.id === exerciseId
-                  ? {
-                      ...ex,
-                      sets: ex.sets.map((s) =>
-                        !s.completed && !s.prefilled && (s.weight != null || s.reps != null)
-                          ? { ...s, completed: true }
-                          : s
-                      ),
-                    }
-                  : ex
-              ),
-            },
-          };
-        }),
-
-      /** Inizia (o riprende) un esercizio: chiude il recupero e fa partire il lavoro */
-      startExercise: (exerciseId) =>
-        set((state) => {
-          if (!state.activeSession) return state;
-          const now = Date.now();
-          return {
-            activeSession: {
-              ...state.activeSession,
-              currentExerciseId: exerciseId,
-              restIntervals: closeOpenIntervals(state.activeSession.restIntervals ?? [], now),
-              exercises: state.activeSession.exercises.map((ex) =>
-                ex.id === exerciseId
-                  ? { ...ex, startedAt: ex.startedAt ?? now, finishedAt: undefined, finished: false }
-                  : ex
-              ),
-            },
-          };
-        }),
-
-      /** Fine esercizio: registra le serie compilate, chiude il lavoro e avvia il recupero */
-      finishExercise: (exerciseId) => {
-        get().confirmFilledSets(exerciseId);
-        set((state) => {
-          if (!state.activeSession) return state;
-          const now = Date.now();
-          return {
-            activeSession: {
-              ...state.activeSession,
-              currentExerciseId: exerciseId,
-              exercises: state.activeSession.exercises.map((ex) =>
-                ex.id === exerciseId
-                  ? { ...ex, startedAt: ex.startedAt ?? now, finishedAt: now, finished: true }
-                  : ex
-              ),
-            },
-          };
-        });
-        const ex = get().activeSession?.exercises.find((e) => e.id === exerciseId);
-        get().startRest("EXERCISE", { exerciseId, targetSeconds: ex?.restTimerSeconds ?? 120 });
-      },
-
-      setSessionPanelOpen: (open) => set({ isSessionPanelOpen: open }),
-    }),
+        setSessionPanelOpen: (open) => set({ isSessionPanelOpen: open }),
+      };
+    },
     {
       name: "bodygrowth-session",
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ activeSession: state.activeSession }),
+      // Le versioni precedenti cronometravano recuperi e fasi: si tengono solo
+      // esercizi e serie, così un allenamento in corso sopravvive all'aggiornamento.
       migrate: (persisted) => {
-        const state = persisted as { activeSession?: ActiveSession | null };
-        if (state?.activeSession && !state.activeSession.restIntervals) {
-          state.activeSession.restIntervals = [];
+        const state = persisted as { activeSession?: (ActiveSession & Record<string, unknown>) | null };
+        if (state?.activeSession) {
+          const { id, startedAt, exercises, programDayId, programDayName } = state.activeSession;
+          state.activeSession = { id, startedAt, exercises, programDayId, programDayName };
         }
         return state as never;
       },

@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { withProgramDayNames } from "@/lib/program-day-names";
 import { z } from "zod";
 import type { MuscleGroup } from "@prisma/client";
 
@@ -90,5 +91,5 @@ export async function GET(req: Request) {
     },
   });
 
-  return NextResponse.json(workouts);
+  return NextResponse.json(await withProgramDayNames(workouts));
 }

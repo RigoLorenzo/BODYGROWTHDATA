@@ -1,16 +1,11 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { formatRelative, formatVolume, getMuscleColor } from "@/lib/utils";
-import { Dumbbell, Star, ChevronRight } from "lucide-react";
 import Link from "next/link";
-
-interface WorkoutExercise {
-  id: string;
-  exercise?: { name: string; primaryMuscle?: string | null };
-}
+import { useQuery } from "@tanstack/react-query";
+import { format } from "date-fns";
+import { it } from "date-fns/locale";
+import { ChevronRight, Star } from "lucide-react";
+import { formatVolume } from "@/lib/utils";
 
 interface WorkoutListItem {
   id: string;
@@ -18,13 +13,17 @@ interface WorkoutListItem {
   startedAt: string | Date;
   totalVolume: number;
   totalSets: number;
-  exercises?: WorkoutExercise[];
+  programDayName?: string | null;
+  exercises?: { id: string; exercise?: { name: string } }[];
   _count?: { personalRecords: number };
 }
 
 interface Props {
   initialData?: WorkoutListItem[];
 }
+
+const workoutTitle = (w: WorkoutListItem) =>
+  w.programDayName ?? (w.workoutType === "CUSTOM" ? w.exercises?.[0]?.exercise?.name ?? "Allenamento" : w.workoutType);
 
 export function RecentWorkouts({ initialData }: Props) {
   const { data: workouts } = useQuery<WorkoutListItem[]>({
@@ -38,76 +37,60 @@ export function RecentWorkouts({ initialData }: Props) {
     staleTime: 60 * 1000,
   });
 
-  if (!workouts?.length) {
-    return (
-      <Card className="border-border/50">
-        <CardContent className="p-8 text-center">
-          <Dumbbell className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground">Nessun allenamento ancora.</p>
-          <p className="text-sm text-muted-foreground">Inizia il tuo primo allenamento!</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
-    <div>
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="font-semibold">Allenamenti Recenti</h2>
-        <Link href="/calendar" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-          Vedi tutti →
+    <section>
+      <div className="mb-2 flex items-baseline justify-between px-1">
+        <h2 className="font-display text-xl font-bold uppercase tracking-wide">Ultimi allenamenti</h2>
+        <Link href="/calendar" className="flex h-8 items-center text-xs text-muted-foreground active:text-foreground">
+          Storico <ChevronRight className="h-3.5 w-3.5" />
         </Link>
       </div>
-      <div className="space-y-3">
-        {workouts.slice(0, 5).map((workout: WorkoutListItem) => (
-          <Link key={workout.id} href={`/workout/${workout.id}`}>
-            <Card className="border-border/50 hover:border-border transition-colors active:scale-[0.99]">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <p className="font-medium text-sm truncate">
-                        {workout.workoutType === "CUSTOM"
-                          ? workout.exercises?.[0]?.exercise?.name ?? "Allenamento"
-                          : workout.workoutType}
-                      </p>
-                      {(workout._count?.personalRecords ?? 0) > 0 && (
-                        <Badge variant="success" className="shrink-0">
-                          <Star className="h-2.5 w-2.5 mr-1" />
-                          PR
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground">{formatRelative(workout.startedAt)}</p>
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {workout.exercises?.slice(0, 3).map((ex: WorkoutExercise) => (
-                        <span
-                          key={ex.id}
-                          className="text-[10px] px-1.5 py-0.5 rounded-full border"
-                          style={{
-                            borderColor: `${getMuscleColor(ex.exercise?.primaryMuscle ?? "")}40`,
-                            color: getMuscleColor(ex.exercise?.primaryMuscle ?? ""),
-                          }}
-                        >
-                          {ex.exercise?.name}
+
+      {!workouts?.length ? (
+        <p className="rounded-3xl border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">
+          Ancora nessun allenamento: il primo parte dalla card qui sopra.
+        </p>
+      ) : (
+        <ul className="overflow-hidden rounded-3xl border border-border/60 bg-card">
+          {workouts.slice(0, 5).map((workout) => {
+            const date = new Date(workout.startedAt);
+            const prs = workout._count?.personalRecords ?? 0;
+            return (
+              <li key={workout.id} className="border-b border-border/50 last:border-0">
+                <Link
+                  href={`/workout/${workout.id}`}
+                  className="flex items-center gap-4 px-4 py-3 active:bg-muted/50"
+                >
+                  <div className="w-10 shrink-0 text-center">
+                    <p className="font-display text-2xl font-bold leading-none tabular-nums">{format(date, "d")}</p>
+                    <p className="text-[10px] font-medium uppercase text-muted-foreground">
+                      {format(date, "MMM", { locale: it })}
+                    </p>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="flex items-center gap-1.5 truncate text-sm font-semibold">
+                      <span className="truncate">{workoutTitle(workout)}</span>
+                      {prs > 0 && (
+                        <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                          <Star className="h-2.5 w-2.5 fill-current" />
+                          {prs} PR
                         </span>
-                      ))}
-                      {(workout.exercises?.length ?? 0) > 3 && (
-                        <span className="text-[10px] text-muted-foreground">+{(workout.exercises?.length ?? 0) - 3}</span>
                       )}
-                    </div>
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      <span className="capitalize">{format(date, "EEEE", { locale: it })}</span> ·{" "}
+                      {workout.exercises?.length ?? 0} esercizi · {workout.totalSets} serie
+                    </p>
                   </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-sm font-semibold tabular-nums">{formatVolume(workout.totalVolume)}</p>
-                    <p className="text-xs text-muted-foreground">{workout.totalSets} serie</p>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground ml-auto mt-1" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
-      </div>
-    </div>
+                  <p className="shrink-0 font-display text-lg font-semibold tabular-nums">
+                    {formatVolume(workout.totalVolume)}
+                  </p>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
   );
 }

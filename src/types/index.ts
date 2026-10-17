@@ -51,27 +51,8 @@ export interface ActiveSession {
   id: string;
   startedAt: Date;
   exercises: ActiveExercise[];
-  /** Esercizio che stai svolgendo ora (o a cui si riferisce il recupero in corso) */
-  currentExerciseId?: string;
-  /** Intervalli di recupero cronometrati durante l'allenamento */
-  restIntervals: RestInterval[];
   programDayId?: string;
   programDayName?: string;
-}
-
-/**
- * Un recupero: parte quando finisci una serie o un esercizio,
- * si chiude quando riprendi. `endedAt` assente = recupero in corso.
- */
-export interface RestInterval {
-  id: string;
-  kind: "SET" | "EXERCISE";
-  startedAt: number;
-  endedAt?: number;
-  /** id locale dell'esercizio appena terminato */
-  exerciseId?: string;
-  setIndex?: number;
-  targetSeconds?: number;
 }
 
 export interface ActiveExercise {
@@ -82,14 +63,11 @@ export interface ActiveExercise {
   orderIndex: number;
   restTimerSeconds: number;
   fromPlan?: boolean;
-  /** Momento in cui hai iniziato l'esercizio (assente = non ancora iniziato) */
-  startedAt?: number;
-  /** Momento in cui hai premuto "Fine esercizio" */
-  finishedAt?: number;
-  finished?: boolean;
   targetSets?: number;
   targetRepsMin?: number;
   targetRepsMax?: number;
+  /** Note del piano (es. "Forza — RIR 1") */
+  notes?: string;
   sets: ActiveSet[];
 }
 
@@ -113,6 +91,7 @@ export interface PlanExercise {
   repsMin: number;
   repsMax: number;
   restSeconds?: number;
+  notes?: string | null;
   exercise: { id: string; name: string; nameIt?: string | null; primaryMuscle: string | null } | null;
 }
 
