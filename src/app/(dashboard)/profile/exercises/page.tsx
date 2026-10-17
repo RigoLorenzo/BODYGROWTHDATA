@@ -38,8 +38,8 @@ export default function ExercisesPage() {
     <div className="container max-w-2xl mx-auto p-4 space-y-4">
       <div className="flex items-center justify-between pt-2">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon-sm" asChild>
-            <Link href="/profile/settings"><ChevronLeft className="h-5 w-5" /></Link>
+          <Button variant="ghost" size="icon-sm" className="shrink-0" asChild>
+            <Link href="/profile/settings" aria-label="Indietro"><ChevronLeft className="h-5 w-5" /></Link>
           </Button>
           <div>
             <h1 className="text-xl font-bold">Esercizi</h1>
@@ -66,11 +66,11 @@ export default function ExercisesPage() {
         />
       </div>
 
-      <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
+      <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
         <button
           onClick={() => { setMuscle(undefined); setOnlyCustom(false); }}
           className={cn(
-            "shrink-0 text-xs px-3 py-1 rounded-full border transition-colors",
+            "shrink-0 h-9 inline-flex items-center text-[13px] px-3.5 rounded-full border transition-colors touch-manipulation",
             !muscle && !onlyCustom ? "bg-primary text-primary-foreground border-transparent" : "border-border text-muted-foreground"
           )}
         >
@@ -79,7 +79,7 @@ export default function ExercisesPage() {
         <button
           onClick={() => { setOnlyCustom((v) => !v); }}
           className={cn(
-            "shrink-0 text-xs px-3 py-1 rounded-full border transition-colors",
+            "shrink-0 h-9 inline-flex items-center text-[13px] px-3.5 rounded-full border transition-colors touch-manipulation",
             onlyCustom ? "bg-primary text-primary-foreground border-transparent" : "border-border text-muted-foreground"
           )}
         >
@@ -90,7 +90,7 @@ export default function ExercisesPage() {
             key={m}
             onClick={() => setMuscle(muscle === m ? undefined : m)}
             className={cn(
-              "shrink-0 text-xs px-3 py-1 rounded-full border transition-colors",
+              "shrink-0 h-9 inline-flex items-center text-[13px] px-3.5 rounded-full border transition-colors touch-manipulation",
               muscle === m ? "border-transparent text-white" : "border-border text-muted-foreground"
             )}
             style={muscle === m ? { background: getMuscleColor(m) } : {}}

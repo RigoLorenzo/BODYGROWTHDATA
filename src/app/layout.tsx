@@ -48,8 +48,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  // Contenuto fino ai bordi: le aree sicure sono gestite con env(safe-area-inset-*)
+  viewportFit: "cover",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#ffffff" },
     { media: "(prefers-color-scheme: dark)", color: "#000000" },
@@ -68,6 +68,8 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
       </head>
       <body className="min-h-screen bg-background font-sans antialiased">
+        {/* Fondo sotto la barra di stato, così il contenuto che scorre non ci passa dietro */}
+        <div aria-hidden className="pointer-events-none fixed inset-x-0 top-0 z-[70] h-[env(safe-area-inset-top)] bg-background" />
         <Providers>
           {children}
           <Toaster />

@@ -98,8 +98,8 @@ export default function ProgramsPage() {
   return (
     <div className="container max-w-2xl mx-auto p-4 space-y-4">
       <div className="flex items-center gap-3 pt-2">
-        <Button variant="ghost" size="icon-sm" asChild>
-          <Link href="/profile"><ChevronLeft className="h-5 w-5" /></Link>
+        <Button variant="ghost" size="icon-sm" className="shrink-0" asChild>
+          <Link href="/profile" aria-label="Indietro"><ChevronLeft className="h-5 w-5" /></Link>
         </Button>
         <div className="flex-1">
           <h1 className="text-2xl font-bold">Piani di Allenamento</h1>
@@ -199,7 +199,7 @@ export default function ProgramsPage() {
 
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="icon-sm" className="text-muted-foreground hover:text-destructive">
+                      <Button variant="ghost" size="icon-sm" aria-label="Elimina piano" className="text-muted-foreground hover:text-destructive">
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </AlertDialogTrigger>

@@ -160,13 +160,13 @@ export function WorkoutHistoryList() {
                                 </Badge>
                               )}
                               {workout.programDayId && (
-                                <Badge variant="outline" className="shrink-0 text-[9px] border-blue-500/40 text-blue-400 bg-blue-500/10">
+                                <Badge variant="outline" className="shrink-0 text-[9px] border-blue-500/40 text-blue-600 dark:text-blue-400 bg-blue-500/10">
                                   <CalendarDays className="h-2.5 w-2.5 mr-1" />
                                   Piano
                                 </Badge>
                               )}
                               {workout.notes?.includes("[DEVIAZIONE") && (
-                                <Badge variant="outline" className="shrink-0 text-[9px] border-orange-500/40 text-orange-400 bg-orange-500/10">
+                                <Badge variant="outline" className="shrink-0 text-[9px] border-orange-500/40 text-orange-600 dark:text-orange-400 bg-orange-500/10">
                                   <AlertTriangle className="h-2.5 w-2.5 mr-1" />
                                   Deviato
                                 </Badge>

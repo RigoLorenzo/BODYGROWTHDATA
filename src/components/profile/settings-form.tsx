@@ -10,6 +10,8 @@ import Link from "next/link";
 import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { readTheme, saveTheme, type Theme } from "@/lib/theme";
+import { readKeepAwake, saveKeepAwake } from "@/hooks/use-wake-lock";
+import { Switch } from "@/components/ui/switch";
 
 const THEME_OPTIONS: { value: Theme; label: string; icon: typeof Sun }[] = [
   { value: "system", label: "Sistema", icon: Smartphone },
@@ -23,7 +25,11 @@ interface Props {
 
 export function SettingsForm({ user }: Props) {
   const [theme, setTheme] = useState<Theme>("system");
-  useEffect(() => setTheme(readTheme()), []);
+  const [keepAwake, setKeepAwake] = useState(true);
+  useEffect(() => {
+    setTheme(readTheme());
+    setKeepAwake(readKeepAwake());
+  }, []);
 
   const changeTheme = (value: Theme) => {
     setTheme(value);
@@ -135,6 +141,31 @@ export function SettingsForm({ user }: Props) {
           <p className="text-xs text-muted-foreground">
             &ldquo;Sistema&rdquo; segue il tema del telefono. La scelta vale per questo dispositivo.
           </p>
+        </CardContent>
+      </Card>
+
+      {/* Allenamento */}
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Allenamento</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <label className="flex min-h-11 items-center justify-between gap-4">
+            <span>
+              <span className="block text-sm font-medium">Schermo sempre acceso</span>
+              <span className="block text-xs text-muted-foreground">
+                Il telefono non si blocca tra una serie e l&apos;altra mentre sei nella schermata dell&apos;allenamento.
+              </span>
+            </span>
+            <Switch
+              checked={keepAwake}
+              onCheckedChange={(value) => {
+                setKeepAwake(value);
+                saveKeepAwake(value);
+              }}
+              aria-label="Schermo sempre acceso durante l'allenamento"
+            />
+          </label>
         </CardContent>
       </Card>
 

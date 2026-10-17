@@ -13,7 +13,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "@/hooks/use-toast";
 import { useUIStore } from "@/store/ui-store";
-import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
+import dynamic from "next/dynamic";
+
+const MeasurementSparkline = dynamic(() => import("./measurement-sparkline"), {
+  ssr: false,
+  loading: () => <div className="h-20" />,
+});
 
 interface Measurement {
   id: string;
@@ -155,30 +160,19 @@ export function BodyMeasurements() {
                     {trendDelta !== null && (
                       <div className="flex items-center gap-1 text-xs">
                         {trendDelta < -0.1 ? (
-                          <TrendingDown className="h-3 w-3 text-green-400" />
+                          <TrendingDown className="h-3 w-3 text-green-600 dark:text-green-400" />
                         ) : trendDelta > 0.1 ? (
-                          <TrendingUp className="h-3 w-3 text-orange-400" />
+                          <TrendingUp className="h-3 w-3 text-orange-600 dark:text-orange-400" />
                         ) : (
                           <Minus className="h-3 w-3 text-muted-foreground" />
                         )}
-                        <span className={trendDelta < 0 ? "text-green-400" : trendDelta > 0 ? "text-orange-400" : "text-muted-foreground"}>
+                        <span className={trendDelta < 0 ? "text-green-600 dark:text-green-400" : trendDelta > 0 ? "text-orange-600 dark:text-orange-400" : "text-muted-foreground"}>
                           {trendDelta > 0 ? "+" : ""}{trendDelta.toFixed(1)}{cfg.unit}
                         </span>
                       </div>
                     )}
                   </div>
-                  <ResponsiveContainer width="100%" height={80}>
-                    <LineChart data={chartData}>
-                      <XAxis dataKey="date" tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
-                      <YAxis domain={["auto", "auto"]} hide />
-                      <Tooltip
-                        contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11 }}
-                        formatter={(v: number) => [`${v}${cfg.unit}`, cfg.label]}
-                        labelStyle={{ color: "hsl(var(--muted-foreground))" }}
-                      />
-                      <Line dataKey="value" stroke={cfg.color} strokeWidth={2} dot={false} />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  <MeasurementSparkline data={chartData} color={cfg.color} unit={cfg.unit} label={cfg.label} />
                 </div>
               )}
             </div>
@@ -207,7 +201,7 @@ export function BodyMeasurements() {
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 250 }}
-              className="fixed bottom-0 left-0 right-0 z-50 bg-card rounded-t-2xl p-6 shadow-xl max-w-lg mx-auto"
+              className="fixed bottom-0 left-0 right-0 z-50 bg-card rounded-t-2xl p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-xl max-w-lg mx-auto"
             >
               <div className="flex items-center justify-between mb-5">
                 <h2 className="text-lg font-semibold">Nuova Misurazione</h2>

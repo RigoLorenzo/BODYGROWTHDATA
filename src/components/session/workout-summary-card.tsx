@@ -126,7 +126,7 @@ export function WorkoutSummaryCard({ workout, onClose }: Props) {
       {/* Exercise list (collapsible) */}
       <div className="px-5 mb-4">
         <button
-          className="w-full flex items-center justify-between text-[10px] text-white/30 uppercase tracking-wider font-medium pb-2"
+          className="w-full flex items-center justify-between py-3 text-[11px] text-white/50 uppercase tracking-wider font-medium"
           onClick={() => setShowExercises((v) => !v)}
         >
           <span>Esercizi ({workout.exercises.length})</span>

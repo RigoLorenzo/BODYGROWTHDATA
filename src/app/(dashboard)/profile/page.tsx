@@ -21,10 +21,10 @@ export default async function ProfilePage() {
         <Card className="border-border/50 hover:border-border transition-colors active:scale-[0.99]">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="p-2 rounded-lg bg-yellow-400/10">
-              <Trophy className="h-5 w-5 text-yellow-400" />
+              <Trophy className="h-5 w-5 text-yellow-700 dark:text-yellow-400" />
             </div>
             <div className="flex-1">
-              <p className="font-medium text-sm">Personal Records</p>
+              <p className="font-medium text-sm">Record personali</p>
               <p className="text-xs text-muted-foreground">Visualizza i tuoi migliori risultati</p>
             </div>
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
@@ -36,7 +36,7 @@ export default async function ProfilePage() {
         <Card className="border-border/50 hover:border-border transition-colors active:scale-[0.99]">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="p-2 rounded-lg bg-blue-400/10">
-              <CalendarDays className="h-5 w-5 text-blue-400" />
+              <CalendarDays className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             </div>
             <div className="flex-1">
               <p className="font-medium text-sm">Piani di Allenamento</p>

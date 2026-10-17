@@ -79,6 +79,16 @@
 }
 
 @layer utilities {
+  /* Aree sicure (notch, Dynamic Island, barra gesture) per l'app installata */
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .top-safe {
+    top: env(safe-area-inset-top);
+  }
   .animate-in {
     animation: fade-in 0.3s ease-out;
   }

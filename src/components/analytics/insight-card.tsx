@@ -22,7 +22,7 @@ export function InsightCard() {
 
   const insight = insights[0];
   const Icon = insight.type === "plateau" ? AlertTriangle : insight.type === "overtraining" ? AlertTriangle : Info;
-  const iconColor = insight.severity === "warning" ? "text-yellow-400" : insight.severity === "success" ? "text-green-400" : "text-blue-400";
+  const iconColor = insight.severity === "warning" ? "text-yellow-700 dark:text-yellow-400" : insight.severity === "success" ? "text-green-600 dark:text-green-400" : "text-blue-600 dark:text-blue-400";
   const bgColor = insight.severity === "warning" ? "bg-yellow-400/10 border-yellow-400/20" : insight.severity === "success" ? "bg-green-400/10 border-green-400/20" : "bg-blue-400/10 border-blue-400/20";
 
   return (

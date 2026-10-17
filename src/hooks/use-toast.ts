@@ -2,8 +2,10 @@
 
 import * as React from "react";
 
-const TOAST_LIMIT = 5;
-const TOAST_REMOVE_DELAY = 2000;
+const TOAST_LIMIT = 2;
+const TOAST_REMOVE_DELAY = 2500;
+/** Gli errori restano di più: devono poter essere letti */
+const ERROR_TOAST_DELAY = 5000;
 
 export type ToastActionElement = React.ReactElement;
 
@@ -69,9 +71,15 @@ function reducer(state: ToastState, action: Action): ToastState {
 export function toast(props: ToastProps) {
   const id = props.id ?? genId();
   dispatch({ type: "ADD_TOAST", toast: { ...props, id } });
-  setTimeout(() => dispatch({ type: "DISMISS_TOAST", toastId: id }), props.duration ?? TOAST_REMOVE_DELAY);
-  setTimeout(() => dispatch({ type: "REMOVE_TOAST", toastId: id }), (props.duration ?? TOAST_REMOVE_DELAY) + 500);
+  const duration = props.duration ?? (props.variant === "destructive" ? ERROR_TOAST_DELAY : TOAST_REMOVE_DELAY);
+  setTimeout(() => dispatch({ type: "DISMISS_TOAST", toastId: id }), duration);
+  setTimeout(() => dispatch({ type: "REMOVE_TOAST", toastId: id }), duration + 500);
   return { id };
+}
+
+/** Chiude tutti i messaggi (es. un errore superato da un'azione riuscita) */
+export function dismissAllToasts() {
+  memoryState.toasts.forEach((t) => dispatch({ type: "DISMISS_TOAST", toastId: t.id! }));
 }
 
 export function useToast() {

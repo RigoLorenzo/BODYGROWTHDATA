@@ -44,7 +44,7 @@ export function ProgressScore() {
   const delta = data.delta;
   const DeltaIcon = delta == null || delta === 0 ? Minus : delta > 0 ? TrendingUp : TrendingDown;
   const deltaColor =
-    delta == null || delta === 0 ? "text-muted-foreground" : delta > 0 ? "text-green-400" : "text-orange-400";
+    delta == null || delta === 0 ? "text-muted-foreground" : delta > 0 ? "text-green-600 dark:text-green-400" : "text-orange-600 dark:text-orange-400";
 
   return (
     <div className="space-y-4">
@@ -75,7 +75,7 @@ export function ProgressScore() {
         <Card className="border bg-blue-400/10 border-blue-400/20">
           <CardContent className="p-4">
             <div className="flex items-start gap-3">
-              <div className="mt-0.5 text-blue-400">
+              <div className="mt-0.5 text-blue-600 dark:text-blue-400">
                 <Sparkles className="h-5 w-5" />
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed flex-1">{data.insight}</p>
