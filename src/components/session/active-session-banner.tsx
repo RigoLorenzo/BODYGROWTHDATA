@@ -9,8 +9,8 @@ export function ActiveSessionBanner() {
   const activeSession = useSessionStore((s) => s.activeSession);
   const pathname = usePathname();
 
-  // Sulla schermata dell'allenamento il riepilogo è già nell'header
-  if (!activeSession || pathname?.startsWith("/workout/active")) return null;
+  // Sulla schermata dell'allenamento e sulla home il riepilogo è già a schermo
+  if (!activeSession || pathname?.startsWith("/workout/active") || pathname === "/dashboard") return null;
 
   const sets = activeSession.exercises.flatMap((ex) => ex.sets);
   const done = sets.filter((s) => s.completed).length;

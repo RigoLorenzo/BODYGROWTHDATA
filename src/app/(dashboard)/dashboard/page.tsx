@@ -1,15 +1,14 @@
 import { Suspense } from "react";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { withProgramDayNames } from "@/lib/program-day-names";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
-import { StatsGrid } from "@/components/dashboard/stats-grid";
+import { TodayHero } from "@/components/dashboard/today-hero";
+import { WeekCard } from "@/components/dashboard/week-card";
 import { RecentWorkouts } from "@/components/dashboard/recent-workouts";
-import { WeeklyHeatmap } from "@/components/calendar/weekly-heatmap";
-import { QuickStart } from "@/components/session/quick-start";
 import { InsightCard } from "@/components/analytics/insight-card";
-import { TodayPlanCard } from "@/components/programs/today-plan-card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { startOfWeek, endOfWeek, subWeeks, format, subDays } from "date-fns";
+import { startOfWeek, endOfWeek, subWeeks, format } from "date-fns";
 
 export const metadata = { title: "Dashboard" };
 
@@ -27,7 +26,6 @@ export default async function DashboardPage() {
     const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
     const prevWeekStart = subWeeks(weekStart, 1);
     const prevWeekEnd = subWeeks(weekEnd, 1);
-    const sevenDaysAgo = subDays(now, 6);
 
     try {
       const [thisWeek, lastWeek, total, streak, sessions, recentSessions] =
@@ -49,7 +47,7 @@ export default async function DashboardPage() {
           }),
           prisma.streak.findUnique({ where: { userId } }),
           prisma.workoutSession.findMany({
-            where: { userId, status: "COMPLETED", startedAt: { gte: sevenDaysAgo } },
+            where: { userId, status: "COMPLETED", startedAt: { gte: weekStart, lte: weekEnd } },
             select: { startedAt: true, totalVolume: true },
           }),
           prisma.workoutSession.findMany({
@@ -78,7 +76,7 @@ export default async function DashboardPage() {
         longestStreak: streak?.longestStreak ?? 0,
       };
 
-      recentWorkouts = recentSessions;
+      recentWorkouts = await withProgramDayNames(recentSessions);
 
       for (const s of sessions) {
         const day = format(s.startedAt, "yyyy-MM-dd");
@@ -90,18 +88,17 @@ export default async function DashboardPage() {
   }
 
   return (
-    <div className="container max-w-4xl mx-auto p-4 space-y-6">
+    <div className="container max-w-xl mx-auto px-4 pt-3 pb-6 space-y-5">
       <DashboardHeader user={session?.user ?? {}} />
 
-      <QuickStart />
+      <TodayHero />
 
-      <TodayPlanCard />
+      <WeekCard
+        initialOverview={statsData ?? undefined}
+        initialDays={Object.keys(heatmapData).length ? heatmapData : undefined}
+      />
 
-      <StatsGrid initialData={statsData ?? undefined} />
-
-      <WeeklyHeatmap initialData={Object.keys(heatmapData).length ? heatmapData : undefined} />
-
-      <Suspense fallback={<Skeleton className="h-32 rounded-xl" />}>
+      <Suspense fallback={<Skeleton className="h-24 rounded-3xl" />}>
         <InsightCard />
       </Suspense>
 
