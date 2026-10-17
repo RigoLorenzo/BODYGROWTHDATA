@@ -2,14 +2,15 @@
 
 import Link from "next/link";
 import { use } from "react";
+import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, Pencil, Play, Zap } from "lucide-react";
+import { ChevronLeft, Copy, Pencil, Play, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
 import { useStartPlanDay } from "@/hooks/use-active-program";
 import { getMuscleColor, getMuscleLabel } from "@/lib/utils";
-import { repsLabel, setsByMuscle, splitDayName } from "@/lib/plan-format";
+import { plannedMuscleVolume, repsLabel, splitDayName } from "@/lib/plan-format";
 import type { ProgramDetail } from "@/types";
 
 const SPLIT_LABELS: Record<string, string> = {
@@ -23,40 +24,60 @@ const SPLIT_LABELS: Record<string, string> = {
 
 const formatRest = (s: number) => (s >= 60 ? `${Math.floor(s / 60)}'${s % 60 ? `${s % 60}"` : ""}` : `${s}"`);
 
-/** Serie settimanali per muscolo: il colpo d'occhio sul volume del piano */
+const fmtSets = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1).replace(".", ","));
+
+/**
+ * Serie settimanali per muscolo, con lo stesso modello di Analytics:
+ * la parte piena sono le serie dirette, quella chiara il contributo
+ * degli esercizi in cui il muscolo lavora da secondario.
+ */
 function WeeklyVolume({ program }: { program: ProgramDetail }) {
-  const muscles = setsByMuscle(program.days.flatMap((d) => d.exercises));
+  const muscles = plannedMuscleVolume(program.days.flatMap((d) => d.exercises));
   if (!muscles.length) return null;
-  const max = muscles[0][1];
-  const total = muscles.reduce((sum, [, sets]) => sum + sets, 0);
+  const max = muscles[0][1].weighted;
+  const totalSets = program.days.reduce((sum, d) => sum + d.exercises.reduce((s, ex) => s + ex.sets, 0), 0);
 
   return (
     <section className="rounded-3xl border border-border/60 bg-card p-5">
       <div className="flex items-baseline justify-between">
         <h2 className="font-display text-xl font-bold uppercase tracking-wide">Serie a settimana</h2>
-        <p className="font-display text-xl font-bold tabular-nums">{total}</p>
+        <p className="text-xs text-muted-foreground">
+          <span className="font-display text-xl font-bold tabular-nums text-foreground">{totalSets}</span> totali
+        </p>
       </div>
-      <ul className="mt-3 space-y-2">
-        {muscles.map(([muscle, sets]) => (
-          <li key={muscle} className="grid grid-cols-[6.5rem_1fr_2rem] items-center gap-3">
+      <ul className="mt-3 space-y-2.5">
+        {muscles.map(([muscle, { direct, weighted }]) => (
+          <li key={muscle} className="grid grid-cols-[6.5rem_1fr_3.5rem] items-center gap-3">
             <span className="truncate text-sm">{getMuscleLabel(muscle)}</span>
-            <span className="h-2 overflow-hidden rounded-full bg-muted">
+            <span className="relative h-2.5 overflow-hidden rounded-full bg-muted">
               <span
-                className="block h-full rounded-full"
-                style={{ width: `${(sets / max) * 100}%`, background: getMuscleColor(muscle) }}
+                className="absolute inset-y-0 left-0 rounded-full opacity-35"
+                style={{ width: `${(weighted / max) * 100}%`, background: getMuscleColor(muscle) }}
+              />
+              <span
+                className="absolute inset-y-0 left-0 rounded-full"
+                style={{ width: `${(direct / max) * 100}%`, background: getMuscleColor(muscle) }}
               />
             </span>
-            <span className="text-right font-display text-lg font-bold tabular-nums">{sets}</span>
+            <span className="text-right leading-none">
+              <span className="font-display text-lg font-bold tabular-nums">{fmtSets(weighted)}</span>
+              {weighted !== direct && (
+                <span className="block text-[10px] tabular-nums text-muted-foreground">{direct} dirette</span>
+              )}
+            </span>
           </li>
         ))}
       </ul>
-      <p className="mt-3 text-[11px] text-muted-foreground">Conteggio sul muscolo principale di ogni esercizio.</p>
+      <p className="mt-3 text-[11px] text-muted-foreground">
+        Parte piena: serie dirette. Parte chiara: lavoro da muscolo secondario (vale ½ o ¼ di serie), come in Analytics.
+      </p>
     </section>
   );
 }
 
 export default function ProgramDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const router = useRouter();
   const queryClient = useQueryClient();
   const { startDay, isLoading: starting } = useStartPlanDay();
 
@@ -83,6 +104,20 @@ export default function ProgramDetailPage({ params }: { params: Promise<{ id: st
       toast({ title: "Piano attivato", description: "Ora è il piano della home." });
     },
     onError: () => toast({ title: "Errore", description: "Impossibile attivare il piano", variant: "destructive" }),
+  });
+
+  const duplicate = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/programs/${id}/duplicate`, { method: "POST" });
+      if (!res.ok) throw new Error("Failed");
+      return (await res.json()) as { id: string; name: string };
+    },
+    onSuccess: (copy) => {
+      queryClient.invalidateQueries({ queryKey: ["programs"] });
+      toast({ title: "Piano duplicato", description: copy.name });
+      router.push(`/programs/${copy.id}/edit`);
+    },
+    onError: () => toast({ title: "Errore", description: "Impossibile duplicare il piano", variant: "destructive" }),
   });
 
   if (isPending) {
@@ -154,6 +189,15 @@ export default function ProgramDetailPage({ params }: { params: Promise<{ id: st
             </Button>
           )}
         </div>
+        <Button
+          variant="ghost"
+          className="mt-1 h-11 w-full text-muted-foreground"
+          onClick={() => duplicate.mutate()}
+          disabled={duplicate.isPending}
+        >
+          <Copy className="mr-2 h-4 w-4" />
+          {duplicate.isPending ? "Duplicazione..." : "Duplica per creare una variante"}
+        </Button>
       </header>
 
       <WeeklyVolume program={program} />

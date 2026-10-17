@@ -318,6 +318,9 @@ model WorkoutSession {
   longitude           Float?
   templateId          String?
   programDayId        String?
+  /// Stato dell'allenamento in corso (esercizi e serie, anche non spuntate),
+  /// salvato mentre ti alleni: si riprende anche se il telefono perde i dati.
+  draft               Json?
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
 

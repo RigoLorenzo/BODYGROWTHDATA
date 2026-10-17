@@ -1,5 +1,6 @@
 export const runtime = "nodejs";
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { finalizeSession } from "@/lib/session-manager";
@@ -105,6 +106,9 @@ export async function POST(req: Request, { params }: Params) {
     }
 
     await finalizeSession(sessionId, session.user.id, { restSeconds: totalRestSeconds });
+
+    // La bozza non serve più: l'allenamento ora è nelle tabelle definitive
+    await prisma.workoutSession.update({ where: { id: sessionId }, data: { draft: Prisma.DbNull } });
 
     // Il piano avanza solo a allenamento completato (e una volta sola)
     if (wasActive && owned.programDayId) {

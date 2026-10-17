@@ -1,4 +1,5 @@
 import { prisma } from "./prisma";
+import { nextCurrentDay } from "./plan-cycle";
 
 /**
  * Dopo aver completato un giorno del piano attivo, il prossimo consigliato è
@@ -15,9 +16,8 @@ export async function advanceActiveProgram(userId: string, programDayId: string)
   const index = days.findIndex((d) => d.id === programDayId);
   if (index < 0) return;
 
-  const cycleStart = Math.floor(active.currentDay / days.length) * days.length;
   await prisma.activeProgram.update({
     where: { userId },
-    data: { currentDay: cycleStart + index + 1 },
+    data: { currentDay: nextCurrentDay(active.currentDay, days.length, index) },
   });
 }

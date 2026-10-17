@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { nextCurrentDay, suggestedDayIndex } from "@/lib/plan-cycle";
 
 export async function GET() {
   const session = await auth().catch(() => null);
@@ -31,7 +32,7 @@ export async function GET() {
   const dayCount = program.days.length;
   if (dayCount === 0) return NextResponse.json({ ...activeProgram, todayDay: null });
 
-  const suggestedIndex = currentDay % dayCount;
+  const suggestedIndex = suggestedDayIndex(currentDay, dayCount);
 
   // Enrich every day's exercises with names, so the user can pick which day of
   // the plan they are actually training today.
@@ -83,9 +84,7 @@ export async function POST(req: Request) {
 
     const dayCount = active.program.days.length || 1;
     const nextDay =
-      typeof dayIndex === "number"
-        ? Math.floor(active.currentDay / dayCount) * dayCount + dayIndex + 1
-        : active.currentDay + 1;
+      typeof dayIndex === "number" ? nextCurrentDay(active.currentDay, dayCount, dayIndex) : active.currentDay + 1;
 
     const updated = await prisma.activeProgram.update({
       where: { userId: session.user.id },

@@ -29,7 +29,7 @@ export async function GET(_req: Request, { params }: Params) {
   const exerciseIds = program.days.flatMap((d) => d.exercises.map((e) => e.exerciseId));
   const exercises = await prisma.exercise.findMany({
     where: { id: { in: exerciseIds } },
-    select: { id: true, name: true, nameIt: true, primaryMuscle: true },
+    select: { id: true, name: true, nameIt: true, primaryMuscle: true, muscleGroups: true, muscleContributions: true },
   });
   const exerciseMap = new Map(exercises.map((e) => [e.id, e]));
   const { activations, ...rest } = program;
