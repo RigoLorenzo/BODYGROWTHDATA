@@ -38,10 +38,10 @@ export function WeeklyLoadChart() {
   }));
 
   return (
-    <Card className="border-border/50">
+    <Card className="rounded-3xl border-border/60 shadow-none">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-sm">Carico Settimanale (8 settimane)</CardTitle>
+          <CardTitle className="font-display text-xl font-bold uppercase tracking-wide">Carico settimanale</CardTitle>
           <div className="flex gap-1">
             <button className={btnCls(metric === "workingSets")} onClick={() => setMetric("workingSets")}>
               Serie
@@ -75,7 +75,7 @@ export function WeeklyLoadChart() {
                 metric === "tonnage" ? "Volume Load" : "Serie di lavoro",
               ]}
             />
-            <Bar dataKey="value" fill={metric === "tonnage" ? "#22c55e" : "#8b5cf6"} radius={[4, 4, 0, 0]} />
+            <Bar dataKey="value" fill={metric === "tonnage" ? "#84cc16" : "hsl(var(--foreground))"} radius={[6, 6, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
 

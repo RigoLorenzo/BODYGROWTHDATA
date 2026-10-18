@@ -6,12 +6,13 @@ export const metadata = { title: "Analytics" };
 
 export default function AnalyticsPage() {
   return (
-    <div className="container max-w-4xl mx-auto p-4 space-y-6">
+    <div className="container mx-auto max-w-xl space-y-3 px-4 pb-6 pt-3">
       <div>
-        <h1 className="text-2xl font-bold">Analytics</h1>
-        <p className="text-muted-foreground text-sm">Performance & progressi</p>
+        <h1 className="font-display text-3xl font-bold uppercase tracking-wide">Analytics</h1>
+        <p className="text-sm text-muted-foreground">Palestra e corsa, i tuoi numeri</p>
       </div>
-      <Suspense fallback={<Skeleton className="h-96 rounded-xl" />}>
+      {/* useSearchParams (scheda scelta) richiede un confine Suspense */}
+      <Suspense fallback={<Skeleton className="h-96 rounded-3xl" />}>
         <AnalyticsTabs />
       </Suspense>
     </div>

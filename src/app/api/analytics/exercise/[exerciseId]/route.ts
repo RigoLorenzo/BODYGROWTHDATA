@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { format } from "date-fns";
+import { it } from "date-fns/locale";
 import { bestEstimatedOneRM } from "@/lib/one-rm-calculator";
 
 interface Params { params: Promise<{ exerciseId: string }> }
@@ -15,13 +16,14 @@ export async function GET(req: Request, { params }: Params) {
   const { searchParams } = new URL(req.url);
   const isLast = searchParams.get("last") === "true";
 
-  const sessions = await prisma.workoutSession.findMany({
+  // Le ultime 60 sedute (non le prime 60), poi in ordine cronologico per il grafico
+  const recent = await prisma.workoutSession.findMany({
     where: {
       userId: session.user.id,
       status: "COMPLETED",
       exercises: { some: { exerciseId } },
     },
-    orderBy: { startedAt: isLast ? "desc" : "asc" },
+    orderBy: { startedAt: "desc" },
     take: isLast ? 1 : 60,
     select: {
       startedAt: true,
@@ -35,6 +37,7 @@ export async function GET(req: Request, { params }: Params) {
       },
     },
   });
+  const sessions = recent.reverse();
 
   const data = sessions.flatMap((s) =>
     s.exercises.map((ex) => {
@@ -50,7 +53,8 @@ export async function GET(req: Request, { params }: Params) {
       const estimate = bestEstimatedOneRM(workingSets);
 
       return {
-        date: format(s.startedAt, "d MMM"),
+        date: format(s.startedAt, "d MMM", { locale: it }),
+        iso: s.startedAt.toISOString(),
         maxWeight,
         maxReps,
         volume,

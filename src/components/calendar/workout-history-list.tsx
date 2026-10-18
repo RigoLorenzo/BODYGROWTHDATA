@@ -10,6 +10,12 @@ import { Star, Dumbbell, CalendarDays, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import Link from "next/link";
+import { formatKm, formatPace, paceSecondsPerKm } from "@/lib/run/format";
+
+const workoutTitle = (w: WorkoutItem) =>
+  w.run?.name ??
+  w.programDayName ??
+  (w.workoutType === "CUSTOM" ? w.exercises?.[0]?.exercise?.name ?? "Allenamento" : w.workoutType);
 
 const MUSCLE_FILTERS: { value: string; label: string }[] = [
   { value: "", label: "Tutti" },
@@ -38,7 +44,9 @@ interface WorkoutItem {
   totalVolume: number;
   totalSets: number;
   programDayId?: string | null;
+  programDayName?: string | null;
   notes?: string | null;
+  run?: { id: string; name: string; distance: number; movingTime: number } | null;
   exercises?: WorkoutExercise[];
   _count?: { personalRecords: number };
 }
@@ -142,16 +150,14 @@ export function WorkoutHistoryList() {
               </p>
               <div className="space-y-2">
                 {group.items.map((workout) => (
-                  <Link key={workout.id} href={`/workout/${workout.id}`}>
-                    <Card className="border-border/50 hover:border-border transition-colors active:scale-[0.99]">
+                  <Link key={workout.id} href={workout.run ? `/run/${workout.run.id}` : `/workout/${workout.id}`}>
+                    <Card className="rounded-3xl border-border/60 shadow-none transition-colors hover:border-border active:scale-[0.99]">
                       <CardContent className="p-4">
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                               <p className="font-medium text-sm truncate">
-                                {workout.workoutType === "CUSTOM"
-                                  ? workout.exercises?.[0]?.exercise?.name ?? "Allenamento"
-                                  : workout.workoutType}
+                                {workoutTitle(workout)}
                               </p>
                               {(workout._count?.personalRecords ?? 0) > 0 && (
                                 <Badge variant="success" className="shrink-0">
@@ -200,10 +206,19 @@ export function WorkoutHistoryList() {
                               )}
                             </div>
                           </div>
-                          <div className="text-right shrink-0">
-                            <p className="text-sm font-semibold tabular-nums">{formatVolume(workout.totalVolume)}</p>
-                            <p className="text-xs text-muted-foreground">{workout.totalSets} serie</p>
-                          </div>
+                          {workout.run ? (
+                            <div className="text-right shrink-0">
+                              <p className="text-sm font-semibold tabular-nums">{formatKm(workout.run.distance)} km</p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatPace(paceSecondsPerKm(workout.run.distance, workout.run.movingTime))}/km
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="text-right shrink-0">
+                              <p className="text-sm font-semibold tabular-nums">{formatVolume(workout.totalVolume)}</p>
+                              <p className="text-xs text-muted-foreground">{workout.totalSets} serie</p>
+                            </div>
+                          )}
                         </div>
                       </CardContent>
                     </Card>

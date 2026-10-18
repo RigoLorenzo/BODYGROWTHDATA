@@ -30,7 +30,7 @@ export function ProgressScore() {
 
   if (!data?.available) {
     return (
-      <Card className="border-border/50">
+      <Card className="rounded-3xl border-border/60 shadow-none">
         <CardContent className="p-6 text-center">
           <Target className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
           <p className="text-sm text-muted-foreground">
@@ -49,7 +49,7 @@ export function ProgressScore() {
   return (
     <div className="space-y-4">
       {/* Punteggio */}
-      <Card className="border-border/50">
+      <Card className="rounded-3xl border-border/60 shadow-none">
         <CardContent className="p-5 text-center">
           <p className="text-[11px] text-muted-foreground uppercase tracking-wide mb-1">Progress Score</p>
           <p className="text-5xl font-bold tabular-nums leading-none">
@@ -72,7 +72,7 @@ export function ProgressScore() {
 
       {/* Insight */}
       {data.insight && (
-        <Card className="border bg-blue-400/10 border-blue-400/20">
+        <Card className="rounded-3xl border border-blue-400/20 bg-blue-400/10 shadow-none">
           <CardContent className="p-4">
             <div className="flex items-start gap-3">
               <div className="mt-0.5 text-blue-600 dark:text-blue-400">
@@ -85,9 +85,9 @@ export function ProgressScore() {
       )}
 
       {/* Breakdown */}
-      <Card className="border-border/50">
+      <Card className="rounded-3xl border-border/60 shadow-none">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Categorie</CardTitle>
+          <CardTitle className="font-display text-xl font-bold uppercase tracking-wide">Categorie</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {data.categories.map((category) => {
