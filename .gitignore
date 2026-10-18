@@ -41,3 +41,6 @@ next-env.d.ts
 
 # prisma
 prisma/migrations/dev.db
+
+# Gemini MCP generated files
+/gemini-output
