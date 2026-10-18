@@ -34,9 +34,10 @@ const backoff = (attempt: number) =>
   Math.min(INTERVAL_MS, RETRY_BASE_MS * 2 ** (attempt - 1)) * (0.8 + Math.random() * 0.4);
 
 /**
- * Scarica le corse nuove da Mi Fitness (se collegato) all'apertura dell'app e
- * ogni 15 minuti finché resta in primo piano. In background si ferma. Gli
- * errori sono silenziosi: si riprova con attese crescenti; se il collegamento
+ * Scarica le corse nuove e i dati benessere da Mi Fitness (se collegato)
+ * all'apertura dell'app e ogni 15 minuti finché resta in primo piano. In
+ * background si ferma. Gli errori sono silenziosi: si riprova con attese
+ * crescenti; se il collegamento
  * è scaduto lo stato si aggiorna e la sezione Corsa propone di ricollegare.
  */
 export function RunAutoSync() {
@@ -61,6 +62,7 @@ export function RunAutoSync() {
       if (outcome.ok) {
         failures = 0;
         markSuccess();
+        if (outcome.wellness) void qc.invalidateQueries({ queryKey: ["wellness"] });
         if (outcome.imported) void invalidate();
         else if (!outcome.skipped) void qc.invalidateQueries({ queryKey: ["mifitness"] });
         schedule(INTERVAL_MS);

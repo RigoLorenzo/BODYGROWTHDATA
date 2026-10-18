@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { AnalyticsTabs } from "@/components/analytics/analytics-tabs";
+import { AnalyticsArea } from "@/components/analytics/analytics-area";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export const metadata = { title: "Analytics" };
@@ -7,13 +7,9 @@ export const metadata = { title: "Analytics" };
 export default function AnalyticsPage() {
   return (
     <div className="container mx-auto max-w-xl space-y-3 px-4 pb-6 pt-3">
-      <div>
-        <h1 className="font-display text-3xl font-bold uppercase tracking-wide">Analytics</h1>
-        <p className="text-sm text-muted-foreground">Palestra e corsa, i tuoi numeri</p>
-      </div>
-      {/* useSearchParams (scheda scelta) richiede un confine Suspense */}
+      {/* useSearchParams (area e scheda scelte) richiede un confine Suspense */}
       <Suspense fallback={<Skeleton className="h-96 rounded-3xl" />}>
-        <AnalyticsTabs />
+        <AnalyticsArea />
       </Suspense>
     </div>
   );

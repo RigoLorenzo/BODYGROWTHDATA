@@ -24,7 +24,8 @@ export async function GET(req: Request) {
   let synced = 0;
   for (const { userId } of connections) {
     try {
-      await syncMiFitness(userId);
+      // Nel cron c'è più tempo: lo storico del benessere avanza di più
+      await syncMiFitness(userId, { wellnessBudgetMs: Math.max(10_000, Math.floor(200_000 / connections.length)) });
       synced++;
     } catch (error) {
       console.error("cron Mi Fitness", userId, error);

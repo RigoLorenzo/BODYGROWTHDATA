@@ -22,16 +22,16 @@ export async function POST(req: Request) {
   // La sincronizzazione automatica parte a ogni apertura: senza collegamento non è un errore
   if (!conn) {
     return auto
-      ? NextResponse.json({ skipped: true, imported: 0 })
+      ? NextResponse.json({ skipped: true, imported: 0, wellness: 0 })
       : NextResponse.json({ error: "Mi Fitness non collegato" }, { status: 404 });
   }
 
   const recent = conn.lastSyncAt && Date.now() - conn.lastSyncAt.getTime() < MIN_INTERVAL_MS;
-  if (auto && (recent || conn.lastError)) return NextResponse.json({ skipped: true, imported: 0 });
+  if (auto && (recent || conn.lastError)) return NextResponse.json({ skipped: true, imported: 0, wellness: 0 });
 
   try {
-    const imported = await syncMiFitness(userId);
-    return NextResponse.json({ imported });
+    const { imported, wellness } = await syncMiFitness(userId);
+    return NextResponse.json({ imported, wellness });
   } catch (error) {
     const reconnect = error instanceof MiFitnessError && error.auth;
     console.error("sync Mi Fitness", error);

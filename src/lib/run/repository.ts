@@ -28,6 +28,18 @@ export interface RunInput {
   generatedName?: boolean;
 }
 
+/** FC a riposo misurata dallo smartwatch: mediana degli ultimi 30 giorni */
+async function measuredRestingHr(userId: string): Promise<number | null> {
+  const days = await prisma.wellnessDay.findMany({
+    where: { userId, restingHr: { not: null } },
+    orderBy: { date: "desc" },
+    take: 30,
+    select: { restingHr: true },
+  });
+  const values = days.map((d) => d.restingHr!).sort((a, b) => a - b);
+  return values.length >= 5 ? values[values.length >> 1] : null;
+}
+
 async function heartRateProfile(userId: string) {
   const profile = await prisma.profile.findUnique({
     where: { userId },
@@ -35,7 +47,8 @@ async function heartRateProfile(userId: string) {
   });
   return {
     max: profile?.maxHeartRate ?? DEFAULT_MAX_HR,
-    resting: profile?.restingHeartRate ?? DEFAULT_RESTING_HR,
+    // Senza valore impostato vale quello dell'orologio
+    resting: profile?.restingHeartRate ?? (await measuredRestingHr(userId)) ?? DEFAULT_RESTING_HR,
   };
 }
 

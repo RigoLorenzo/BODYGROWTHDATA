@@ -9,7 +9,7 @@ import { useSyncExternalStore } from "react";
  */
 
 export type SyncOutcome =
-  | { ok: true; imported: number; skipped: boolean }
+  | { ok: true; imported: number; wellness: number; skipped: boolean }
   | { ok: false; error: string; reconnect: boolean; retryable: boolean };
 
 let inFlight: Promise<SyncOutcome> | null = null;
@@ -21,7 +21,7 @@ async function request(auto: boolean): Promise<SyncOutcome> {
   try {
     const res = await fetch(`/api/integrations/mifitness/sync${auto ? "?auto=1" : ""}`, { method: "POST" });
     const body = await res.json().catch(() => null);
-    if (res.ok) return { ok: true, imported: body?.imported ?? 0, skipped: !!body?.skipped };
+    if (res.ok) return { ok: true, imported: body?.imported ?? 0, wellness: body?.wellness ?? 0, skipped: !!body?.skipped };
     const reconnect = !!body?.reconnect;
     return {
       ok: false,

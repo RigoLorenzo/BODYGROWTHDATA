@@ -25,6 +25,9 @@ export async function POST(req: Request) {
     const status = error instanceof MiFitnessError && error.auth ? 401 : 502;
     return NextResponse.json({ error: error instanceof Error ? error.message : "Collegamento non riuscito" }, { status });
   }
-  const imported = await syncMiFitness(session.user.id).catch(() => null);
+  // Al collegamento poco benessere: il resto arriva con le sincronizzazioni successive
+  const imported = await syncMiFitness(session.user.id, { wellnessBudgetMs: 8_000 })
+    .then((r) => r.imported)
+    .catch(() => null);
   return NextResponse.json({ connected: true, imported });
 }

@@ -6,6 +6,7 @@ import { analyzeTrack } from "@/lib/run/track";
 import { updateUserStreak } from "@/lib/streak-calculator";
 import { MiFitnessError, discoverRegion, downloadGpsTrack, listSportRecords, login, type XiaomiSession } from "./client";
 import { mapSportRecord, parseExternalId } from "./mapping";
+import { syncWellness } from "./wellness-sync";
 
 /** Sessione dal collegamento salvato; il passToken ruotato viene risalvato */
 async function openSession(userId: string) {
@@ -87,11 +88,15 @@ const DAY = 86_400;
 /** Tracce scaricate per sincronizzazione: le altre all'apertura della corsa */
 const TRACKS_PER_SYNC = 5;
 
+/** Tempo concesso al benessere dopo le corse, entro il limite della funzione */
+const WELLNESS_BUDGET_MS = 25_000;
+
 /**
  * Scarica gli allenamenti di corsa dall'ultima sincronizzazione (con 3 giorni
- * di margine; un anno al primo collegamento) e le tracce delle più recenti.
+ * di margine; un anno al primo collegamento), le tracce delle più recenti e
+ * poi i dati benessere (sonno, battiti, passi…) finché resta tempo.
  */
-export async function syncMiFitness(userId: string, opts: { full?: boolean } = {}) {
+export async function syncMiFitness(userId: string, opts: { full?: boolean; wellnessBudgetMs?: number } = {}) {
   const { session, conn } = await openSession(userId);
   const now = Math.floor(Date.now() / 1000);
   const since =
@@ -129,7 +134,17 @@ export async function syncMiFitness(userId: string, opts: { full?: boolean } = {
     await attachTrack(session, conn.region, run).catch((error) => console.warn("traccia Mi Fitness", run.id, error));
   }
 
-  await prisma.miFitnessConnection.update({ where: { userId }, data: { lastSyncAt: new Date(), lastError: null } });
   await updateUserStreak(userId);
-  return imported;
+
+  // Il benessere non deve far fallire l'import delle corse (salvo token scaduto)
+  let wellness = 0;
+  try {
+    wellness = await syncWellness(userId, session, conn.region, Date.now() + (opts.wellnessBudgetMs ?? WELLNESS_BUDGET_MS));
+  } catch (error) {
+    if (error instanceof MiFitnessError && error.auth) throw error;
+    console.warn("benessere Mi Fitness", error);
+  }
+
+  await prisma.miFitnessConnection.update({ where: { userId }, data: { lastSyncAt: new Date(), lastError: null } });
+  return { imported, wellness };
 }

@@ -31,7 +31,7 @@ export const useMiFitnessStatus = () =>
   useQuery<MiFitnessStatus>({ queryKey: ["mifitness"], queryFn: () => getJson("/api/integrations/mifitness") });
 
 /**
- * Dopo ogni modifica alle corse: sezione corsa, home, calendario e streak.
+ * Dopo ogni modifica alle corse: sezione corsa, home, calendario, streak e benessere.
  * `removedId`: corsa appena eliminata, il cui dettaglio non va ricaricato.
  */
 export function useInvalidateRuns() {
@@ -39,7 +39,7 @@ export function useInvalidateRuns() {
   return (removedId?: string) => {
     if (removedId) qc.removeQueries({ queryKey: ["runs", "detail", removedId], exact: true });
     return Promise.all(
-      [["runs"], ["strava"], ["mifitness"], ["sessions"], ["analytics"]].map((queryKey) =>
+      [["runs"], ["strava"], ["mifitness"], ["sessions"], ["analytics"], ["wellness"]].map((queryKey) =>
         qc.invalidateQueries({
           queryKey,
           predicate: (q) => !(removedId && q.queryKey[1] === "detail" && q.queryKey[2] === removedId),

@@ -19,6 +19,13 @@ export async function DELETE() {
     prisma.workoutShare.deleteMany({ where: { userId } }),
     prisma.activeProgram.deleteMany({ where: { userId } }),
     prisma.workoutSession.deleteMany({ where: { userId } }),
+    // Dati salute dello smartwatch: sensibili, vanno via con il resto
+    prisma.wellnessDay.deleteMany({ where: { userId } }),
+    prisma.sleepSession.deleteMany({ where: { userId } }),
+    prisma.miFitnessConnection.updateMany({
+      where: { userId },
+      data: { wellnessSyncedUntil: null, wellnessSyncedFrom: null },
+    }),
   ]);
 
   return NextResponse.json({ success: true });

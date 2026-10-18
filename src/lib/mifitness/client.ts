@@ -197,15 +197,56 @@ export async function listSportRecords(
   return { records: result?.sport_records ?? [], hasMore: !!result?.has_more, nextKey: result?.next_key || null };
 }
 
+/** Dato salute come arriva dal cloud: il contenuto è JSON dentro `value` */
+export interface FitnessRecord {
+  sid?: string;
+  key?: string;
+  time?: number;
+  /** secondi rispetto a UTC */
+  zone_offset?: number;
+  zone_name?: string;
+  value?: string | Record<string, unknown>;
+}
+
+/** Chiavi del cloud salute lette dalla sezione Benessere */
+export type FitnessKey = "heart_rate" | "resting_heart_rate" | "sleep" | "steps" | "calories" | "spo2" | "stress";
+
+/** Dati salute di un tipo in un intervallo (secondi), una pagina alla volta */
+export async function listFitnessData(
+  session: XiaomiSession,
+  region: string,
+  opts: { key: FitnessKey; startTime: number; endTime: number; nextKey?: string | null }
+): Promise<{ records: FitnessRecord[]; hasMore: boolean; nextKey: string | null }> {
+  const result = await request<{ data_list?: FitnessRecord[]; has_more?: boolean; next_key?: string }>(
+    session,
+    region,
+    "/app/v1/data/get_fitness_data_by_time",
+    {
+      start_time: opts.startTime,
+      end_time: opts.endTime,
+      key: opts.key,
+      ...(opts.nextKey ? { next_key: opts.nextKey } : {}),
+    }
+  );
+  return { records: result?.data_list ?? [], hasMore: !!result?.has_more, nextKey: result?.next_key || null };
+}
+
 /** La regione giusta è quella che contiene gli allenamenti dell'account */
 export async function discoverRegion(session: XiaomiSession): Promise<string> {
   const startTime = Math.floor(Date.now() / 1000) - 2 * 365 * 86_400;
-  for (const region of REGIONS) {
-    try {
-      const page = await listSportRecords(session, region, { startTime, limit: 1 });
-      if (page.records.length) return region;
-    } catch (error) {
-      if (error instanceof MiFitnessError && error.auth) throw error;
+  const now = Math.floor(Date.now() / 1000);
+  // Senza allenamenti basta un giorno di passi
+  const probes = [
+    (region: string) => listSportRecords(session, region, { startTime, limit: 1 }),
+    (region: string) => listFitnessData(session, region, { key: "steps", startTime: now - 7 * 86_400, endTime: now }),
+  ];
+  for (const probe of probes) {
+    for (const region of REGIONS) {
+      try {
+        if ((await probe(region)).records.length) return region;
+      } catch (error) {
+        if (error instanceof MiFitnessError && error.auth) throw error;
+      }
     }
   }
   return "de";

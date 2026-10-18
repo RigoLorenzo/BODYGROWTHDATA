@@ -196,6 +196,8 @@ model User {
   runActivities       RunActivity[]
   stravaConnection    StravaConnection?
   miFitnessConnection MiFitnessConnection?
+  wellnessDays        WellnessDay[]
+  sleepSessions       SleepSession[]
   streak              Streak?
   achievements        UserAchievement[]
   notifications       Notification[]
@@ -677,17 +679,82 @@ model StravaConnection {
 
 /// Collegamento all'account Xiaomi (Mi Fitness) tramite passToken, mai la password
 model MiFitnessConnection {
-  id         String    @id @default(cuid())
-  userId     String    @unique
-  xiaomiId   String    @unique
+  id                  String    @id @default(cuid())
+  userId              String    @unique
+  xiaomiId            String    @unique
   /// passToken cifrato (AES-256-GCM)
-  passToken  String    @db.Text
+  passToken           String    @db.Text
   /// Regione del cloud salute (de per l'Europa)
-  region     String    @default("de")
-  lastSyncAt DateTime?
-  lastError  String?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  region              String    @default("de")
+  lastSyncAt          DateTime?
+  lastError           String?
+  /// Dati benessere (sonno, battiti…) scaricati fino a questo istante
+  wellnessSyncedUntil DateTime?
+  /// …e a ritroso fino a questo (storico iniziale)
+  wellnessSyncedFrom  DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── Benessere (smartwatch) ───────────────────────────────────────────────────
+
+/// Riepilogo di un giorno dallo smartwatch: aggregati, non i campioni al minuto
+model WellnessDay {
+  id             String   @id @default(cuid())
+  userId         String
+  /// Giorno locale dell'orologio (yyyy-MM-dd)
+  date           String
+  steps          Int?
+  /// metri
+  distance       Float?
+  activeCalories Float?
+  restingHr      Int?
+  avgHr          Int?
+  minHr          Int?
+  maxHr          Int?
+  /// [{ h, avg, min, max }] frequenza cardiaca per ora
+  hrHourly       Json?
+  spo2Avg        Float?
+  spo2Min        Float?
+  stressAvg      Int?
+  stressMax      Int?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+}
+
+/// Una notte (o un pisolino) registrata dall'orologio
+model SleepSession {
+  id         String   @id @default(cuid())
+  userId     String
+  externalId String
+  /// Giorno locale del risveglio (yyyy-MM-dd)
+  date       String
+  startAt    DateTime
+  endAt      DateTime
+  /// minuti: a letto, addormentato e per fase
+  duration   Int
+  asleep     Int
+  deep       Int?
+  light      Int?
+  rem        Int?
+  awake      Int?
+  score      Int?
+  isNap      Boolean  @default(false)
+  avgHr      Int?
+  minHr      Int?
+  /// [{ stage, start, end }] (secondi epoch) per l'ipnogramma
+  stages     Json?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, externalId])
+  @@index([userId, date])
 }

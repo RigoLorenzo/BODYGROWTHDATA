@@ -19,7 +19,7 @@ export function Section({
       <div className="mb-4 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="font-display text-xl font-bold uppercase tracking-wide">{title}</h2>
-          {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+          {hint && <div className="text-xs text-muted-foreground">{hint}</div>}
         </div>
         {action}
       </div>
