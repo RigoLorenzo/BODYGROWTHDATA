@@ -1,7 +1,15 @@
 import { suggestProgression, type LoggedSet } from "./progression";
 import type { ActiveExercise, ActiveSet } from "@/types";
 
-export type ExerciseHistory = Record<string, { date: string; sets: LoggedSet[] }>;
+export type ExerciseHistory = Record<
+  string,
+  {
+    date: string;
+    sets: LoggedSet[];
+    /** true se viene dall'ultima volta che hai fatto lo stesso giorno del piano */
+    sameDay?: boolean;
+  }
+>;
 
 export interface ExerciseSeed {
   id: string;
@@ -17,11 +25,16 @@ export interface ExerciseSeed {
   fromPlan?: boolean;
 }
 
-/** Ultima esecuzione degli esercizi; in caso di errore si parte senza storico */
-export async function fetchExerciseHistory(ids: string[]): Promise<ExerciseHistory> {
+/**
+ * Ultima esecuzione degli esercizi, preferendo lo stesso giorno del piano;
+ * in caso di errore si parte senza storico.
+ */
+export async function fetchExerciseHistory(ids: string[], programDayId?: string): Promise<ExerciseHistory> {
   if (!ids.length) return {};
+  const params = new URLSearchParams({ ids: ids.join(",") });
+  if (programDayId) params.set("day", programDayId);
   try {
-    const res = await fetch(`/api/exercises/history?ids=${encodeURIComponent(ids.join(","))}`);
+    const res = await fetch(`/api/exercises/history?${params}`);
     return res.ok ? await res.json() : {};
   } catch {
     return {};
@@ -61,6 +74,8 @@ export function buildActiveExercise(seed: ExerciseSeed, history?: ExerciseHistor
     targetRepsMax: seed.repsMax,
     notes: seed.notes,
     lastSets: last.length ? last : undefined,
+    lastDate: last.length ? history?.date : undefined,
+    lastSameDay: last.length ? history?.sameDay : undefined,
     progression: suggestion ? { increase: suggestion.increase, previousTop: suggestion.previousTop } : undefined,
     sets,
   };

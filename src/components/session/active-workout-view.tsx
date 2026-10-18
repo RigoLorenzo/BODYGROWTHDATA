@@ -33,6 +33,45 @@ interface Props {
   onCompleted: (workout: CompletedWorkout) => void;
 }
 
+/** Prossimo esercizio con serie ancora da fare dopo quello indicato */
+function nextPendingExercise(exercises: ActiveSession["exercises"], afterId: string) {
+  const start = exercises.findIndex((ex) => ex.id === afterId);
+  return exercises.slice(start + 1).find((ex) => ex.sets.some((s) => !s.completed));
+}
+
+/**
+ * Tendine degli esercizi: all'avvio sono tutte chiuse, così vedi la seduta
+ * a colpo d'occhio. Finito un esercizio si apre il successivo.
+ */
+function useExpandedExercises() {
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
+
+  const toggle = useCallback((id: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const openNextAfter = useCallback((id: string) => {
+    const exercises = useSessionStore.getState().activeSession?.exercises ?? [];
+    const next = nextPendingExercise(exercises, id);
+    if (!next) return;
+    setExpanded((prev) => new Set(prev).add(next.id));
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    setTimeout(() => {
+      const el = document.querySelector(`[data-exercise-card="${CSS.escape(next.id)}"]`);
+      el?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+    }, 450);
+  }, []);
+
+  const open = useCallback((id: string) => setExpanded((prev) => new Set(prev).add(id)), []);
+
+  return { expanded, toggle, open, openNextAfter };
+}
+
 /** Minuti trascorsi: si aggiorna da solo senza ridisegnare la lista esercizi */
 function ElapsedMinutes({ startedAt }: { startedAt: Date }) {
   const [now, setNow] = useState(() => Date.now());
@@ -56,6 +95,7 @@ export function ActiveWorkoutView({ session, onCompleted }: Props) {
   const [showExerciseSelector, setShowExerciseSelector] = useState(false);
   const [showFinishConfirm, setShowFinishConfirm] = useState(false);
   const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
+  const { expanded, toggle: toggleExercise, open: openExercise, openNextAfter } = useExpandedExercises();
 
   const abandonMutation = useMutation({
     mutationFn: async () => {
@@ -82,11 +122,12 @@ export function ActiveWorkoutView({ session, onCompleted }: Props) {
     async (exercise: { id: string; name: string; nameIt?: string | null }) => {
       setShowExerciseSelector(false);
       // Stesse serie (e stessi pesi) dell'ultima volta, se l'hai già fatto
-      const history = await fetchExerciseHistory([exercise.id]);
+      const history = await fetchExerciseHistory([exercise.id], session.programDayId);
+      const id = `ex-${Date.now()}`;
       addExercise(
         buildActiveExercise(
           {
-            id: `ex-${Date.now()}`,
+            id,
             exerciseId: exercise.id,
             exerciseName: exercise.name,
             exerciseNameIt: exercise.nameIt,
@@ -95,8 +136,10 @@ export function ActiveWorkoutView({ session, onCompleted }: Props) {
           history[exercise.id]
         )
       );
+      // Appena aggiunto lo vuoi compilare: si apre già
+      openExercise(id);
     },
-    [addExercise, session.exercises.length]
+    [addExercise, session.exercises.length, session.programDayId, openExercise]
   );
 
   const doComplete = async () => {
@@ -178,7 +221,13 @@ export function ActiveWorkoutView({ session, onCompleted }: Props) {
       {/* Exercise list */}
       <div className="container max-w-2xl mx-auto px-3 py-3 space-y-3">
         {session.exercises.map((exercise) => (
-          <ExerciseCard key={exercise.id} exercise={exercise} />
+          <ExerciseCard
+            key={exercise.id}
+            exercise={exercise}
+            expanded={expanded.has(exercise.id)}
+            onToggle={toggleExercise}
+            onFinished={openNextAfter}
+          />
         ))}
 
         {session.exercises.length === 0 && (

@@ -67,6 +67,7 @@ export function RunSettings({ settings }: { settings: RunStats["settings"] }) {
   return (
     <section className="rounded-3xl border border-border/60 bg-card">
       <button
+        type="button"
         onClick={() => setOpen((o) => !o)}
         className="flex w-full items-center justify-between px-5 py-4 text-left"
         aria-expanded={open}
@@ -77,7 +78,7 @@ export function RunSettings({ settings }: { settings: RunStats["settings"] }) {
             {settings.weeklyRunKmGoal ? `${settings.weeklyRunKmGoal} km a settimana` : "Nessun obiettivo settimanale"}
           </span>
         </span>
-        <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", open && "rotate-180")} />
+        <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", open && "rotate-180")} aria-hidden />
       </button>
       {open && (
         <form onSubmit={save} className="space-y-3 border-t border-border/60 px-5 pb-5 pt-4">

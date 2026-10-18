@@ -30,6 +30,22 @@ describe("serie dell'allenamento", () => {
     expect(sets()[1]).toMatchObject({ weight: 80, reps: 6, prefilled: true, completed: false });
   });
 
+  it("dopo la prima serie aggiorna anche le serie precompilate dallo storico", () => {
+    [0, 1, 2].forEach((i) => store().updateSet("ex1", i, { weight: 80, reps: 8, prefilled: true }));
+    store().updateSet("ex1", 0, { weight: 82.5, reps: 8 });
+    store().completeSet("ex1", 0);
+    expect(sets()[1]).toMatchObject({ weight: 82.5, reps: 8, prefilled: true, completed: false });
+    expect(sets()[2]).toMatchObject({ weight: 82.5, reps: 8, prefilled: true });
+  });
+
+  it("non sovrascrive le serie compilate a mano", () => {
+    store().updateSet("ex1", 2, { weight: 70, reps: 12 });
+    store().updateSet("ex1", 0, { weight: 80, reps: 6 });
+    store().completeSet("ex1", 0);
+    expect(sets()[1]).toMatchObject({ weight: 80, reps: 6, prefilled: true });
+    expect(sets()[2]).toMatchObject({ weight: 70, reps: 12, prefilled: false });
+  });
+
   it("togliere la spunta rende la serie da fare e non la registra a fine allenamento", () => {
     store().updateSet("ex1", 0, { weight: 80, reps: 6 });
     store().completeSet("ex1", 0);

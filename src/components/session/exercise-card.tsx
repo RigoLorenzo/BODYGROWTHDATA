@@ -1,6 +1,8 @@
 "use client";
 
 import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { format } from "date-fns";
+import { it } from "date-fns/locale";
 import { AnimatePresence } from "framer-motion";
 import { useSessionStore, isFilledUnconfirmed } from "@/store/session-store";
 import { formatLoggedSets } from "@/lib/progression";
@@ -16,20 +18,29 @@ import type { ActiveExercise } from "@/types";
 
 interface Props {
   exercise: ActiveExercise;
+  /** Tendina aperta: la decide la lista, all'avvio sono tutte chiuse */
+  expanded: boolean;
+  onToggle: (exerciseId: string) => void;
+  /** Chiamata quando l'ultima serie viene spuntata */
+  onFinished?: (exerciseId: string) => void;
 }
 
 const formatKg = (kg?: number) => (kg == null ? "" : String(kg).replace(".", ","));
 
-function ExerciseCardComponent({ exercise }: Props) {
+/** "stesso giorno · 12 ott" oppure "12 ott" */
+function lastTimeLabel(exercise: ActiveExercise): string {
+  const date = exercise.lastDate ? new Date(exercise.lastDate) : null;
+  const day = date && !Number.isNaN(date.getTime()) ? format(date, "d MMM", { locale: it }) : null;
+  return [exercise.lastSameDay ? "stesso giorno" : null, day].filter(Boolean).join(" · ");
+}
+
+function ExerciseCardComponent({ exercise, expanded, onToggle, onFinished }: Props) {
   const addSet = useSessionStore((s) => s.addSet);
   const removeSet = useSessionStore((s) => s.removeSet);
   const removeExercise = useSessionStore((s) => s.removeExercise);
   const replaceExercise = useSessionStore((s) => s.replaceExercise);
-  // Si chiude solo a mano: niente salti di layout mentre scorri la lista
-  const [collapsed, setCollapsed] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [replacing, setReplacing] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
 
   const completedSets = exercise.sets.filter((s) => s.completed);
   const allDone = exercise.sets.length > 0 && completedSets.length === exercise.sets.length;
@@ -41,23 +52,22 @@ function ExerciseCardComponent({ exercise }: Props) {
     ? `${exercise.targetSets}×${exercise.targetRepsMin === exercise.targetRepsMax ? exercise.targetRepsMin : `${exercise.targetRepsMin}-${exercise.targetRepsMax}`}`
     : null;
 
-  // Finita l'ultima serie, porta in vista il prossimo esercizio da fare
+  const lastLabel = lastTimeLabel(exercise);
+  const toggle = () => onToggle(exercise.id);
+
+  // Finita l'ultima serie la lista apre e porta in vista il prossimo esercizio
   const wasDone = useRef(allDone);
   useEffect(() => {
     const justFinished = allDone && !wasDone.current;
     wasDone.current = allDone;
-    if (!justFinished) return;
-    const next = rootRef.current?.nextElementSibling;
-    if (!(next instanceof HTMLElement) || next.dataset.done !== "false") return;
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const timer = setTimeout(() => next.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" }), 450);
-    return () => clearTimeout(timer);
-  }, [allDone]);
+    if (justFinished) onFinished?.(exercise.id);
+  }, [allDone, exercise.id, onFinished]);
 
   // Macchina occupata: stesso posto nella scheda, stessi obiettivi, nuovo esercizio
   const handleReplace = async (picked: { id: string; name: string; nameIt?: string | null }) => {
     setReplacing(false);
-    const history = await fetchExerciseHistory([picked.id]);
+    const programDayId = useSessionStore.getState().activeSession?.programDayId;
+    const history = await fetchExerciseHistory([picked.id], programDayId);
     replaceExercise(
       exercise.id,
       buildActiveExercise(
@@ -96,14 +106,16 @@ function ExerciseCardComponent({ exercise }: Props) {
   };
 
   return (
-    <div ref={rootRef} data-exercise-card data-done={allDone} className="scroll-mt-20">
+    <div data-exercise-card={exercise.id} data-done={allDone} className="scroll-mt-20">
       <Card className={cn("border-border/40", allDone && "border-green-500/40")}>
         <CardHeader className="p-3 pb-0">
           <div className="flex items-start justify-between gap-2">
             <button
               type="button"
               className="flex-1 min-w-0 text-left touch-manipulation"
-              onClick={() => setCollapsed((v) => !v)}
+              aria-expanded={expanded}
+              aria-controls={`sets-${exercise.id}`}
+              onClick={toggle}
             >
               <div className="flex items-center gap-1.5">
                 {allDone && <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />}
@@ -121,6 +133,7 @@ function ExerciseCardComponent({ exercise }: Props) {
                 serie
                 {target ? ` · piano ${target}` : ""}
                 {volume > 0 ? ` · ${formatVolume(volume)}` : ""}
+                {!expanded && exercise.progression ? ` · scorsa ${formatKg(exercise.progression.previousTop)} kg` : ""}
               </p>
             </button>
             <div className="flex items-center">
@@ -148,11 +161,13 @@ function ExerciseCardComponent({ exercise }: Props) {
               <Button
                 variant="ghost"
                 size="icon-sm"
-                aria-label={collapsed ? "Espandi" : "Comprimi"}
+                aria-label={expanded ? "Comprimi" : "Espandi"}
+                aria-expanded={expanded}
+                aria-controls={`sets-${exercise.id}`}
                 className="text-muted-foreground"
-                onClick={() => setCollapsed((v) => !v)}
+                onClick={toggle}
               >
-                {collapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               </Button>
             </div>
           </div>
@@ -177,8 +192,8 @@ function ExerciseCardComponent({ exercise }: Props) {
           )}
         </CardHeader>
 
-        {!collapsed && (
-          <CardContent className="p-3 pt-2 space-y-1">
+        {expanded && (
+          <CardContent id={`sets-${exercise.id}`} className="p-3 pt-2 space-y-1">
             {exercise.notes && <p className="text-xs text-primary/80 px-1">{exercise.notes}</p>}
 
             {exercise.lastSets && (
@@ -186,7 +201,8 @@ function ExerciseCardComponent({ exercise }: Props) {
                 <p className="flex items-start gap-1.5">
                   <History className="mt-0.5 h-3 w-3 shrink-0 text-primary/70" />
                   <span>
-                    Ultima volta: <span className="font-semibold text-foreground">{formatLoggedSets(exercise.lastSets)}</span>
+                    Ultima volta{lastLabel ? ` (${lastLabel})` : ""}:{" "}
+                    <span className="font-semibold text-foreground">{formatLoggedSets(exercise.lastSets)}</span>
                   </span>
                 </p>
                 {exercise.progression?.increase && (
@@ -213,6 +229,7 @@ function ExerciseCardComponent({ exercise }: Props) {
                 exerciseId={exercise.id}
                 set={set}
                 index={index}
+                previous={exercise.lastSets?.[index]}
                 onRemove={handleRemoveSet}
               />
             ))}

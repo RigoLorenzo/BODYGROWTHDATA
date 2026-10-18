@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { ChevronDown, Plus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDuration, formatKm, formatPace } from "@/lib/run/format";
 import { cn } from "@/lib/utils";
@@ -11,6 +11,7 @@ import { RecordsCard } from "./records-card";
 import { RunList } from "./run-list";
 import { RunSettings } from "./run-settings";
 import { MiFitnessCard } from "./mifitness-card";
+import { MiFitnessExpiredBanner } from "./run-header";
 import { StravaCard } from "./strava-card";
 import { WeeklyChart } from "./weekly-chart";
 import { useRunStats, useRuns } from "./queries";
@@ -21,6 +22,9 @@ const PERIODS = [
   { key: "year", label: "Anno" },
   { key: "allTime", label: "Sempre" },
 ] as const;
+
+/** Attività mostrate prima di "Mostra tutte": la pagina resta corta */
+const RECENT_RUNS = 5;
 
 function Metric({ label, value, unit }: { label: string; value: string | number; unit?: string }) {
   return (
@@ -52,6 +56,7 @@ function WeekHero({ stats }: { stats: RunStats }) {
   const { week, settings, runsPerWeek } = stats;
   const goal = settings.weeklyRunKmGoal ? settings.weeklyRunKmGoal * 1000 : null;
   const progress = goal ? Math.min(1, week.distance / goal) : null;
+  const remaining = goal ? Math.max(0, goal - week.distance) : 0;
 
   return (
     <section className="rounded-3xl bg-foreground p-5 text-background">
@@ -61,21 +66,33 @@ function WeekHero({ stats }: { stats: RunStats }) {
         <span className="ml-1 text-lg font-semibold opacity-70">{goal ? `/ ${formatKm(goal)} km` : "km"}</span>
       </p>
       {progress != null && (
-        <div className="mt-3 h-2 overflow-hidden rounded-full bg-background/20">
-          <div className="h-full rounded-full bg-lime-400 transition-[width]" style={{ width: `${progress * 100}%` }} />
-        </div>
+        <>
+          <div
+            className="mt-3 h-2 overflow-hidden rounded-full bg-background/20"
+            role="progressbar"
+            aria-label="Obiettivo settimanale"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(progress * 100)}
+          >
+            <div className="h-full rounded-full bg-lime-400 transition-[width]" style={{ width: `${progress * 100}%` }} />
+          </div>
+          <p className="mt-1.5 text-xs tabular-nums opacity-80">
+            {remaining > 0 ? `Mancano ${formatKm(remaining)} km all'obiettivo` : "Obiettivo raggiunto"}
+          </p>
+        </>
       )}
       <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
         <div>
-          <p className="opacity-70">Corse</p>
+          <p className="opacity-80">Corse</p>
           <p className="font-display text-lg font-bold tabular-nums">{week.runs}</p>
         </div>
         <div>
-          <p className="opacity-70">Ritmo</p>
+          <p className="opacity-80">Ritmo</p>
           <p className="font-display text-lg font-bold tabular-nums">{formatPace(week.avgPace)}</p>
         </div>
         <div>
-          <p className="opacity-70">Frequenza</p>
+          <p className="opacity-80">Frequenza</p>
           <p className="font-display text-lg font-bold tabular-nums">
             {String(runsPerWeek).replace(".", ",")}
             <span className="text-xs font-medium opacity-70">/sett</span>
@@ -89,24 +106,30 @@ function WeekHero({ stats }: { stats: RunStats }) {
 /** Statistiche della corsa: usate qui e nel tab Corsa di Analytics */
 export function RunStatsSections({ stats }: { stats: RunStats }) {
   const [period, setPeriod] = useState<(typeof PERIODS)[number]["key"]>("month");
+  const tabsId = useId();
   return (
     <>
       <WeekHero stats={stats} />
 
-      <section className="rounded-3xl border border-border/60 bg-card p-5">
-        <div className="mb-4 flex items-baseline justify-between">
-          <h2 className="font-display text-xl font-bold uppercase tracking-wide">Km a settimana</h2>
-          <span className="text-xs text-muted-foreground">12 settimane</span>
+      <section className="rounded-3xl border border-border/60 bg-card p-5" aria-labelledby={`${tabsId}-weekly`}>
+        <div className="mb-2 flex items-baseline justify-between">
+          <h2 id={`${tabsId}-weekly`} className="font-display text-xl font-bold uppercase tracking-wide">
+            Km a settimana
+          </h2>
+          <span className="text-xs text-muted-foreground">{stats.weekly.length} settimane</span>
         </div>
         <WeeklyChart weekly={stats.weekly} goalKm={stats.settings.weeklyRunKmGoal} />
       </section>
 
       <section className="rounded-3xl border border-border/60 bg-card p-5">
-        <div className="mb-4 flex rounded-xl bg-muted p-1" role="tablist">
+        <div className="mb-4 flex rounded-xl bg-muted p-1" role="tablist" aria-label="Periodo dei totali">
           {PERIODS.map((p) => (
             <button
               key={p.key}
+              type="button"
               role="tab"
+              id={`${tabsId}-${p.key}`}
+              aria-controls={`${tabsId}-panel`}
               aria-selected={period === p.key}
               onClick={() => setPeriod(p.key)}
               className={cn(
@@ -118,7 +141,9 @@ export function RunStatsSections({ stats }: { stats: RunStats }) {
             </button>
           ))}
         </div>
-        <TotalsGrid t={stats[period]} />
+        <div role="tabpanel" id={`${tabsId}-panel`} aria-labelledby={`${tabsId}-${period}`}>
+          <TotalsGrid t={stats[period]} />
+        </div>
       </section>
 
       <FitnessCard fitness={stats.fitness} />
@@ -127,9 +152,36 @@ export function RunStatsSections({ stats }: { stats: RunStats }) {
   );
 }
 
+/** Ultime attività, con tutte le altre a richiesta */
+function RecentRuns() {
+  const { data: runs } = useRuns();
+  const [showAll, setShowAll] = useState(false);
+  if (!runs) return <Skeleton className="h-48 rounded-3xl" />;
+
+  const visible = showAll ? runs : runs.slice(0, RECENT_RUNS);
+  return (
+    <section aria-labelledby="run-activities">
+      <h2 id="run-activities" className="mb-2 px-1 font-display text-xl font-bold uppercase tracking-wide">
+        Attività
+      </h2>
+      <RunList runs={visible} />
+      {runs.length > RECENT_RUNS && (
+        <button
+          type="button"
+          onClick={() => setShowAll((v) => !v)}
+          aria-expanded={showAll}
+          className="mt-2 flex h-11 w-full items-center justify-center gap-1.5 rounded-2xl text-sm font-medium text-muted-foreground active:bg-muted/50"
+        >
+          {showAll ? "Mostra meno" : `Mostra tutte (${runs.length})`}
+          <ChevronDown className={cn("h-4 w-4 transition-transform", showAll && "rotate-180")} aria-hidden />
+        </button>
+      )}
+    </section>
+  );
+}
+
 export function RunOverview() {
   const { data: stats, isLoading } = useRunStats();
-  const { data: runs } = useRuns();
 
   if (isLoading || !stats) {
     return (
@@ -145,6 +197,7 @@ export function RunOverview() {
 
   return (
     <div className="space-y-5">
+      <MiFitnessExpiredBanner />
       {!hasRuns && (
         <p className="rounded-3xl border border-dashed border-border/60 p-5 text-sm text-muted-foreground">
           Nessuna corsa ancora. Collega Mi Fitness per importare quelle del tuo Xiaomi Watch, carica un file GPX o
@@ -157,11 +210,7 @@ export function RunOverview() {
       {hasRuns && (
         <>
           <RunStatsSections stats={stats} />
-
-          <section>
-            <h2 className="mb-2 px-1 font-display text-xl font-bold uppercase tracking-wide">Attività</h2>
-            {runs ? <RunList runs={runs} /> : <Skeleton className="h-48 rounded-3xl" />}
-          </section>
+          <RecentRuns />
 
           <MiFitnessCard />
           <StravaCard />

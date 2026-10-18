@@ -100,8 +100,11 @@ export function useWorkoutSession() {
       }
       if (!res.ok) throw new Error("Failed to start session");
       const session = await res.json();
-      // Ultima volta di ogni esercizio del piano: serve per precompilare le serie
-      const history = await fetchExerciseHistory(planExercisesRef.current.map((ex) => ex.exerciseId));
+      // Ultima volta di ogni esercizio (nello stesso giorno del piano, se c'è): precompila le serie
+      const history = await fetchExerciseHistory(
+        planExercisesRef.current.map((ex) => ex.exerciseId),
+        data.programDayId
+      );
       return { session, history };
     },
     onSuccess: ({ session, history }, variables) => {

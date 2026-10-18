@@ -70,6 +70,10 @@ export interface ActiveExercise {
   notes?: string;
   /** Serie di lavoro dell'ultima volta che hai fatto l'esercizio */
   lastSets?: { weight: number | null; reps: number | null }[];
+  /** Data di quelle serie (ISO) */
+  lastDate?: string;
+  /** true se vengono dall'ultima volta che hai fatto lo stesso giorno del piano */
+  lastSameDay?: boolean;
   /** Proposta di oggi: aumento di carico o stessi numeri da battere */
   progression?: { increase: boolean; previousTop: number };
   sets: ActiveSet[];

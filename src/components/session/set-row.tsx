@@ -2,14 +2,17 @@
 
 import { memo, useEffect, useState } from "react";
 import { useSessionStore } from "@/store/session-store";
-import { Check, Minus, Plus, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, Minus, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { LoggedSet } from "@/lib/progression";
 import type { ActiveSet } from "@/types";
 
 interface Props {
   exerciseId: string;
   set: ActiveSet;
   index: number;
+  /** Stessa serie l'ultima volta (stesso giorno del piano, se c'è) */
+  previous?: LoggedSet;
   onRemove?: (index: number) => void;
 }
 
@@ -30,6 +33,37 @@ const stepButton =
 const numberInput =
   "w-full min-w-0 text-center text-base font-semibold bg-muted/40 rounded-lg h-9 tabular-nums border-0 outline-none focus:ring-1 focus:ring-primary disabled:bg-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
 
+/** "Scorsa 80 kg × 8" con la differenza di peso rispetto a oggi */
+function PreviousHint({ previous, weight }: { previous: LoggedSet; weight?: number }) {
+  if (previous.weight == null && previous.reps == null) return null;
+  const delta = previous.weight != null && weight != null ? Math.round((weight - previous.weight) * 100) / 100 : 0;
+  const label = [previous.weight != null ? `${formatWeight(previous.weight)} kg` : null, previous.reps != null ? `× ${previous.reps}` : null]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <p className="col-start-2 col-span-2 -mt-0.5 flex items-center justify-center gap-1.5 text-[11px] leading-tight text-muted-foreground tabular-nums">
+      <span>
+        Scorsa <span className="font-semibold text-foreground/80">{label}</span>
+      </span>
+      {delta < 0 && (
+        <span className="inline-flex items-center font-semibold text-amber-600 dark:text-amber-400">
+          <ArrowDown className="h-3 w-3" aria-hidden />
+          {formatWeight(-delta)} kg
+          <span className="sr-only"> in meno</span>
+        </span>
+      )}
+      {delta > 0 && (
+        <span className="inline-flex items-center font-semibold text-green-600 dark:text-green-400">
+          <ArrowUp className="h-3 w-3" aria-hidden />
+          {formatWeight(delta)} kg
+          <span className="sr-only"> in più</span>
+        </span>
+      )}
+    </p>
+  );
+}
+
 /** Campo numerico locale, riallineato quando il valore cambia dallo store */
 function useSyncedField(value: number | undefined, parse: (v: string) => number, format = formatPlain) {
   const [text, setText] = useState(value == null ? "" : format(value));
@@ -40,7 +74,7 @@ function useSyncedField(value: number | undefined, parse: (v: string) => number,
   return [text, setText] as const;
 }
 
-function SetRowComponent({ exerciseId, set, index, onRemove }: Props) {
+function SetRowComponent({ exerciseId, set, index, previous, onRemove }: Props) {
   const updateSet = useSessionStore((s) => s.updateSet);
   const completeSet = useSessionStore((s) => s.completeSet);
   const uncompleteSet = useSessionStore((s) => s.uncompleteSet);
@@ -162,6 +196,8 @@ function SetRowComponent({ exerciseId, set, index, onRemove }: Props) {
           </button>
         )}
       </div>
+
+      {previous && <PreviousHint previous={previous} weight={set.weight} />}
     </div>
   );
 }

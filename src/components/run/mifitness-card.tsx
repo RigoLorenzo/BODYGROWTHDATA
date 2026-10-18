@@ -3,12 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { it } from "date-fns/locale";
-import { AlertTriangle, ExternalLink, Loader2, RefreshCw, Watch } from "lucide-react";
+import { AlertTriangle, ExternalLink, Loader2, Watch } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 import { apiError, useInvalidateRuns, useMiFitnessStatus } from "./queries";
+import { RECONNECT_EVENT } from "./mifitness-sync";
 
 interface QrLogin {
   qrImage: string;
@@ -122,12 +123,16 @@ function ManualToken({ onConnected }: { onConnected: (imported: number | null) =
   );
 }
 
-/** Collegamento diretto a Mi Fitness (Xiaomi Watch, Smart Band) */
+/**
+ * Collegamento diretto a Mi Fitness (Xiaomi Watch, Smart Band). La
+ * sincronizzazione sta nell'header della pagina; qui collegamento e scollegamento.
+ */
 export function MiFitnessCard() {
   const { data, isLoading } = useMiFitnessStatus();
   const invalidate = useInvalidateRuns();
-  const [busy, setBusy] = useState<"sync" | "disconnect" | null>(null);
+  const [busy, setBusy] = useState<"disconnect" | null>(null);
   const [showManual, setShowManual] = useState(false);
+  const rootRef = useRef<HTMLElement>(null);
 
   const onConnected = async (imported: number | null) => {
     toast({
@@ -138,21 +143,6 @@ export function MiFitnessCard() {
     await invalidate();
   };
   const qrLogin = useQrLogin(onConnected);
-
-  const sync = async () => {
-    setBusy("sync");
-    try {
-      const res = await fetch("/api/integrations/mifitness/sync", { method: "POST" });
-      if (!res.ok) throw new Error(await apiError(res, "Sincronizzazione non riuscita"));
-      const { imported } = await res.json();
-      toast({ title: "Sincronizzato", description: imported ? `${imported} corse aggiornate` : "Nessuna corsa nuova" });
-    } catch (error) {
-      toast({ title: "Mi Fitness", description: (error as Error).message, variant: "destructive" });
-    } finally {
-      setBusy(null);
-      await invalidate();
-    }
-  };
 
   const disconnect = async () => {
     if (!confirm("Scollegare Mi Fitness? Le corse già importate restano.")) return;
@@ -165,14 +155,36 @@ export function MiFitnessCard() {
   const conn = data?.connection;
   const needsLogin = !conn || !!conn.lastError;
 
+  // "Collega" / "Ricollega" dall'header o dall'avviso: porta qui e avvia l'accesso
+  const startRef = useRef(qrLogin.start);
+  startRef.current = qrLogin.start;
+  const canStartRef = useRef(false);
+  canStartRef.current = needsLogin && !qrLogin.qr && !qrLogin.starting;
+  useEffect(() => {
+    const onReconnect = () => {
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      rootRef.current?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "center" });
+      if (canStartRef.current) void startRef.current();
+    };
+    window.addEventListener(RECONNECT_EVENT, onReconnect);
+    return () => window.removeEventListener(RECONNECT_EVENT, onReconnect);
+  }, []);
+
   return (
-    <section className="rounded-3xl border border-border/60 bg-card p-5">
+    <section
+      ref={rootRef}
+      id="mifitness"
+      aria-labelledby="mifitness-title"
+      className="scroll-mt-4 rounded-3xl border border-border/60 bg-card p-5"
+    >
       <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FF6900] text-white">
           <Watch className="h-5 w-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold">Mi Fitness</p>
+          <h2 id="mifitness-title" className="text-sm font-semibold">
+            Mi Fitness
+          </h2>
           <p className="truncate text-xs text-muted-foreground">
             {isLoading
               ? "…"
@@ -193,12 +205,10 @@ export function MiFitnessCard() {
       )}
 
       {conn && !conn.lastError && (
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <Button variant="secondary" onClick={sync} disabled={!!busy}>
-            {busy === "sync" ? <Loader2 className="animate-spin" /> : <RefreshCw />}
-            Sincronizza
-          </Button>
-          <Button variant="outline" onClick={disconnect} disabled={!!busy}>
+        <div className="mt-3 flex items-center justify-between gap-3">
+          <p className="text-xs text-muted-foreground">Si aggiorna da solo ogni 15 minuti con l&apos;app aperta.</p>
+          <Button variant="outline" size="sm" className="h-10 shrink-0" onClick={disconnect} disabled={!!busy}>
+            {busy === "disconnect" && <Loader2 className="animate-spin" />}
             Scollega
           </Button>
         </div>

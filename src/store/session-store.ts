@@ -21,7 +21,7 @@ interface SessionState {
   addSet: (exerciseId: string, set: ActiveSet) => void;
   updateSet: (exerciseId: string, setIndex: number, updates: Partial<ActiveSet>) => void;
   removeSet: (exerciseId: string, setIndex: number) => void;
-  /** Spunta la serie come fatta e propone gli stessi valori alla successiva */
+  /** Spunta la serie come fatta e propone gli stessi valori alle successive ancora da fare */
   completeSet: (exerciseId: string, setIndex: number) => void;
   /** Toglie la spunta: la serie torna da fare e non viene registrata */
   uncompleteSet: (exerciseId: string, setIndex: number) => void;
@@ -52,6 +52,10 @@ const mapSet = (ex: ActiveExercise, setIndex: number, fn: (s: ActiveSet) => Acti
 /** Serie con dati inseriti dall'utente ma non ancora spuntata */
 export const isFilledUnconfirmed = (s: ActiveSet) =>
   !s.completed && !s.prefilled && (s.weight != null || s.reps != null);
+
+/** Serie da fare con valori solo proposti (o vuota): può seguire la serie precedente */
+const isSuggestionOrEmpty = (s: ActiveSet) =>
+  !s.completed && (s.prefilled || (s.weight == null && s.reps == null));
 
 export const useSessionStore = create<SessionState>()(
   persist(
@@ -110,15 +114,14 @@ export const useSessionStore = create<SessionState>()(
           update((session) =>
             mapExercise(session, exerciseId, (ex) => {
               const done = { ...ex.sets[setIndex], completed: true, prefilled: false };
-              const next = ex.sets[setIndex + 1];
-              // La serie successiva parte con gli stessi peso/ripetizioni, così non si
-              // riscrive tutto ogni volta (resta modificabile).
-              const prefillNext = next && !next.completed && next.weight == null && next.reps == null;
+              // Le serie successive ancora da fare ripartono dai valori appena fatti,
+              // così non si riscrive tutto ogni volta. Vale anche per quelle
+              // precompilate dallo storico; quelle toccate a mano restano come sono.
               return {
                 ...ex,
                 sets: ex.sets.map((s, i) => {
                   if (i === setIndex) return done;
-                  if (i === setIndex + 1 && prefillNext) {
+                  if (i > setIndex && isSuggestionOrEmpty(s)) {
                     return { ...s, weight: done.weight, reps: done.reps, prefilled: true };
                   }
                   return s;

@@ -21,6 +21,7 @@ describe("buildActiveExercise", () => {
       ],
     });
     expect(ex.progression).toEqual({ increase: true, previousTop: 100 });
+    expect(ex.lastDate).toBe("2026-10-10");
     expect(ex.sets[0]).toMatchObject({ weight: 102.5, reps: 5, prefilled: true, completed: false });
   });
 
@@ -31,5 +32,10 @@ describe("buildActiveExercise", () => {
     );
     expect(ex.sets).toHaveLength(2);
     expect(ex.sets[1]).toMatchObject({ weight: 14, reps: 9 });
+  });
+
+  it("segnala se lo storico viene dallo stesso giorno del piano", () => {
+    const ex = buildActiveExercise(seed, { date: "2026-10-10", sameDay: true, sets: [{ weight: 60, reps: 6 }] });
+    expect(ex.lastSameDay).toBe(true);
   });
 });
