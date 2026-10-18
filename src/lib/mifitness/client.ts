@@ -62,6 +62,41 @@ async function xfetch(url: string, init: RequestInit): Promise<Response> {
 
 const cookiePairs = (res: Response) => res.headers.getSetCookie().map((c) => c.split(";", 1)[0]);
 
+/** Link STS, con la firma del client se richiesta */
+function stsUrl(location: string, sign: { nonce?: number | string; ssecurity?: string } | null): string {
+  if (!sign || sign.nonce == null || !sign.ssecurity || location.includes("clientSign=")) return location;
+  const url = new URL(location);
+  url.searchParams.set("clientSign", clientSign(String(sign.nonce), sign.ssecurity));
+  url.searchParams.set("_userIdNeedEncrypt", "true");
+  return url.toString();
+}
+
+/**
+ * Passaggio STS: il serviceToken arriva in un cookie, anche dopo redirect.
+ * La traccia (stato, host, nomi dei cookie; mai i valori) serve alla diagnosi.
+ */
+async function followSts(start: string): Promise<{ serviceToken?: string; trace: string }> {
+  const cookies = new Map<string, string>();
+  const trace: string[] = [];
+  let url = start;
+  for (let hop = 0; hop < 5 && url; hop++) {
+    const res = await xfetch(url, { headers: { "User-Agent": USER_AGENT }, redirect: "manual", signal: AbortSignal.timeout(TIMEOUT_MS) });
+    const names: string[] = [];
+    for (const pair of cookiePairs(res)) {
+      const [name, ...value] = pair.split("=");
+      cookies.set(name, value.join("="));
+      names.push(name);
+    }
+    trace.push(`${res.status} ${new URL(url).host}${names.length ? ` [${names.join(",")}]` : ""}`);
+    const next = res.status >= 300 && res.status < 400 ? res.headers.get("location") : null;
+    url = next ? new URL(next, url).toString() : "";
+  }
+  const name = [`${SERVICE_ID}_serviceToken`, "serviceToken", ...cookies.keys()].find(
+    (n) => /serviceToken$/i.test(n) && cookies.get(n)
+  );
+  return { serviceToken: name ? cookies.get(name) : undefined, trace: trace.join(" → ") };
+}
+
 /** passToken → sessione del servizio salute (ssecurity + serviceToken) */
 export async function login(userId: string, passToken: string): Promise<XiaomiSession> {
   const deviceId = randomBytes(8).toString("hex").toUpperCase();
@@ -77,23 +112,19 @@ export async function login(userId: string, passToken: string): Promise<XiaomiSe
     throw new MiFitnessError("Accesso Xiaomi scaduto: ricollega Mi Fitness", true);
   }
 
-  // Passaggio STS: restituisce il serviceToken nei cookie, anche dopo redirect
-  const cookies = new Map<string, string>();
-  let url = payload.location;
-  if (payload.nonce != null && !url.includes("clientSign=")) {
-    url += `${url.includes("?") ? "&" : "?"}clientSign=${encodeURIComponent(clientSign(String(payload.nonce), payload.ssecurity))}`;
+  // I progetti di riferimento usano due varianti: link così com'è, oppure firmato
+  const traces: string[] = [];
+  let serviceToken: string | undefined;
+  for (const signed of [false, true]) {
+    const sts = await followSts(stsUrl(payload.location, signed ? payload : null));
+    traces.push(`${signed ? "firmato" : "semplice"}: ${sts.trace}`);
+    serviceToken = sts.serviceToken;
+    if (serviceToken) break;
   }
-  for (let hop = 0; hop < 5 && url; hop++) {
-    const sts = await xfetch(url, { headers: { "User-Agent": USER_AGENT }, redirect: "manual", signal: AbortSignal.timeout(TIMEOUT_MS) });
-    for (const pair of cookiePairs(sts)) {
-      const [name, ...value] = pair.split("=");
-      cookies.set(name, value.join("="));
-    }
-    const next = sts.status >= 300 && sts.status < 400 ? sts.headers.get("location") : null;
-    url = next ? new URL(next, url).toString() : "";
+  if (!serviceToken) {
+    console.error("Mi Fitness STS senza serviceToken", traces);
+    throw new MiFitnessError(`Xiaomi non ha restituito il token del servizio salute (${traces.join(" | ")})`);
   }
-  const serviceToken = cookies.get(`${SERVICE_ID}_serviceToken`) ?? cookies.get("serviceToken");
-  if (!serviceToken) throw new MiFitnessError("Xiaomi non ha restituito il token del servizio salute");
 
   const id = String(payload.userId ?? userId);
   const cookie = [
