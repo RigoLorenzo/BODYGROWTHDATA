@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { weekOverview } from "@/lib/overview";
 import { startOfWeek, endOfWeek, subWeeks, subDays, differenceInDays, format } from "date-fns";
 import { computeProgressScore } from "@/lib/progress-score";
 import {
@@ -20,52 +21,7 @@ export async function GET(req: Request) {
   const userId = session.user.id;
 
   if (type === "overview") {
-    const now = new Date();
-    const weekStart = startOfWeek(now, { weekStartsOn: 1 });
-    const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
-    const prevWeekStart = subWeeks(weekStart, 1);
-    const prevWeekEnd = subWeeks(weekEnd, 1);
-
-    const [thisWeek, lastWeek, totalStats, streak] = await Promise.all([
-      prisma.workoutSession.aggregate({
-        where: { userId, status: "COMPLETED", startedAt: { gte: weekStart, lte: weekEnd } },
-        _sum: { totalVolume: true },
-        _count: true,
-      }),
-      prisma.workoutSession.aggregate({
-        where: { userId, status: "COMPLETED", startedAt: { gte: prevWeekStart, lte: prevWeekEnd } },
-        _sum: { totalVolume: true },
-        _count: true,
-      }),
-      prisma.workoutSession.aggregate({
-        where: { userId, status: "COMPLETED" },
-        _sum: { totalVolume: true },
-        _count: true,
-      }),
-      prisma.streak.findUnique({ where: { userId } }),
-    ]);
-
-    const volumeChange = lastWeek._sum.totalVolume
-      ? (((thisWeek._sum.totalVolume ?? 0) - (lastWeek._sum.totalVolume ?? 0)) / (lastWeek._sum.totalVolume ?? 1)) * 100
-      : 0;
-
-    return NextResponse.json({
-      thisWeek: {
-        volume: thisWeek._sum.totalVolume ?? 0,
-        workouts: thisWeek._count,
-      },
-      lastWeek: {
-        volume: lastWeek._sum.totalVolume ?? 0,
-        workouts: lastWeek._count,
-      },
-      total: {
-        volume: totalStats._sum.totalVolume ?? 0,
-        workouts: totalStats._count,
-      },
-      volumeChange: Math.round(volumeChange),
-      streak: streak?.currentStreak ?? 0,
-      longestStreak: streak?.longestStreak ?? 0,
-    });
+    return NextResponse.json(await weekOverview(userId));
   }
 
   if (type === "progress") {
@@ -82,17 +38,18 @@ export async function GET(req: Request) {
 
     const sessions = await prisma.workoutSession.findMany({
       where: { userId, status: "COMPLETED", startedAt: { gte: startDate, lte: endDate } },
-      select: { startedAt: true, totalVolume: true, duration: true, rpe: true },
+      select: { startedAt: true, totalVolume: true, duration: true, rpe: true, workoutType: true },
     });
 
     const heatmap = sessions.reduce((acc, s) => {
       const day = format(s.startedAt, "yyyy-MM-dd");
-      if (!acc[day]) acc[day] = { volume: 0, count: 0, duration: 0 };
+      if (!acc[day]) acc[day] = { volume: 0, count: 0, duration: 0, runs: 0 };
       acc[day].volume += s.totalVolume;
       acc[day].count += 1;
       acc[day].duration += s.duration ?? 0;
+      if (s.workoutType === "CARDIO") acc[day].runs += 1;
       return acc;
-    }, {} as Record<string, { volume: number; count: number; duration: number }>);
+    }, {} as Record<string, { volume: number; count: number; duration: number; runs: number }>);
 
     return NextResponse.json(heatmap);
   }

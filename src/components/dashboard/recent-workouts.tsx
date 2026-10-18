@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { ChevronRight, Star } from "lucide-react";
 import { formatVolume } from "@/lib/utils";
+import { formatKm, formatPace, paceSecondsPerKm } from "@/lib/run/format";
 
 interface WorkoutListItem {
   id: string;
@@ -15,6 +16,7 @@ interface WorkoutListItem {
   totalSets: number;
   programDayName?: string | null;
   exercises?: { id: string; exercise?: { name: string } }[];
+  run?: { id: string; name: string; distance: number; movingTime: number } | null;
   _count?: { personalRecords: number };
 }
 
@@ -23,7 +25,9 @@ interface Props {
 }
 
 const workoutTitle = (w: WorkoutListItem) =>
-  w.programDayName ?? (w.workoutType === "CUSTOM" ? w.exercises?.[0]?.exercise?.name ?? "Allenamento" : w.workoutType);
+  w.run?.name ??
+  w.programDayName ??
+  (w.workoutType === "CUSTOM" ? w.exercises?.[0]?.exercise?.name ?? "Allenamento" : w.workoutType);
 
 export function RecentWorkouts({ initialData }: Props) {
   const { data: workouts } = useQuery<WorkoutListItem[]>({
@@ -58,7 +62,7 @@ export function RecentWorkouts({ initialData }: Props) {
             return (
               <li key={workout.id} className="border-b border-border/50 last:border-0">
                 <Link
-                  href={`/workout/${workout.id}`}
+                  href={workout.run ? `/run/${workout.run.id}` : `/workout/${workout.id}`}
                   className="flex items-center gap-4 px-4 py-3 active:bg-muted/50"
                 >
                   <div className="w-10 shrink-0 text-center">
@@ -79,11 +83,13 @@ export function RecentWorkouts({ initialData }: Props) {
                     </p>
                     <p className="text-xs text-muted-foreground">
                       <span className="capitalize">{format(date, "EEEE", { locale: it })}</span> ·{" "}
-                      {workout.exercises?.length ?? 0} esercizi · {workout.totalSets} serie
+                      {workout.run
+                        ? `Corsa · ${formatPace(paceSecondsPerKm(workout.run.distance, workout.run.movingTime))}/km`
+                        : `${workout.exercises?.length ?? 0} esercizi · ${workout.totalSets} serie`}
                     </p>
                   </div>
                   <p className="shrink-0 font-display text-lg font-semibold tabular-nums">
-                    {formatVolume(workout.totalVolume)}
+                    {workout.run ? `${formatKm(workout.run.distance)} km` : formatVolume(workout.totalVolume)}
                   </p>
                 </Link>
               </li>

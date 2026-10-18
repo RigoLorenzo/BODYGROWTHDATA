@@ -193,6 +193,8 @@ model User {
   customExercises  Exercise[]
   programs         Program[]
   activeProgram    ActiveProgram?
+  runActivities    RunActivity[]
+  stravaConnection StravaConnection?
   streak           Streak?
   achievements     UserAchievement[]
   notifications    Notification[]
@@ -214,6 +216,10 @@ model Profile {
   birthDate       DateTime?
   experienceLevel ExperienceLevel @default(BEGINNER)
   preferredUnits  String          @default("kg")
+  /// Corsa: frequenze cardiache per il carico di allenamento e obiettivo settimanale
+  maxHeartRate     Int?
+  restingHeartRate Int?
+  weeklyRunKmGoal  Float?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
   user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -328,6 +334,8 @@ model WorkoutSession {
   exercises        WorkoutExercise[]
   personalRecords  PersonalRecord[]
   share            WorkoutShare?
+  /// Se la seduta è una corsa, qui ci sono i dettagli
+  run              RunActivity?
 
   @@index([userId, startedAt])
   @@index([userId, status])
@@ -595,4 +603,72 @@ model Notification {
 model DataProvision {
   key       String   @id
   appliedAt DateTime @default(now())
+}
+
+// ─── Corsa ────────────────────────────────────────────────────────────────────
+
+enum ActivitySource {
+  STRAVA
+  GPX
+  MANUAL
+}
+
+/// Una corsa. Ha sempre una WorkoutSession (CARDIO) collegata, così conta come
+/// allenamento per streak, calendario e statistiche settimanali.
+model RunActivity {
+  id            String         @id @default(cuid())
+  userId        String
+  sessionId     String         @unique
+  source        ActivitySource
+  /// Id dell'attività sulla piattaforma di origine (es. Strava)
+  externalId    String?
+  name          String
+  sportType     String         @default("Run")
+  startedAt     DateTime
+  /// metri
+  distance      Float
+  /// secondi in movimento / totali
+  movingTime    Int
+  elapsedTime   Int
+  elevationGain Float?
+  avgHeartRate  Float?
+  maxHeartRate  Float?
+  /// passi al minuto
+  avgCadence    Float?
+  calories      Float?
+  /// Percorso in formato encoded polyline (Google)
+  polyline      String?        @db.Text
+  /// [{ km, seconds, distance, elevation, heartRate }]
+  splits        Json?
+  /// [{ name, distance, seconds }]
+  bestEfforts   Json?
+  /// true quando sono stati letti split e migliori tempi (dettaglio completo)
+  detailed      Boolean        @default(false)
+  trainingLoad  Float?
+  notes         String?        @db.Text
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session WorkoutSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, source, externalId])
+  @@index([userId, startedAt])
+}
+
+/// Collegamento a Strava. I token sono cifrati (vedi lib/crypto).
+model StravaConnection {
+  id           String    @id @default(cuid())
+  userId       String    @unique
+  athleteId    String    @unique
+  athleteName  String?
+  accessToken  String    @db.Text
+  refreshToken String    @db.Text
+  expiresAt    DateTime
+  scope        String?
+  lastSyncAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

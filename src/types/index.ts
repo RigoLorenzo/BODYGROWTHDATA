@@ -31,7 +31,7 @@ export interface ExerciseSearchResult {
 }
 
 export interface AnalyticsOverview {
-  thisWeek: { volume: number; workouts: number };
+  thisWeek: { volume: number; workouts: number; gymWorkouts?: number; runs?: number; runDistance?: number };
   lastWeek: { volume: number; workouts: number };
   total: { volume: number; workouts: number };
   volumeChange: number;
