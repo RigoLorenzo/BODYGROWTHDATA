@@ -48,7 +48,7 @@ function useReturnStatus() {
   }, [status]);
 }
 
-/** Collegamento a Strava: Xiaomi → Mi Fitness → Strava → BodyGrowth */
+/** Collegamento a Strava (facoltativo: richiede le chiavi API e l'abbonamento) */
 export function StravaCard() {
   useReturnStatus();
   const { data } = useStravaStatus();
@@ -87,6 +87,8 @@ export function StravaCard() {
   };
 
   const conn = data?.connection;
+  // L'API Strava richiede un abbonamento: la card appare solo se configurata
+  if (!data || (!data.configured && !conn)) return null;
 
   return (
     <section className="rounded-3xl border border-border/60 bg-card p-5">

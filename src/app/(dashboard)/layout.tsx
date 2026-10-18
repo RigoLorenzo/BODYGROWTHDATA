@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { ActiveSessionBanner } from "@/components/session/active-session-banner";
 import { WorkoutConflictDialog } from "@/components/session/workout-conflict-dialog";
+import { RunAutoSync } from "@/components/run/run-auto-sync";
 
 export default async function DashboardLayout({
   children,
@@ -18,6 +19,7 @@ export default async function DashboardLayout({
       <main className="min-h-screen">{children}</main>
       <BottomNav />
       <WorkoutConflictDialog />
+      <RunAutoSync />
     </div>
   );
 }

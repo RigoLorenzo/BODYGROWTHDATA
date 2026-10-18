@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { RunDetail, RunListItem, RunStats, StravaStatus } from "./types";
+import type { MiFitnessStatus, RunDetail, RunListItem, RunStats, StravaStatus } from "./types";
 
 async function getJson<T>(url: string): Promise<T> {
   const res = await fetch(url);
@@ -27,6 +27,9 @@ export const useRun = (id: string) =>
 export const useStravaStatus = () =>
   useQuery<StravaStatus>({ queryKey: ["strava"], queryFn: () => getJson("/api/integrations/strava") });
 
+export const useMiFitnessStatus = () =>
+  useQuery<MiFitnessStatus>({ queryKey: ["mifitness"], queryFn: () => getJson("/api/integrations/mifitness") });
+
 /**
  * Dopo ogni modifica alle corse: sezione corsa, home, calendario e streak.
  * `removedId`: corsa appena eliminata, il cui dettaglio non va ricaricato.
@@ -36,7 +39,7 @@ export function useInvalidateRuns() {
   return (removedId?: string) => {
     if (removedId) qc.removeQueries({ queryKey: ["runs", "detail", removedId], exact: true });
     return Promise.all(
-      [["runs"], ["strava"], ["sessions"], ["analytics"]].map((queryKey) =>
+      [["runs"], ["strava"], ["mifitness"], ["sessions"], ["analytics"]].map((queryKey) =>
         qc.invalidateQueries({
           queryKey,
           predicate: (q) => !(removedId && q.queryKey[1] === "detail" && q.queryKey[2] === removedId),

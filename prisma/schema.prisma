@@ -184,21 +184,22 @@ model User {
   accounts Account[]
   sessions Session[]
 
-  profile          Profile?
-  preferences      Preferences?
-  goals            Goal[]
-  workoutSessions  WorkoutSession[]
-  personalRecords  PersonalRecord[]
-  bodyMeasurements BodyMeasurement[]
-  customExercises  Exercise[]
-  programs         Program[]
-  activeProgram    ActiveProgram?
-  runActivities    RunActivity[]
-  stravaConnection StravaConnection?
-  streak           Streak?
-  achievements     UserAchievement[]
-  notifications    Notification[]
-  workoutShares    WorkoutShare[]
+  profile             Profile?
+  preferences         Preferences?
+  goals               Goal[]
+  workoutSessions     WorkoutSession[]
+  personalRecords     PersonalRecord[]
+  bodyMeasurements    BodyMeasurement[]
+  customExercises     Exercise[]
+  programs            Program[]
+  activeProgram       ActiveProgram?
+  runActivities       RunActivity[]
+  stravaConnection    StravaConnection?
+  miFitnessConnection MiFitnessConnection?
+  streak              Streak?
+  achievements        UserAchievement[]
+  notifications       Notification[]
+  workoutShares       WorkoutShare[]
 
   following Follows[] @relation("Following")
   followers Follows[] @relation("Followers")
@@ -207,58 +208,58 @@ model User {
 }
 
 model Profile {
-  id              String          @id @default(cuid())
-  userId          String          @unique
-  bio             String?         @db.Text
-  avatarUrl       String?
-  weight          Float?
-  height          Float?
-  birthDate       DateTime?
-  experienceLevel ExperienceLevel @default(BEGINNER)
-  preferredUnits  String          @default("kg")
+  id               String          @id @default(cuid())
+  userId           String          @unique
+  bio              String?         @db.Text
+  avatarUrl        String?
+  weight           Float?
+  height           Float?
+  birthDate        DateTime?
+  experienceLevel  ExperienceLevel @default(BEGINNER)
+  preferredUnits   String          @default("kg")
   /// Corsa: frequenze cardiache per il carico di allenamento e obiettivo settimanale
   maxHeartRate     Int?
   restingHeartRate Int?
   weeklyRunKmGoal  Float?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Preferences {
-  id                  String   @id @default(cuid())
-  userId              String   @unique
-  units               String   @default("kg")
-  theme               String   @default("dark")
-  restTimerDefault    Int      @default(90)
-  soundEnabled        Boolean  @default(true)
-  vibrationEnabled    Boolean  @default(true)
-  showRPE             Boolean  @default(true)
-  showTempo           Boolean  @default(false)
-  autoStartTimer      Boolean  @default(true)
-  plateCalculatorBar  Float    @default(20)
-  availablePlates     Json     @default("[20,15,10,5,2.5,1.25]")
-  weekStartDay        Int      @default(1)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  units              String   @default("kg")
+  theme              String   @default("dark")
+  restTimerDefault   Int      @default(90)
+  soundEnabled       Boolean  @default(true)
+  vibrationEnabled   Boolean  @default(true)
+  showRPE            Boolean  @default(true)
+  showTempo          Boolean  @default(false)
+  autoStartTimer     Boolean  @default(true)
+  plateCalculatorBar Float    @default(20)
+  availablePlates    Json     @default("[20,15,10,5,2.5,1.25]")
+  weekStartDay       Int      @default(1)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Goal {
-  id                  String   @id @default(cuid())
-  userId              String
-  targetBodyWeight    Float?
-  weeklyVolumeTarget  Float?
-  weeklyFrequency     Int?
-  targetLift          String?
-  targetLiftWeight    Float?
-  targetLiftReps      Int?
-  deadline            DateTime?
-  achieved            Boolean  @default(false)
-  achievedAt          DateTime?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                 String    @id @default(cuid())
+  userId             String
+  targetBodyWeight   Float?
+  weeklyVolumeTarget Float?
+  weeklyFrequency    Int?
+  targetLift         String?
+  targetLiftWeight   Float?
+  targetLiftReps     Int?
+  deadline           DateTime?
+  achieved           Boolean   @default(false)
+  achievedAt         DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
@@ -266,29 +267,29 @@ model Goal {
 // ─── Exercise Library ─────────────────────────────────────────────────────────
 
 model Exercise {
-  id           String           @id @default(cuid())
-  name         String
-  nameIt       String?
-  aliases      String[]
-  description  String?          @db.Text
-  instructions String?          @db.Text
-  videoUrl     String?
-  imageUrl     String?
-  category     ExerciseCategory @default(COMPOUND)
-  muscleGroups MuscleGroup[]
-  primaryMuscle MuscleGroup?
-  equipment    Equipment[]
+  id                  String           @id @default(cuid())
+  name                String
+  nameIt              String?
+  aliases             String[]
+  description         String?          @db.Text
+  instructions        String?          @db.Text
+  videoUrl            String?
+  imageUrl            String?
+  category            ExerciseCategory @default(COMPOUND)
+  muscleGroups        MuscleGroup[]
+  primaryMuscle       MuscleGroup?
+  equipment           Equipment[]
   // Coefficienti di contributo per muscolo, es. {"CHEST":1,"TRICEPS":0.5}
   muscleContributions Json?
-  difficulty   Int              @default(3)
-  tags         String[]
-  isCustom     Boolean          @default(false)
-  isPublic     Boolean          @default(true)
-  createdById  String?
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  difficulty          Int              @default(3)
+  tags                String[]
+  isCustom            Boolean          @default(false)
+  isPublic            Boolean          @default(true)
+  createdById         String?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
 
-  createdBy       User?            @relation(fields: [createdById], references: [id])
+  createdBy        User?             @relation(fields: [createdById], references: [id])
   workoutExercises WorkoutExercise[]
   personalRecords  PersonalRecord[]
 
@@ -300,56 +301,56 @@ model Exercise {
 // ─── Workout Session ──────────────────────────────────────────────────────────
 
 model WorkoutSession {
-  id                  String        @id @default(cuid())
-  userId              String
-  startedAt           DateTime      @default(now())
-  endedAt             DateTime?
-  duration            Int?
-  status              SessionStatus @default(ACTIVE)
-  totalVolume         Float         @default(0)
-  totalSets           Int           @default(0)
-  totalReps           Int           @default(0)
-  restSeconds         Int           @default(0)
-  activeSeconds       Int?
-  estimatedCalories   Int?
-  rating              Int?
-  rpe                 Float?
-  notes               String?       @db.Text
-  mood                Int?
-  energyLevel         Int?
-  workoutType         WorkoutType   @default(CUSTOM)
+  id                   String        @id @default(cuid())
+  userId               String
+  startedAt            DateTime      @default(now())
+  endedAt              DateTime?
+  duration             Int?
+  status               SessionStatus @default(ACTIVE)
+  totalVolume          Float         @default(0)
+  totalSets            Int           @default(0)
+  totalReps            Int           @default(0)
+  restSeconds          Int           @default(0)
+  activeSeconds        Int?
+  estimatedCalories    Int?
+  rating               Int?
+  rpe                  Float?
+  notes                String?       @db.Text
+  mood                 Int?
+  energyLevel          Int?
+  workoutType          WorkoutType   @default(CUSTOM)
   muscleGroupsTargeted MuscleGroup[]
-  location            String?
-  latitude            Float?
-  longitude           Float?
-  templateId          String?
-  programDayId        String?
+  location             String?
+  latitude             Float?
+  longitude            Float?
+  templateId           String?
+  programDayId         String?
   /// Stato dell'allenamento in corso (esercizi e serie, anche non spuntate),
   /// salvato mentre ti alleni: si riprende anche se il telefono perde i dati.
-  draft               Json?
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
+  draft                Json?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
 
-  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  exercises        WorkoutExercise[]
-  personalRecords  PersonalRecord[]
-  share            WorkoutShare?
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exercises       WorkoutExercise[]
+  personalRecords PersonalRecord[]
+  share           WorkoutShare?
   /// Se la seduta è una corsa, qui ci sono i dettagli
-  run              RunActivity?
+  run             RunActivity?
 
   @@index([userId, startedAt])
   @@index([userId, status])
 }
 
 model WorkoutExercise {
-  id               String  @id @default(cuid())
+  id               String   @id @default(cuid())
   sessionId        String
   exerciseId       String
-  orderIndex       Int     @default(0)
-  restTimerSeconds Int     @default(90)
+  orderIndex       Int      @default(0)
+  restTimerSeconds Int      @default(90)
   restAfterSeconds Int?
   workSeconds      Int?
-  notes            String? @db.Text
+  notes            String?  @db.Text
   supersetWith     String?
   createdAt        DateTime @default(now())
 
@@ -362,18 +363,18 @@ model WorkoutExercise {
 }
 
 model Set {
-  id                String  @id @default(cuid())
+  id                String   @id @default(cuid())
   workoutExerciseId String
   setNumber         Int
-  type              SetType @default(WORKING)
+  type              SetType  @default(WORKING)
   reps              Int?
   weight            Float?
   rpe               Float?
   tempo             String?
   duration          Int?
   distance          Float?
-  isPR              Boolean @default(false)
-  volume            Float   @default(0)
+  isPR              Boolean  @default(false)
+  volume            Float    @default(0)
   restSeconds       Int?
   notes             String?
   completedAt       DateTime @default(now())
@@ -386,21 +387,21 @@ model Set {
 // ─── Personal Records ─────────────────────────────────────────────────────────
 
 model PersonalRecord {
-  id                   String     @id @default(cuid())
-  userId               String
-  exerciseId           String
-  recordType           RecordType
-  value                Float
-  reps                 Int?
-  weight               Float?
-  dateAchieved         DateTime   @default(now())
-  previousRecord       Float?
-  improvementPercent   Float?
-  workoutSessionId     String?
-  createdAt            DateTime   @default(now())
+  id                 String     @id @default(cuid())
+  userId             String
+  exerciseId         String
+  recordType         RecordType
+  value              Float
+  reps               Int?
+  weight             Float?
+  dateAchieved       DateTime   @default(now())
+  previousRecord     Float?
+  improvementPercent Float?
+  workoutSessionId   String?
+  createdAt          DateTime   @default(now())
 
-  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  exercise       Exercise       @relation(fields: [exerciseId], references: [id])
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exercise       Exercise        @relation(fields: [exerciseId], references: [id])
   workoutSession WorkoutSession? @relation(fields: [workoutSessionId], references: [id])
 
   @@index([userId, exerciseId])
@@ -410,23 +411,23 @@ model PersonalRecord {
 // ─── Body Measurements ────────────────────────────────────────────────────────
 
 model BodyMeasurement {
-  id          String   @id @default(cuid())
-  userId      String
-  date        DateTime @default(now())
-  weight      Float?
-  bodyFat     Float?
-  muscleMass  Float?
-  chest       Float?
-  arms        Float?
-  waist       Float?
-  hips        Float?
-  thighs      Float?
-  calves      Float?
-  neck        Float?
-  shoulders   Float?
-  notes       String?  @db.Text
-  photos      String[]
-  createdAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  userId     String
+  date       DateTime @default(now())
+  weight     Float?
+  bodyFat    Float?
+  muscleMass Float?
+  chest      Float?
+  arms       Float?
+  waist      Float?
+  hips       Float?
+  thighs     Float?
+  calves     Float?
+  neck       Float?
+  shoulders  Float?
+  notes      String?  @db.Text
+  photos     String[]
+  createdAt  DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -436,34 +437,34 @@ model BodyMeasurement {
 // ─── Programs & Routines ──────────────────────────────────────────────────────
 
 model Program {
-  id              String            @id @default(cuid())
-  name            String
-  description     String?           @db.Text
-  creatorId       String
-  isPublic        Boolean           @default(false)
-  isTemplate      Boolean           @default(false)
-  frequency       Int               @default(3)
-  splitType       SplitType         @default(CUSTOM)
-  periodization   PeriodizationType @default(LINEAR)
-  durationWeeks   Int               @default(8)
-  tags            String[]
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  id            String            @id @default(cuid())
+  name          String
+  description   String?           @db.Text
+  creatorId     String
+  isPublic      Boolean           @default(false)
+  isTemplate    Boolean           @default(false)
+  frequency     Int               @default(3)
+  splitType     SplitType         @default(CUSTOM)
+  periodization PeriodizationType @default(LINEAR)
+  durationWeeks Int               @default(8)
+  tags          String[]
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
 
-  creator      User           @relation(fields: [creatorId], references: [id])
-  days         ProgramDay[]
-  activations  ActiveProgram[]
+  creator     User            @relation(fields: [creatorId], references: [id])
+  days        ProgramDay[]
+  activations ActiveProgram[]
 
   @@index([creatorId])
   @@index([isPublic, isTemplate])
 }
 
 model ProgramDay {
-  id          String      @id @default(cuid())
+  id          String            @id @default(cuid())
   programId   String
   dayIndex    Int
   name        String
-  workoutType WorkoutType @default(CUSTOM)
+  workoutType WorkoutType       @default(CUSTOM)
   exercises   ProgramExercise[]
 
   program Program @relation(fields: [programId], references: [id], onDelete: Cascade)
@@ -472,16 +473,16 @@ model ProgramDay {
 }
 
 model ProgramExercise {
-  id          String @id @default(cuid())
+  id          String  @id @default(cuid())
   dayId       String
   exerciseId  String
-  orderIndex  Int    @default(0)
-  sets        Int    @default(3)
-  repsMin     Int    @default(8)
-  repsMax     Int    @default(12)
+  orderIndex  Int     @default(0)
+  sets        Int     @default(3)
+  repsMin     Int     @default(8)
+  repsMax     Int     @default(12)
   rpe         Float?
   percentage  Float?
-  restSeconds Int    @default(90)
+  restSeconds Int     @default(90)
   notes       String?
 
   day ProgramDay @relation(fields: [dayId], references: [id], onDelete: Cascade)
@@ -490,13 +491,13 @@ model ProgramExercise {
 }
 
 model ActiveProgram {
-  id           String   @id @default(cuid())
-  userId       String   @unique
-  programId    String
-  startedAt    DateTime @default(now())
-  currentWeek  Int      @default(1)
-  currentDay   Int      @default(0)
-  completedAt  DateTime?
+  id          String    @id @default(cuid())
+  userId      String    @unique
+  programId   String
+  startedAt   DateTime  @default(now())
+  currentWeek Int       @default(1)
+  currentDay  Int       @default(0)
+  completedAt DateTime?
 
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   program Program @relation(fields: [programId], references: [id])
@@ -609,6 +610,7 @@ model DataProvision {
 
 enum ActivitySource {
   STRAVA
+  MI_FITNESS
   GPX
   MANUAL
 }
@@ -669,6 +671,23 @@ model StravaConnection {
   lastSyncAt   DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// Collegamento all'account Xiaomi (Mi Fitness) tramite passToken, mai la password
+model MiFitnessConnection {
+  id         String    @id @default(cuid())
+  userId     String    @unique
+  xiaomiId   String    @unique
+  /// passToken cifrato (AES-256-GCM)
+  passToken  String    @db.Text
+  /// Regione del cloud salute (de per l'Europa)
+  region     String    @default("de")
+  lastSyncAt DateTime?
+  lastError  String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

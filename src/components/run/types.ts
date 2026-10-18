@@ -44,7 +44,17 @@ export interface RunStats {
   strava: { athleteName: string | null; lastSyncAt: string | null } | null;
 }
 
-export type ActivitySource = "STRAVA" | "GPX" | "MANUAL";
+export type ActivitySource = "STRAVA" | "MI_FITNESS" | "GPX" | "MANUAL";
+
+export interface MiFitnessStatus {
+  connection: {
+    xiaomiId: string;
+    region: string;
+    lastSyncAt: string | null;
+    lastError: string | null;
+    createdAt: string;
+  } | null;
+}
 
 export interface RunListItem {
   id: string;

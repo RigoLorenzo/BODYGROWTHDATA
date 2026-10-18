@@ -2,5 +2,6 @@
   "buildCommand": "prisma generate && node scripts/migrate.mjs && next build",
   "framework": "nextjs",
   "installCommand": "npm install",
-  "outputDirectory": ".next"
+  "outputDirectory": ".next",
+  "crons": [{ "path": "/api/cron/mifitness", "schedule": "0 5 * * *" }]
 }

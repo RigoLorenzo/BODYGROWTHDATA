@@ -5,7 +5,7 @@ import { formatDuration, formatKm, formatPace, paceSecondsPerKm } from "@/lib/ru
 import { RouteMap } from "./route-map";
 import type { RunListItem } from "./types";
 
-const SOURCE_LABEL = { STRAVA: "Strava", GPX: "GPX", MANUAL: "Manuale" } as const;
+const SOURCE_LABEL = { STRAVA: "Strava", MI_FITNESS: "Mi Fitness", GPX: "GPX", MANUAL: "Manuale" } as const;
 
 /** Elenco attività con miniatura del percorso */
 export function RunList({ runs }: { runs: RunListItem[] }) {
