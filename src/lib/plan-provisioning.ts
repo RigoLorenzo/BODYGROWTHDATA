@@ -20,7 +20,7 @@ interface PlanProvision {
 
 const provisions: PlanProvision[] = [
   {
-    key: "plan:multifrequenza-4x:v2",
+    key: "plan:multifrequenza-4x:v3",
     ownerEmail: "lorenzo.rigo.vr02@gmail.com",
     plan: multifrequenza4x,
   },
