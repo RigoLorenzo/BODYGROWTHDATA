@@ -7,5 +7,6 @@ export const config = {
     "/analytics/:path*",
     "/profile/:path*",
     "/workout/:path*",
+    "/run/:path*",
   ],
 };

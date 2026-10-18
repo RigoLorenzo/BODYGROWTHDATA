@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { SessionDetail } from "@/components/session/session-detail";
@@ -27,6 +27,10 @@ export default async function WorkoutDetailPage({ params }: Props) {
   });
 
   if (!workout) notFound();
+
+  // Le corse hanno la loro pagina, con percorso e parziali
+  const run = await prisma.runActivity.findUnique({ where: { sessionId }, select: { id: true } });
+  if (run) redirect(`/run/${run.id}`);
 
   return <SessionDetail workout={workout} />;
 }

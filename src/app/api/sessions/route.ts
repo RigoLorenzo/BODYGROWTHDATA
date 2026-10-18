@@ -87,6 +87,7 @@ export async function GET(req: Request) {
           sets: { where: { type: "WORKING" } },
         },
       },
+      run: { select: { id: true, name: true, distance: true, movingTime: true } },
       _count: { select: { personalRecords: true } },
     },
   });

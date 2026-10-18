@@ -3,7 +3,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { eachDayOfInterval, endOfWeek, format, isSameDay, isFuture, startOfWeek } from "date-fns";
 import { it } from "date-fns/locale";
-import { Flame } from "lucide-react";
+import Link from "next/link";
+import { ChevronRight, Flame } from "lucide-react";
+import { formatKm } from "@/lib/run/format";
 import { useHeatmapData } from "@/hooks/use-workout-session";
 import { useActiveProgram } from "@/hooks/use-active-program";
 import { cn, formatVolume } from "@/lib/utils";
@@ -11,7 +13,7 @@ import type { AnalyticsOverview } from "@/types";
 
 interface Props {
   initialOverview?: AnalyticsOverview;
-  initialDays?: Record<string, { volume: number }>;
+  initialDays?: Record<string, { volume: number; runs?: number }>;
 }
 
 function Metric({ label, children }: { label: string; children: React.ReactNode }) {
@@ -47,13 +49,22 @@ export function WeekCard({ initialOverview, initialDays }: Props) {
   const { data: currentYear } = useHeatmapData(today.getFullYear());
   const { data: plan } = useActiveProgram();
 
-  const trained = (day: Date) => {
+  /** Cosa è stato fatto in un giorno: palestra, corsa o entrambe */
+  const dayInfo = (day: Date) => {
     const key = format(day, "yyyy-MM-dd");
     const loaded = startYear || currentYear;
-    return loaded ? !!(startYear?.[key] ?? currentYear?.[key]) : !!initialDays?.[key];
+    const entry = (loaded ? startYear?.[key] ?? currentYear?.[key] : initialDays?.[key]) as
+      | { count?: number; runs?: number }
+      | undefined;
+    if (!entry) return { gym: false, run: false };
+    const runs = entry.runs ?? 0;
+    return { gym: (entry.count ?? 1) > runs, run: runs > 0 };
   };
 
-  const workouts = overview?.thisWeek.workouts ?? 0;
+  // Le "sedute" sono quelle del piano in palestra; le corse si contano a parte
+  const workouts = overview?.thisWeek.gymWorkouts ?? overview?.thisWeek.workouts ?? 0;
+  const runs = overview?.thisWeek.runs ?? 0;
+  const runDistance = overview?.thisWeek.runDistance ?? 0;
   const target = plan?.program.frequency;
 
   return (
@@ -67,7 +78,8 @@ export function WeekCard({ initialOverview, initialDays }: Props) {
 
       <div className="mt-4 grid grid-cols-7 gap-1.5">
         {days.map((day) => {
-          const done = trained(day);
+          const { gym, run } = dayInfo(day);
+          const done = gym || run;
           const isToday = isSameDay(day, today);
           return (
             <div key={day.toISOString()} className="flex flex-col items-center gap-1.5">
@@ -89,6 +101,10 @@ export function WeekCard({ initialOverview, initialDays }: Props) {
               >
                 {format(day, "d")}
               </span>
+              <span
+                className={cn("h-1.5 w-1.5 rounded-full", run ? "bg-lime-500" : "bg-transparent")}
+                aria-label={run ? "Corsa" : undefined}
+              />
             </div>
           );
         })}
@@ -106,6 +122,24 @@ export function WeekCard({ initialOverview, initialDays }: Props) {
           <Flame className={cn("h-4 w-4", (overview?.streak ?? 0) > 0 ? "text-orange-500" : "text-muted-foreground")} />
         </Metric>
       </div>
+
+      <Link
+        href="/run"
+        className="-mx-2 mt-4 flex items-center gap-2 rounded-xl px-2 py-2 text-sm active:bg-muted/60"
+      >
+        <span className="h-2 w-2 shrink-0 rounded-full bg-lime-500" aria-hidden />
+        <span className="flex-1 text-muted-foreground">
+          {runs > 0 ? (
+            <>
+              Corsa: <span className="font-semibold text-foreground">{formatKm(runDistance)} km</span> in {runs}{" "}
+              {runs === 1 ? "uscita" : "uscite"}
+            </>
+          ) : (
+            "Nessuna corsa questa settimana"
+          )}
+        </span>
+        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+      </Link>
     </section>
   );
 }
