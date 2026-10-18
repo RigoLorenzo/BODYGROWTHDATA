@@ -38,8 +38,8 @@ export function MuscleFrequencyGrid() {
 
   if (isLoading) {
     return (
-      <Card className="border-border/50">
-        <CardHeader className="pb-2"><CardTitle className="text-sm">Frequenza Muscolare (14 giorni)</CardTitle></CardHeader>
+      <Card className="rounded-3xl border-border/60 shadow-none">
+        <CardHeader className="pb-2"><CardTitle className="font-display text-xl font-bold uppercase tracking-wide">Frequenza muscolare</CardTitle></CardHeader>
         <CardContent><Skeleton className="h-48 rounded-lg" /></CardContent>
       </Card>
     );
@@ -51,10 +51,10 @@ export function MuscleFrequencyGrid() {
   ];
 
   return (
-    <Card className="border-border/50">
+    <Card className="rounded-3xl border-border/60 shadow-none">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-sm">Frequenza Muscolare</CardTitle>
+          <CardTitle className="font-display text-xl font-bold uppercase tracking-wide">Frequenza muscolare</CardTitle>
           <span className="text-xs text-muted-foreground">ultimi 14 giorni</span>
         </div>
       </CardHeader>

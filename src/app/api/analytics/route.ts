@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { weekOverview } from "@/lib/overview";
 import { startOfWeek, endOfWeek, subWeeks, subDays, differenceInDays, format } from "date-fns";
+import { it } from "date-fns/locale";
 import { computeProgressScore } from "@/lib/progress-score";
 import {
   accumulateMuscleSets,
@@ -179,7 +180,8 @@ export async function GET(req: Request) {
     const firstWeekStart = startOfWeek(subWeeks(new Date(), weeks - 1), { weekStartsOn: 1 });
 
     const sessions = await prisma.workoutSession.findMany({
-      where: { userId, status: "COMPLETED", startedAt: { gte: firstWeekStart } },
+      // Solo palestra: le corse hanno la loro sezione
+      where: { userId, status: "COMPLETED", workoutType: { not: "CARDIO" }, startedAt: { gte: firstWeekStart } },
       select: {
         startedAt: true,
         totalVolume: true,
@@ -199,7 +201,7 @@ export async function GET(req: Request) {
       const start = startOfWeek(subWeeks(new Date(), weeks - 1 - i), { weekStartsOn: 1 });
       return {
         weekStart: format(start, "yyyy-MM-dd"),
-        label: format(start, "d MMM"),
+        label: format(start, "d MMM", { locale: it }),
         start,
         end: endOfWeek(start, { weekStartsOn: 1 }),
         tonnage: 0,

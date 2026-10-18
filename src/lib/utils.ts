@@ -13,7 +13,8 @@ export function formatWeight(value: number, unit: string = "kg"): string {
 }
 
 export function formatVolume(kg: number): string {
-  if (kg >= 1000) return `${(kg / 1000).toFixed(1)}t`;
+  // Decimale all'italiana, senza ",0" inutile: 12,8t · 112t
+  if (kg >= 1000) return `${(kg / 1000).toFixed(1).replace(/\.0$/, "").replace(".", ",")}t`;
   return `${kg.toFixed(0)} kg`;
 }
 

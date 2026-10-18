@@ -49,9 +49,9 @@ export function MuscleStatsGrid() {
 
   const formatValue = (v: number) => {
     if (metric === "tonnage") return formatVolume(v);
-    if (metric === "effective") return `${v} serie`;
-    if (metric === "direct") return `${v} serie`;
-    return v.toLocaleString();
+    if (metric === "effective") return `${String(v).replace(".", ",")} serie`;
+    if (metric === "direct") return `${String(v).replace(".", ",")} serie`;
+    return v.toLocaleString("it-IT");
   };
 
   const btnCls = (active: boolean) =>
@@ -59,10 +59,10 @@ export function MuscleStatsGrid() {
       active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/70");
 
   return (
-    <Card className="border-border/50">
+    <Card className="rounded-3xl border-border/60 shadow-none">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-sm">Volume muscolare</CardTitle>
+          <CardTitle className="font-display text-xl font-bold uppercase tracking-wide">Volume muscolare</CardTitle>
           <div className="flex gap-1">
             <button className={btnCls(metric === "effective")} onClick={() => setMetric("effective")}>Efficaci</button>
             <button className={btnCls(metric === "direct")} onClick={() => setMetric("direct")}>Dirette</button>
@@ -118,7 +118,7 @@ export function MuscleStatsGrid() {
           <div className="mt-4 grid grid-cols-3 gap-2 pt-3 border-t border-border/50">
             {[
               { label: "Serie tot.", value: Object.values(data).reduce((s, d) => s + d.totalSets, 0).toString() },
-              { label: "Reps tot.", value: Object.values(data).reduce((s, d) => s + d.totalReps, 0).toLocaleString() },
+              { label: "Reps tot.", value: Object.values(data).reduce((s, d) => s + d.totalReps, 0).toLocaleString("it-IT") },
               { label: "Tonnellaggio", value: formatVolume(Object.values(data).reduce((s, d) => s + d.tonnage, 0)) },
             ].map((item) => (
               <div key={item.label} className="text-center">

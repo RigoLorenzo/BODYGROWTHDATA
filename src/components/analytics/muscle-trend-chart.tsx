@@ -39,9 +39,9 @@ export function MuscleTrendChart() {
   const color = getMuscleColor(muscle);
 
   return (
-    <Card className="border-border/50">
+    <Card className="rounded-3xl border-border/60 shadow-none">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm">Trend Muscolo (8 settimane)</CardTitle>
+        <CardTitle className="font-display text-xl font-bold uppercase tracking-wide">Trend per muscolo</CardTitle>
         <div className="flex gap-1.5 overflow-x-auto no-scrollbar pt-2">
           {MUSCLES.map((m) => (
             <button
@@ -77,7 +77,7 @@ export function MuscleTrendChart() {
                 fontSize: 11,
               }}
               formatter={(v: number, name) => [
-                `${v} serie`,
+                `${String(v).replace(".", ",")} serie`,
                 name === "effective" ? "Efficaci" : "Dirette",
               ]}
             />
@@ -86,7 +86,7 @@ export function MuscleTrendChart() {
           </LineChart>
         </ResponsiveContainer>
         <p className="text-[10px] text-muted-foreground mt-2 text-center">
-          {getMuscleLabel(muscle)}: {Math.round(total * 10) / 10} serie efficaci in 8 settimane · linea
+          {getMuscleLabel(muscle)}: {String(Math.round(total * 10) / 10).replace(".", ",")} serie efficaci in 8 settimane · linea
           tratteggiata = serie dirette
         </p>
       </CardContent>

@@ -58,9 +58,7 @@ function WeekHero({ stats }: { stats: RunStats }) {
       <p className="text-xs font-medium uppercase tracking-wider opacity-70">Questa settimana</p>
       <p className="mt-1 font-display text-5xl font-bold tabular-nums leading-none">
         {formatKm(week.distance)}
-        <span className="ml-1 text-lg font-semibold opacity-70">
-          {goal ? `/ ${formatKm(goal)} km` : "km"}
-        </span>
+        <span className="ml-1 text-lg font-semibold opacity-70">{goal ? `/ ${formatKm(goal)} km` : "km"}</span>
       </p>
       {progress != null && (
         <div className="mt-3 h-2 overflow-hidden rounded-full bg-background/20">
@@ -88,10 +86,50 @@ function WeekHero({ stats }: { stats: RunStats }) {
   );
 }
 
+/** Statistiche della corsa: usate qui e nel tab Corsa di Analytics */
+export function RunStatsSections({ stats }: { stats: RunStats }) {
+  const [period, setPeriod] = useState<(typeof PERIODS)[number]["key"]>("month");
+  return (
+    <>
+      <WeekHero stats={stats} />
+
+      <section className="rounded-3xl border border-border/60 bg-card p-5">
+        <div className="mb-4 flex items-baseline justify-between">
+          <h2 className="font-display text-xl font-bold uppercase tracking-wide">Km a settimana</h2>
+          <span className="text-xs text-muted-foreground">12 settimane</span>
+        </div>
+        <WeeklyChart weekly={stats.weekly} goalKm={stats.settings.weeklyRunKmGoal} />
+      </section>
+
+      <section className="rounded-3xl border border-border/60 bg-card p-5">
+        <div className="mb-4 flex rounded-xl bg-muted p-1" role="tablist">
+          {PERIODS.map((p) => (
+            <button
+              key={p.key}
+              role="tab"
+              aria-selected={period === p.key}
+              onClick={() => setPeriod(p.key)}
+              className={cn(
+                "h-9 flex-1 rounded-lg text-sm font-medium transition-colors",
+                period === p.key ? "bg-background shadow-sm" : "text-muted-foreground",
+              )}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+        <TotalsGrid t={stats[period]} />
+      </section>
+
+      <FitnessCard fitness={stats.fitness} />
+      <RecordsCard stats={stats} />
+    </>
+  );
+}
+
 export function RunOverview() {
   const { data: stats, isLoading } = useRunStats();
   const { data: runs } = useRuns();
-  const [period, setPeriod] = useState<(typeof PERIODS)[number]["key"]>("month");
 
   if (isLoading || !stats) {
     return (
@@ -118,38 +156,7 @@ export function RunOverview() {
 
       {hasRuns && (
         <>
-          <WeekHero stats={stats} />
-
-          <section className="rounded-3xl border border-border/60 bg-card p-5">
-            <div className="mb-4 flex items-baseline justify-between">
-              <h2 className="font-display text-xl font-bold uppercase tracking-wide">Km a settimana</h2>
-              <span className="text-xs text-muted-foreground">12 settimane</span>
-            </div>
-            <WeeklyChart weekly={stats.weekly} goalKm={stats.settings.weeklyRunKmGoal} />
-          </section>
-
-          <section className="rounded-3xl border border-border/60 bg-card p-5">
-            <div className="mb-4 flex rounded-xl bg-muted p-1" role="tablist">
-              {PERIODS.map((p) => (
-                <button
-                  key={p.key}
-                  role="tab"
-                  aria-selected={period === p.key}
-                  onClick={() => setPeriod(p.key)}
-                  className={cn(
-                    "h-9 flex-1 rounded-lg text-sm font-medium transition-colors",
-                    period === p.key ? "bg-background shadow-sm" : "text-muted-foreground"
-                  )}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-            <TotalsGrid t={stats[period]} />
-          </section>
-
-          <FitnessCard fitness={stats.fitness} />
-          <RecordsCard stats={stats} />
+          <RunStatsSections stats={stats} />
 
           <section>
             <h2 className="mb-2 px-1 font-display text-xl font-bold uppercase tracking-wide">Attività</h2>

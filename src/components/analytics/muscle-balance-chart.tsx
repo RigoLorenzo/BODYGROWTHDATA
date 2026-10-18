@@ -43,10 +43,10 @@ export function MuscleBalanceChart() {
       active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/70");
 
   return (
-    <Card className="border-border/50">
+    <Card className="rounded-3xl border-border/60 shadow-none">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-sm">Distribuzione Muscolare</CardTitle>
+          <CardTitle className="font-display text-xl font-bold uppercase tracking-wide">Distribuzione</CardTitle>
           <div className="flex gap-1">
             <button className={btnCls(metric === "effectiveSets")} onClick={() => setMetric("effectiveSets")}>
               Serie efficaci
@@ -104,7 +104,7 @@ export function MuscleBalanceChart() {
                       ? formatVolume(d.tonnage)
                       : metric === "directSets"
                         ? `${d.directSets} dirette · ${d.indirectSets} indirette`
-                        : `${d.effectiveSets} serie`}
+                        : `${String(d.effectiveSets).replace(".", ",")} serie`}
                   </span>
                 </div>
               ))}
