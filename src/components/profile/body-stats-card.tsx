@@ -2,18 +2,21 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Pencil, X, Activity, Info, AlertTriangle, Scale } from "lucide-react";
+import { Pencil, X, Info, AlertTriangle, Scale } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "@/hooks/use-toast";
 import { analyzeBodyComposition } from "@/lib/body-composition";
 import { useUIStore } from "@/store/ui-store";
+import { cn } from "@/lib/utils";
+import { formatDecimal } from "@/components/analytics/format";
+import { EmptyState, Section, Stat } from "@/components/analytics/ui";
+import { useUserProfile } from "./profile-hero";
 
 interface Profile {
   height?: number | null;
@@ -31,27 +34,13 @@ interface Measurement {
   waist?: number | null;
 }
 
-const EXP_LABELS: Record<string, string> = {
-  BEGINNER: "Principiante",
-  INTERMEDIATE: "Intermedio",
-  ADVANCED: "Avanzato",
-  ELITE: "Elite",
-};
-
 export function BodyStatsCard() {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const setMeasurementFormOpen = useUIStore((s) => s.setMeasurementFormOpen);
   const [form, setForm] = useState({ height: "", experienceLevel: "" });
 
-  const { data: profile } = useQuery<Profile>({
-    queryKey: ["user-profile"],
-    queryFn: async () => {
-      const res = await fetch("/api/user/profile");
-      if (!res.ok) return {};
-      return res.json();
-    },
-  });
+  const { data: profile } = useUserProfile();
 
   // Stessa query (e quindi stessa cache) della sezione Misurazioni Corporee
   const { data: measurements } = useQuery<Measurement[]>({
@@ -124,164 +113,104 @@ export function BodyStatsCard() {
   const bmi = analysis.bmi;
   const bmiCategory = analysis.bmiCategory;
 
+  const updated = latestMeasurement?.weight ? format(new Date(latestMeasurement.date), "d MMM", { locale: it }) : null;
+  const tone = analysis.reading?.tone;
+
   return (
     <>
-      <Card className="border-border/50">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Activity className="h-4 w-4" />
-              Dati Fisici
-            </CardTitle>
-            <Button size="sm" variant="ghost" onClick={handleOpen}>
-              <Pencil className="h-3.5 w-3.5 mr-1" />
-              Modifica
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {weight || height ? (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                {height && (
-                  <div className="text-center p-3 rounded-xl bg-muted/30">
-                    <p className="text-xl font-bold tabular-nums">{height}<span className="text-sm font-normal text-muted-foreground">cm</span></p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">Altezza</p>
-                  </div>
-                )}
-                {weight && (
-                  <button
-                    onClick={() => setMeasurementFormOpen(true)}
-                    className="text-center p-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors"
-                  >
-                    <p className="text-xl font-bold tabular-nums">{weight}<span className="text-sm font-normal text-muted-foreground">kg</span></p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">Peso</p>
-                    <p className="text-[9px] text-muted-foreground/70 mt-0.5">
-                      {latestMeasurement?.weight
-                        ? `da misurazione ${format(new Date(latestMeasurement.date), "d MMM", { locale: it })}`
-                        : "tocca per aggiornare"}
-                    </p>
-                  </button>
-                )}
-              </div>
-
-              {bmi && hp !== null && (
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="text-center p-3 rounded-xl bg-muted/30">
-                    <p className={`text-xl font-bold tabular-nums ${bmiCategory?.color}`}>
-                      {bmi.toFixed(1)}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">BMI</p>
-                    <p className={`text-[9px] mt-0.5 ${bmiCategory?.color}`}>{bmiCategory?.label}</p>
-                  </div>
-                  <div className="text-center p-3 rounded-xl bg-muted/30">
-                    <p className={`text-xl font-bold tabular-nums ${hp >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                      {hp > 0 ? "+" : ""}{hp.toFixed(1)}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">HP</p>
-                    <p className="text-[9px] text-muted-foreground mt-0.5">peso−(alt−100)</p>
-                  </div>
-                </div>
+      <Section
+        title="Corpo"
+        hint={updated ? `Peso dalla misurazione del ${updated}` : "Altezza dal profilo, peso dalle misure"}
+        action={
+          <button
+            type="button"
+            onClick={handleOpen}
+            className="flex h-9 items-center gap-1.5 rounded-full bg-muted px-3 text-xs font-medium active:bg-muted/70"
+          >
+            <Pencil className="h-3.5 w-3.5" /> Modifica
+          </button>
+        }
+      >
+        {weight || height ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-x-3 gap-y-4">
+              <Stat label="Peso" value={weight ? formatDecimal(weight) : "—"} unit={weight ? "kg" : undefined} />
+              <Stat label="Altezza" value={height ?? "—"} unit={height ? "cm" : undefined} />
+              {bmi != null && (
+                <Stat
+                  label="BMI"
+                  value={<span className={bmiCategory?.color}>{formatDecimal(bmi)}</span>}
+                  detail={bmiCategory?.label}
+                />
               )}
-
-              {/* Dati aggiuntivi: compaiono solo se disponibili */}
-              {(analysis.ffmiNormalized || analysis.waistToHeight) && (
-                <div className="grid grid-cols-2 gap-2">
-                  {analysis.ffmiNormalized && (
-                    <div className="text-center p-3 rounded-xl bg-muted/30">
-                      <p className="text-xl font-bold tabular-nums">{analysis.ffmiNormalized.toFixed(1)}</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">FFMI</p>
-                      <p className="text-[9px] text-muted-foreground mt-0.5">
-                        massa magra {analysis.leanMassKg?.toFixed(1)}kg
-                      </p>
-                    </div>
-                  )}
-                  {analysis.waistToHeight && (
-                    <div className="text-center p-3 rounded-xl bg-muted/30">
-                      <p
-                        className={`text-xl font-bold tabular-nums ${
-                          analysis.waistToHeight < 0.5 ? "text-green-600 dark:text-green-400" : analysis.waistToHeight < 0.55 ? "text-yellow-700 dark:text-yellow-400" : "text-red-600 dark:text-red-400"
-                        }`}
-                      >
-                        {analysis.waistToHeight.toFixed(2)}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">Vita / Altezza</p>
-                      <p className="text-[9px] text-muted-foreground mt-0.5">riferimento &lt; 0.50</p>
-                    </div>
-                  )}
-                </div>
+              {hp !== null && <Stat label="HP" value={`${hp > 0 ? "+" : ""}${formatDecimal(hp)}`} unit="kg" detail="su altezza − 100" />}
+              {analysis.ffmiNormalized && (
+                <Stat
+                  label="FFMI"
+                  value={formatDecimal(analysis.ffmiNormalized)}
+                  detail={`magra ${formatDecimal(analysis.leanMassKg ?? 0)} kg`}
+                />
               )}
+              {analysis.waistToHeight && (
+                <Stat
+                  label="Vita/alt."
+                  value={formatDecimal(analysis.waistToHeight, 2)}
+                  detail={analysis.waistToHeight < 0.5 ? "sotto 0,50: ok" : "riferimento < 0,50"}
+                />
+              )}
+            </div>
 
-              {/* Lettura del BMI: il valore standard non cambia mai */}
-              {analysis.reading && analysis.reading.key !== "STANDARD" && (
-                <div
-                  className={`rounded-xl border p-3 ${
-                    analysis.reading.tone === "info"
-                      ? "bg-blue-400/10 border-blue-400/20"
-                      : analysis.reading.tone === "warning"
-                        ? "bg-yellow-400/10 border-yellow-400/20"
-                        : "bg-muted/30 border-border/50"
-                  }`}
+            {/* Lettura del BMI: il valore standard non cambia mai */}
+            {analysis.reading && analysis.reading.key !== "STANDARD" && (
+              <div
+                className={cn(
+                  "flex items-start gap-3 rounded-2xl p-4",
+                  tone === "info" ? "bg-sky-500/10" : tone === "warning" ? "bg-amber-500/10" : "bg-muted/60"
+                )}
+              >
+                <span
+                  className={cn(
+                    "mt-0.5 shrink-0",
+                    tone === "info" ? "text-sky-700 dark:text-sky-400" : tone === "warning" ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground"
+                  )}
                 >
-                  <div className="flex items-start gap-2.5">
-                    <div
-                      className={`mt-0.5 shrink-0 ${
-                        analysis.reading.tone === "info"
-                          ? "text-blue-600 dark:text-blue-400"
-                          : analysis.reading.tone === "warning"
-                            ? "text-yellow-700 dark:text-yellow-400"
-                            : "text-muted-foreground"
-                      }`}
-                    >
-                      {analysis.reading.tone === "warning" ? (
-                        <AlertTriangle className="h-4 w-4" />
-                      ) : (
-                        <Info className="h-4 w-4" />
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold leading-snug">{analysis.reading.title}</p>
-                      <p className="text-[11px] text-muted-foreground leading-relaxed mt-0.5">
-                        {analysis.reading.body}
-                      </p>
-                      {analysis.trendNote && (
-                        <p className="text-[11px] text-muted-foreground leading-relaxed mt-1.5">
-                          {analysis.trendNote}
-                        </p>
-                      )}
-                      {analysis.missingSignals.length > 0 && (
-                        <p className="text-[10px] text-muted-foreground/70 mt-1.5">
-                          Per una lettura più precisa puoi aggiungere {analysis.missingSignals.join(" o ")} in
-                          Misurazioni Corporee (facoltativo).
-                        </p>
-                      )}
-                    </div>
-                  </div>
+                  {tone === "warning" ? <AlertTriangle className="h-4 w-4" /> : <Info className="h-4 w-4" />}
+                </span>
+                <div className="min-w-0 space-y-1.5 text-xs leading-relaxed text-muted-foreground">
+                  <p className="text-sm font-semibold leading-snug text-foreground">{analysis.reading.title}</p>
+                  <p>{analysis.reading.body}</p>
+                  {analysis.trendNote && <p>{analysis.trendNote}</p>}
+                  {analysis.missingSignals.length > 0 && (
+                    <p className="text-[11px]">
+                      Per una lettura più precisa aggiungi {analysis.missingSignals.join(" o ")} nelle misure (facoltativo).
+                    </p>
+                  )}
                 </div>
-              )}
-
-              {profile?.experienceLevel && (
-                <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-muted/30">
-                  <p className="text-xs text-muted-foreground">Livello</p>
-                  <p className="text-xs font-semibold">{EXP_LABELS[profile.experienceLevel] ?? profile.experienceLevel}</p>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="text-center py-6">
-              <Activity className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground mb-3">Nessun dato fisico inserito</p>
-              <div className="flex flex-col gap-2 items-center">
-                <Button size="sm" variant="outline" onClick={handleOpen}>Inserisci altezza</Button>
-                <Button size="sm" variant="ghost" onClick={() => setMeasurementFormOpen(true)}>
-                  <Scale className="h-3.5 w-3.5 mr-1.5" />
-                  Registra il peso
-                </Button>
               </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setMeasurementFormOpen(true)}
+              className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-border/60 text-sm font-medium active:bg-muted/50"
+            >
+              <Scale className="h-4 w-4" /> Registra il peso
+            </button>
+          </div>
+        ) : (
+          <EmptyState>
+            <span className="block">Inserisci altezza e peso per BMI, HP e composizione corporea.</span>
+            <span className="mt-3 flex justify-center gap-2">
+              <Button size="sm" variant="outline" onClick={handleOpen}>
+                Inserisci altezza
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setMeasurementFormOpen(true)}>
+                <Scale className="mr-1.5 h-3.5 w-3.5" /> Registra il peso
+              </Button>
+            </span>
+          </EmptyState>
+        )}
+      </Section>
 
       <AnimatePresence>
         {editing && (
@@ -301,7 +230,7 @@ export function BodyStatsCard() {
               className="fixed bottom-0 left-0 right-0 z-50 bg-card rounded-t-2xl p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-xl max-w-lg mx-auto"
             >
               <div className="flex items-center justify-between mb-5">
-                <h2 className="text-lg font-semibold">Modifica Dati Fisici</h2>
+                <h2 className="font-display text-xl font-bold uppercase tracking-wide">Modifica dati fisici</h2>
                 <button onClick={() => setEditing(false)} className="p-1 rounded-lg hover:bg-muted">
                   <X className="h-5 w-5" />
                 </button>
