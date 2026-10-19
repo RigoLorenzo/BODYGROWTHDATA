@@ -215,7 +215,8 @@ export type FitnessKey = "heart_rate" | "resting_heart_rate" | "sleep" | "steps"
 export async function listFitnessData(
   session: XiaomiSession,
   region: string,
-  opts: { key: FitnessKey; startTime: number; endTime: number; nextKey?: string | null }
+  // Altre chiavi solo per la diagnostica
+  opts: { key: FitnessKey | (string & {}); startTime: number; endTime: number; nextKey?: string | null }
 ): Promise<{ records: FitnessRecord[]; hasMore: boolean; nextKey: string | null }> {
   const result = await request<{ data_list?: FitnessRecord[]; has_more?: boolean; next_key?: string }>(
     session,
