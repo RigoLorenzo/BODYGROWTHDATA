@@ -239,12 +239,14 @@ async function runBackward(
   fields: CoverageFields,
   run: typeof lightUnit,
   deadline: number,
-  opts: { floor?: number | null; stopWhenEmpty?: boolean } = {}
+  opts: { floor?: number | null; stopWhenEmpty?: boolean; maxUnits?: number } = {}
 ) {
   const today = utcMidnight(Date.now() / 1000);
   let saved = 0;
+  let ran = 0;
   for (const unit of backwardUnits(cov, track, today, opts.floor)) {
-    if (Date.now() > deadline) break;
+    if (Date.now() > deadline || ran >= (opts.maxUnits ?? Infinity)) break;
+    ran++;
     const unitSaved = await run(ctx, unit);
     saved += unitSaved;
     cov.from = unit.from;
@@ -257,7 +259,7 @@ async function runBackward(
     });
     if (ended) break;
   }
-  return saved;
+  return { saved, ran };
 }
 
 /** Primo giorno con dati salvati (yyyy-MM-dd) */
@@ -302,12 +304,21 @@ export async function syncWellness(
     // Senza punto di partenza lo storico non sa da dove andare a ritroso
     if (recent || light.from == null) saved += await runForward(ctx, light, LIGHT_TRACK, LIGHT_FIELDS, lightUnit, deadline);
     if (recent || heart.from == null) saved += await runForward(ctx, heart, HEART_TRACK, HEART_FIELDS, heartUnit, deadline);
-    saved += await runBackward(ctx, light, LIGHT_TRACK, LIGHT_FIELDS, lightUnit, deadline, { stopWhenEmpty: true });
-    // Con lo storico leggero completo i battiti si fermano al primo giorno con dati
+    // Storico a turni: 10 giorni leggeri e 3 di battiti per giro, così i
+    // battiti non aspettano anni di dati leggeri prima di partire
     const today = utcMidnight(Date.now() / 1000);
-    const lightDone = light.from != null && light.from <= oldestDay(LIGHT_TRACK, today);
-    const floor = lightDone ? heartFloor(await firstWellnessDay(userId)) : null;
-    saved += await runBackward(ctx, heart, HEART_TRACK, HEART_FIELDS, heartUnit, deadline, { floor });
+    while (Date.now() < deadline) {
+      const lightTurn = await runBackward(ctx, light, LIGHT_TRACK, LIGHT_FIELDS, lightUnit, deadline, {
+        stopWhenEmpty: true,
+        maxUnits: 1,
+      });
+      // Con lo storico leggero completo i battiti si fermano al primo giorno con dati
+      const lightDone = light.from != null && light.from <= oldestDay(LIGHT_TRACK, today);
+      const floor = lightDone ? heartFloor(await firstWellnessDay(userId)) : null;
+      const heartTurn = await runBackward(ctx, heart, HEART_TRACK, HEART_FIELDS, heartUnit, deadline, { floor, maxUnits: 3 });
+      saved += lightTurn.saved + heartTurn.saved;
+      if (!lightTurn.ran && !heartTurn.ran) break;
+    }
   } catch (error) {
     if (!(error instanceof UnitTimeout)) throw error;
     console.warn("benessere Mi Fitness: blocco interrotto per tempo, riprende alla prossima sincronizzazione");

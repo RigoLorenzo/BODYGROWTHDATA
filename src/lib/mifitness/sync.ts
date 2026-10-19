@@ -88,6 +88,12 @@ const DAY = 86_400;
 /** Tracce scaricate per sincronizzazione: le altre all'apertura della corsa */
 const TRACKS_PER_SYNC = 5;
 
+/** Sessione Xiaomi aperta per un'operazione puntuale (es. diagnostica) */
+export async function withMiFitnessSession<T>(userId: string, fn: (session: XiaomiSession, region: string) => Promise<T>) {
+  const { session, conn } = await openSession(userId);
+  return fn(session, conn.region);
+}
+
 /** Solo benessere (storico in arrivo): una chiamata dedicata con più tempo */
 export async function syncWellnessOnly(userId: string, budgetMs: number) {
   const { session, conn } = await openSession(userId);
