@@ -31,14 +31,30 @@ const PARALLEL = 6;
 
 const isoTime = (t?: number) => (t ? new Date(t * 1000).toISOString().slice(0, 16) : null);
 
-function fieldsOf(record: FitnessRecord | undefined) {
-  if (!record) return null;
+function payloadOf(record: FitnessRecord): Record<string, unknown> {
   try {
     const value = typeof record.value === "string" ? JSON.parse(record.value) : record.value;
-    return value && typeof value === "object" ? Object.keys(value).sort() : null;
+    return value && typeof value === "object" ? value : {};
   } catch {
-    return null;
+    return {};
   }
+}
+
+const fieldsOf = (record: FitnessRecord | undefined) => (record ? Object.keys(payloadOf(record)).sort() : null);
+
+/** Orario del dato: in cima al record o, per alcuni tipi, solo dentro il valore */
+function timeOf(record: FitnessRecord): number | null {
+  const p = payloadOf(record);
+  for (const t of [record.time, p.time, p.date_time, p.wake_up_time, p.bedtime]) {
+    if (typeof t === "number" && t > 0) return t;
+  }
+  return null;
+}
+
+function span(records: FitnessRecord[]) {
+  const times = records.map(timeOf).filter((t): t is number => t != null);
+  if (!times.length) return { from: null, to: null };
+  return { from: isoTime(Math.min(...times)), to: isoTime(Math.max(...times)) };
 }
 
 async function probeCloud(userId: string) {
@@ -53,15 +69,8 @@ async function probeCloud(userId: string) {
           const label = ago ? `${ago} giorni fa` : "ultimi 3 giorni";
           try {
             const page = await listFitnessData(session, region, { key, startTime: endTime - 3 * DAY, endTime });
-            const times = page.records.map((r) => r.time ?? 0).filter(Boolean);
             (results[key] ??= {})[label] = page.records.length
-              ? {
-                  records: page.records.length,
-                  hasMore: page.hasMore,
-                  from: isoTime(Math.min(...times)),
-                  to: isoTime(Math.max(...times)),
-                  fields: fieldsOf(page.records[0]),
-                }
+              ? { records: page.records.length, hasMore: page.hasMore, ...span(page.records), fields: fieldsOf(page.records[0]) }
               : 0;
           } catch (error) {
             (results[key] ??= {})[label] = `errore: ${error instanceof Error ? error.message : "sconosciuto"}`;
