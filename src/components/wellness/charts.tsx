@@ -34,6 +34,7 @@ export function StageLegend({ stages = ["deep", "light", "rem", "awake"] }: { st
 
 /** Colori delle serie (classi complete, così Tailwind le genera) */
 const TONES = {
+  ink: { line: "stroke-foreground", dot: "bg-foreground" },
   rose: { line: "stroke-rose-500", dot: "bg-rose-500" },
   indigo: { line: "stroke-indigo-500", dot: "bg-indigo-500" },
   amber: { line: "stroke-amber-500", dot: "bg-amber-500" },

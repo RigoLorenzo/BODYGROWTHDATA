@@ -2,23 +2,19 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Scale, X, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { Skeleton } from "@/components/ui/skeleton";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "@/hooks/use-toast";
 import { useUIStore } from "@/store/ui-store";
-import dynamic from "next/dynamic";
-
-const MeasurementSparkline = dynamic(() => import("./measurement-sparkline"), {
-  ssr: false,
-  loading: () => <div className="h-20" />,
-});
+import { formatDecimal } from "@/components/analytics/format";
+import { EmptyState, Section, Segmented, Stat } from "@/components/analytics/ui";
+import { TrendLine } from "@/components/wellness/charts";
 
 interface Measurement {
   id: string;
@@ -31,12 +27,14 @@ interface Measurement {
 
 type TrendMetric = "weight" | "bodyFat" | "muscleMass" | "waist";
 
-const METRIC_CONFIG: Record<TrendMetric, { label: string; unit: string; color: string }> = {
-  weight: { label: "Peso", unit: "kg", color: "#22c55e" },
-  bodyFat: { label: "Body Fat", unit: "%", color: "#f97316" },
-  muscleMass: { label: "Massa Musc.", unit: "kg", color: "#3b82f6" },
-  waist: { label: "Vita", unit: "cm", color: "#a855f7" },
-};
+const METRICS: { value: TrendMetric; label: string; unit: string; digits: number }[] = [
+  { value: "weight", label: "Peso", unit: "kg", digits: 1 },
+  { value: "bodyFat", label: "Grasso", unit: "%", digits: 1 },
+  { value: "muscleMass", label: "Muscoli", unit: "kg", digits: 1 },
+  { value: "waist", label: "Vita", unit: "cm", digits: 0 },
+];
+const HISTORY_ROWS = 5;
+const CHART_POINTS = 20;
 
 interface MeasurementForm {
   weight: string;
@@ -45,12 +43,20 @@ interface MeasurementForm {
   waist: string;
 }
 
+const shortDate = (iso: string) => format(new Date(iso), "d MMM", { locale: it });
+
+/** "75,2 kg · 14% · 82 cm": solo i valori misurati quel giorno */
+const rowSummary = (m: Measurement) =>
+  METRICS.filter((c) => m[c.value] != null)
+    .map((c) => `${formatDecimal(m[c.value]!, c.digits)}${c.unit === "%" ? "%" : ` ${c.unit}`}`)
+    .join(" · ");
+
 export function BodyMeasurements() {
   const queryClient = useQueryClient();
-  // Il form può essere aperto anche dalla card Dati Fisici
+  // Il form può essere aperto anche dalla scheda Corpo
   const open = useUIStore((s) => s.measurementFormOpen);
   const setOpen = useUIStore((s) => s.setMeasurementFormOpen);
-  const [trendMetric, setTrendMetric] = useState<TrendMetric>("weight");
+  const [selected, setSelected] = useState<TrendMetric>("weight");
   const [form, setForm] = useState<MeasurementForm>({ weight: "", bodyFat: "", muscleMass: "", waist: "" });
 
   const { data, isLoading } = useQuery<Measurement[]>({
@@ -93,97 +99,81 @@ export function BodyMeasurements() {
     addMutation.mutate(payload);
   };
 
-  const latest = data?.[0];
-  const cfg = METRIC_CONFIG[trendMetric];
-
-  // Chart: chronological order (oldest first) for the trend
-  const chartData = [...(data ?? [])]
-    .filter((m) => m[trendMetric] != null)
-    .reverse()
-    .slice(-15)
-    .map((m) => ({
-      date: format(new Date(m.date), "d/M", { locale: it }),
-      value: m[trendMetric] as number,
-    }));
-
-  // Trend direction
-  const first = chartData[0]?.value;
-  const last = chartData[chartData.length - 1]?.value;
-  const trendDelta = first !== undefined && last !== undefined ? last - first : null;
+  const measurements = data ?? [];
+  // Solo le misure registrate almeno una volta
+  const available = METRICS.filter((c) => measurements.some((m) => m[c.value] != null));
+  const metric = available.find((c) => c.value === selected) ?? available[0];
+  const series = metric
+    ? measurements
+        .filter((m) => m[metric.value] != null)
+        .slice(0, CHART_POINTS)
+        .reverse()
+    : [];
+  const current = series.at(-1);
+  const delta = series.length > 1 ? series.at(-1)![metric!.value]! - series[0][metric!.value]! : null;
 
   return (
     <>
-      <Card className="border-border/50">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Misurazioni Corporee</CardTitle>
-            <Button size="sm" variant="ghost" onClick={() => setOpen(true)}>
-              <Plus className="h-4 w-4 mr-1" />
-              Aggiungi
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <Skeleton className="h-24 rounded-lg" />
-          ) : latest ? (
-            <div className="space-y-4">
-              {/* Latest values */}
-              <div>
-                <p className="text-xs text-muted-foreground mb-2">
-                  Ultima: {format(new Date(latest.date), "d MMM yyyy", { locale: it })}
-                </p>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  {(["weight", "bodyFat", "muscleMass", "waist"] as TrendMetric[])
-                    .filter((k) => latest[k] != null)
-                    .map((k) => {
-                      const c = METRIC_CONFIG[k];
-                      return (
-                        <button
-                          key={k}
-                          onClick={() => setTrendMetric(k)}
-                          className={`text-center p-2 rounded-lg transition-colors ${trendMetric === k ? "ring-1 ring-primary" : ""} bg-muted/30`}
-                        >
-                          <p className="text-lg font-bold tabular-nums">{latest[k]}{c.unit}</p>
-                          <p className="text-[10px] text-muted-foreground">{c.label}</p>
-                        </button>
-                      );
-                    })}
-                </div>
-              </div>
-
-              {/* Trend chart */}
-              {chartData.length > 1 && (
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="text-xs text-muted-foreground">Andamento {cfg.label}</p>
-                    {trendDelta !== null && (
-                      <div className="flex items-center gap-1 text-xs">
-                        {trendDelta < -0.1 ? (
-                          <TrendingDown className="h-3 w-3 text-green-600 dark:text-green-400" />
-                        ) : trendDelta > 0.1 ? (
-                          <TrendingUp className="h-3 w-3 text-orange-600 dark:text-orange-400" />
-                        ) : (
-                          <Minus className="h-3 w-3 text-muted-foreground" />
-                        )}
-                        <span className={trendDelta < 0 ? "text-green-600 dark:text-green-400" : trendDelta > 0 ? "text-orange-600 dark:text-orange-400" : "text-muted-foreground"}>
-                          {trendDelta > 0 ? "+" : ""}{trendDelta.toFixed(1)}{cfg.unit}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                  <MeasurementSparkline data={chartData} color={cfg.color} unit={cfg.unit} label={cfg.label} />
-                </div>
+      <Section
+        title="Misure"
+        hint={measurements[0] ? `Ultima il ${format(new Date(measurements[0].date), "d MMMM yyyy", { locale: it })}` : undefined}
+        action={
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="flex h-9 items-center gap-1.5 rounded-full bg-muted px-3 text-xs font-medium active:bg-muted/70"
+          >
+            <Plus className="h-3.5 w-3.5" /> Aggiungi
+          </button>
+        }
+      >
+        {isLoading ? (
+          <Skeleton className="h-48 rounded-2xl" />
+        ) : !metric || !current ? (
+          <EmptyState>Nessuna misurazione: registra peso, grasso, muscoli o vita per seguirne l&apos;andamento.</EmptyState>
+        ) : (
+          <div className="space-y-4">
+            {available.length > 1 && (
+              <Segmented value={metric.value} options={available} onChange={setSelected} size="sm" />
+            )}
+            <div className="grid grid-cols-2 gap-3">
+              <Stat
+                label={metric.label}
+                value={formatDecimal(current[metric.value]!, metric.digits)}
+                unit={metric.unit}
+                detail={`il ${shortDate(current.date)}`}
+              />
+              {delta != null && (
+                <Stat
+                  label="Variazione"
+                  value={`${delta > 0 ? "+" : delta < 0 ? "−" : ""}${formatDecimal(Math.abs(delta), metric.digits)}`}
+                  unit={metric.unit}
+                  detail={`dal ${shortDate(series[0].date)}`}
+                />
               )}
             </div>
-          ) : (
-            <div className="text-center py-6">
-              <Scale className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">Nessuna misurazione registrata</p>
+            {series.length > 1 && (
+              <TrendLine
+                points={series.map((m) => ({ key: m.id, label: shortDate(m.date), value: m[metric.value]! }))}
+                unit={metric.unit}
+                tone="ink"
+                digits={metric.digits}
+              />
+            )}
+            <div>
+              <p className="mb-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Storico</p>
+              <ul>
+                {measurements.slice(0, HISTORY_ROWS).map((m) => (
+                  <li key={m.id} className="flex items-baseline justify-between gap-3 border-t border-border/60 py-2.5 text-sm first:border-t-0">
+                    <span className="shrink-0 text-muted-foreground">{shortDate(m.date)}</span>
+                    <span className="truncate text-right font-medium tabular-nums">{rowSummary(m)}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </div>
+        )}
+      </Section>
 
       {/* Bottom sheet modal */}
       <AnimatePresence>
@@ -204,7 +194,7 @@ export function BodyMeasurements() {
               className="fixed bottom-0 left-0 right-0 z-50 bg-card rounded-t-2xl p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-xl max-w-lg mx-auto"
             >
               <div className="flex items-center justify-between mb-5">
-                <h2 className="text-lg font-semibold">Nuova Misurazione</h2>
+                <h2 className="font-display text-xl font-bold uppercase tracking-wide">Nuova misurazione</h2>
                 <button onClick={() => setOpen(false)} className="p-1 rounded-lg hover:bg-muted">
                   <X className="h-5 w-5" />
                 </button>
@@ -222,7 +212,7 @@ export function BodyMeasurements() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Body Fat (%)</Label>
+                  <Label>Grasso corporeo (%)</Label>
                   <Input
                     type="number"
                     inputMode="decimal"
@@ -232,7 +222,7 @@ export function BodyMeasurements() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Massa Muscolare (kg)</Label>
+                  <Label>Massa muscolare (kg)</Label>
                   <Input
                     type="number"
                     inputMode="decimal"
@@ -242,7 +232,7 @@ export function BodyMeasurements() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Circonferenza Vita (cm)</Label>
+                  <Label>Circonferenza vita (cm)</Label>
                   <Input
                     type="number"
                     inputMode="decimal"
@@ -251,7 +241,7 @@ export function BodyMeasurements() {
                     onChange={(e) => setForm((f) => ({ ...f, waist: e.target.value }))}
                   />
                   <p className="text-[10px] text-muted-foreground">
-                    Facoltativa: migliora l&apos;interpretazione del BMI nei Dati Fisici.
+                    Facoltativa: migliora la lettura del BMI nella scheda Corpo.
                   </p>
                 </div>
 
@@ -260,7 +250,7 @@ export function BodyMeasurements() {
                   onClick={handleSubmit}
                   disabled={addMutation.isPending || (!form.weight && !form.bodyFat && !form.muscleMass && !form.waist)}
                 >
-                  {addMutation.isPending ? "Salvataggio..." : "Salva Misurazione"}
+                  {addMutation.isPending ? "Salvataggio..." : "Salva misurazione"}
                 </Button>
               </div>
             </motion.div>
