@@ -86,7 +86,7 @@ export function OverviewTab({ data }: { data: WellnessResponse }) {
           title="Ultima notte"
           hint={`${timeLabel(lastNight.startAt)} → ${timeLabel(lastNight.endAt)}`}
           action={
-            <Link href="?area=benessere&tab=sonno" className="flex items-center text-xs font-medium text-muted-foreground">
+            <Link href="/wellness?tab=sonno" className="flex items-center text-xs font-medium text-muted-foreground">
               Sonno <ChevronRight className="h-4 w-4" />
             </Link>
           }
@@ -140,7 +140,7 @@ export function OverviewTab({ data }: { data: WellnessResponse }) {
 
 function Tile({ icon: Icon, label, href, children }: { icon: LucideIcon; label: string; href: string; children: React.ReactNode }) {
   return (
-    <Link href={`?area=benessere&tab=${href}`} className="rounded-3xl border border-border/60 bg-card p-4 active:bg-muted/40">
+    <Link href={`/wellness?tab=${href}`} className="rounded-3xl border border-border/60 bg-card p-4 active:bg-muted/40">
       <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
         <Icon className="h-3.5 w-3.5" /> {label}
       </p>

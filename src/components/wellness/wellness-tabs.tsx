@@ -36,7 +36,7 @@ function TabContent({ tab, data }: { tab: Tab; data: WellnessResponse }) {
   }
 }
 
-/** Sezione Benessere: dati dello smartwatch, nelle stesse schede nell'URL di Analytics */
+/** Sezione Benessere: dati dello smartwatch, scheda scelta nell'URL (?tab=) */
 export function WellnessTabs() {
   const [tab, select] = useUrlTab(TABS);
   const { data, isLoading, isError } = useWellness();
