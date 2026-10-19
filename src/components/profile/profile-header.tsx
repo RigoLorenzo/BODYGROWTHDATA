@@ -1,7 +1,6 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { Settings } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -11,7 +10,15 @@ interface Props {
 
 export function ProfileHeader({ user }: Props) {
   return (
-    <div className="flex items-center gap-4 pt-2">
+    <div className="flex items-center gap-3 pt-2">
+      {/* Il profilo si apre dalle impostazioni: si torna lì */}
+      <Link
+        href="/profile/settings"
+        aria-label="Torna alle impostazioni"
+        className="-ml-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full active:bg-muted"
+      >
+        <ChevronLeft className="h-5 w-5" />
+      </Link>
       <div className="relative shrink-0">
         {user.image ? (
           <Image
@@ -31,11 +38,6 @@ export function ProfileHeader({ user }: Props) {
         <h1 className="truncate text-xl font-bold">{user.name ?? "Atleta"}</h1>
         <p className="truncate text-sm text-muted-foreground">{user.email}</p>
       </div>
-      <Button variant="ghost" size="icon" className="shrink-0" asChild>
-        <Link href="/profile/settings" aria-label="Impostazioni">
-          <Settings className="h-5 w-5" />
-        </Link>
-      </Button>
     </div>
   );
 }

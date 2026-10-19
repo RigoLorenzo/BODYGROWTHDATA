@@ -5,7 +5,7 @@ import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { AnimatePresence } from "framer-motion";
 import { StartWorkoutSheet } from "@/components/session/start-workout-sheet";
-import { LayoutDashboard, Footprints, Plus, BarChart3, User } from "lucide-react";
+import { LayoutDashboard, Footprints, Plus, BarChart3, HeartPulse } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWorkoutSession } from "@/hooks/use-workout-session";
 import { motion } from "framer-motion";
@@ -15,7 +15,7 @@ const navItems = [
   { href: "/run", icon: Footprints, label: "Corsa" },
   { href: "/workout/active", icon: Plus, label: "Allena", cta: true },
   { href: "/analytics", icon: BarChart3, label: "Analytics" },
-  { href: "/profile", icon: User, label: "Profilo" },
+  { href: "/wellness", icon: HeartPulse, label: "Benessere" },
 ];
 
 export function BottomNav() {
