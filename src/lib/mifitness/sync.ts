@@ -88,6 +88,12 @@ const DAY = 86_400;
 /** Tracce scaricate per sincronizzazione: le altre all'apertura della corsa */
 const TRACKS_PER_SYNC = 5;
 
+/** Solo benessere (storico in arrivo): una chiamata dedicata con più tempo */
+export async function syncWellnessOnly(userId: string, budgetMs: number) {
+  const { session, conn } = await openSession(userId);
+  return syncWellness(userId, session, conn.region, Date.now() + budgetMs, { recent: false });
+}
+
 /** Tempo concesso al benessere dopo le corse, entro il limite della funzione */
 const WELLNESS_BUDGET_MS = 25_000;
 

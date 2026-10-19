@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useActivity } from "@/components/analytics/use-activity";
 import { EmptyState, Section, Stat } from "@/components/analytics/ui";
 import { cn } from "@/lib/utils";
@@ -19,6 +19,7 @@ import type { SleepJson, WellnessResponse } from "@/lib/wellness/types";
 import { Hypnogram, NightBars, StageBar, StageLegend } from "./charts";
 import { FindingList } from "./finding-list";
 import { dayLabel, longDayLabel, nightsByDate, timeLabel } from "./queries";
+import { RangeTrend } from "./range-trend";
 
 const pct = (part: number | null, total: number) => (part != null && total > 0 ? `${Math.round((part / total) * 100)}%` : "—");
 
@@ -112,6 +113,10 @@ export function SleepTab({ data }: { data: WellnessResponse }) {
   const nights = useMemo(() => mainSleeps(data.sleeps), [data.sleeps]);
   const [selected, setSelected] = useState<string | null>(null);
   const byDate = useMemo(() => nightsByDate(nights), [nights]);
+  const hoursOf = useCallback((d: string) => {
+    const n = byDate.get(d);
+    return n ? n.asleep / 60 : null;
+  }, [byDate]);
   const night = byDate.get(selected ?? "") ?? nights.at(-1);
 
   const month = useMemo(() => {
@@ -179,6 +184,10 @@ export function SleepTab({ data }: { data: WellnessResponse }) {
         <div className="mt-3">
           <StageLegend stages={["deep", "light", "rem"]} />
         </div>
+      </Section>
+
+      <Section title="Andamento" hint="Ore di sonno per notte">
+        <RangeTrend value={hoursOf} unit="h" tone="indigo" digits={1} reference={SLEEP_NEED_MIN / 60} referenceLabel="consigliate" />
       </Section>
 
       <Section title="Abitudini" hint="Ultime due settimane">

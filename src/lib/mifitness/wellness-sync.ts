@@ -1,42 +1,78 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { WELLNESS_HISTORY_DAYS } from "@/lib/wellness/constants";
 import type { DaySummary, SleepInput } from "@/lib/wellness/types";
 import { MiFitnessError, listFitnessData, type FitnessKey, type FitnessRecord, type XiaomiSession } from "./client";
-import { heartRateSamples, mapSleepRecord, summarizeDays, withSleepHeartRate } from "./wellness-mapping";
+import { heartRateBetween, heartRateSamples, mapSleepRecord, summarizeDays, zoneOffsetSeconds } from "./wellness-mapping";
+import { HISTORY_EMPTY_STOP_DAYS } from "@/lib/wellness/constants";
+import {
+  HEART_TRACK,
+  LIGHT_TRACK,
+  backwardUnits,
+  forwardUnits,
+  heartFloor,
+  isoDay,
+  oldestDay,
+  toEpoch,
+  utcMidnight,
+  type Coverage,
+  type Track,
+  type Unit,
+} from "./wellness-plan";
+
+/**
+ * Benessere dall'orologio in blocchi piccoli e indipendenti, ognuno salvato
+ * appena scaricato:
+ * - dati "leggeri" (sonno, FC a riposo, passi, calorie, SpO2, stress) a
+ *   blocchi di 10 giorni, storico di 90;
+ * - battiti al minuto (migliaia al giorno) un giorno alla volta, storico di 30.
+ * Prima i giorni recenti, poi lo storico a ritroso; un blocco interrotto per
+ * tempo si rifà alla sincronizzazione successiva senza perdere gli altri.
+ */
 
 const DAY = 86_400;
-/** Giorni per richiesta: i battiti al minuto sono tanti */
-const WINDOW_DAYS = 3;
-/** Margine per coprire i giorni locali interi in qualsiasi fuso (±14 h) */
+/** Senza fuso noto si scarica con margine per coprire i giorni locali interi */
 const ZONE_PAD = 14 * 3600;
-/** I dati dell'orologio arrivano in ritardo: gli ultimi giorni si rileggono */
-const REFRESH_DAYS = 2;
-const MAX_PAGES = 60;
-const KEYS: FitnessKey[] = ["heart_rate", "resting_heart_rate", "sleep", "steps", "calories", "spo2", "stress"];
+/** Margine dei battiti col fuso noto: cambio d'ora e viaggi fino a ±3 h */
+const HEART_PAD = 3 * 3600;
+/** I battiti partono dalla sera prima: servono per la FC della notte */
+const NIGHT_LEAD = 8 * 3600;
+const MAX_PAGES = 300;
+/** Oltre la scadenza un blocco in corso può finire entro questo margine */
+const HARD_STOP_MS = 10_000;
 
-/** Oltre la scadenza una finestra in corso può finire entro questo margine */
-const HARD_STOP_MS = 15_000;
+const LIGHT_KEYS: FitnessKey[] = ["resting_heart_rate", "sleep", "steps", "calories", "spo2", "stress"];
 
-/** Finestra interrotta per tempo: non si salva nulla, riprende la prossima volta */
-class WindowTimeout extends Error {}
+class UnitTimeout extends Error {}
 
-const utcMidnight = (epoch: number) => Math.floor(epoch / DAY) * DAY;
-const isoDay = (epoch: number) => new Date(epoch * 1000).toISOString().slice(0, 10);
+interface Ctx {
+  userId: string;
+  session: XiaomiSession;
+  region: string;
+  hardStop: number;
+  /** fuso dell'orologio in secondi, se già visto */
+  offset: number | null;
+  errors: string[];
+}
 
-async function fetchKey(
-  session: XiaomiSession,
-  region: string,
-  key: FitnessKey,
-  range: { startTime: number; endTime: number; hardStop: number }
-) {
+/**
+ * Istanti reali del blocco di giorni locali. Col fuso noto basta un margine
+ * piccolo: copre il cambio d'ora e i viaggi vicini (il fuso salvato può
+ * essere quello di prima). I giorni si filtrano poi col fuso di ogni dato.
+ */
+function unitRange(ctx: Ctx, unit: Unit, pad = ZONE_PAD) {
+  const end = unit.from + unit.days * DAY;
+  return ctx.offset == null
+    ? { start: unit.from - ZONE_PAD, end: end + ZONE_PAD }
+    : { start: unit.from - ctx.offset - pad, end: end - ctx.offset + pad };
+}
+
+async function fetchKey(ctx: Ctx, key: FitnessKey, startTime: number, endTime: number) {
   const records: FitnessRecord[] = [];
   let nextKey: string | null = null;
   const seen = new Set<string>();
-  const { startTime, endTime } = range;
   for (let page = 0; page < MAX_PAGES; page++) {
-    if (Date.now() > range.hardStop) throw new WindowTimeout();
-    const result = await listFitnessData(session, region, { key, startTime, endTime, nextKey });
+    if (Date.now() > ctx.hardStop) throw new UnitTimeout();
+    const result = await listFitnessData(ctx.session, ctx.region, { key, startTime, endTime, nextKey });
     records.push(...result.records);
     if (!result.hasMore || !result.nextKey || seen.has(result.nextKey)) break;
     seen.add(result.nextKey);
@@ -44,6 +80,30 @@ async function fetchKey(
   }
   return records;
 }
+
+/** Un tipo che fallisce non blocca gli altri; tempo scaduto e token scaduto sì */
+async function tryFetch(ctx: Ctx, key: FitnessKey, startTime: number, endTime: number) {
+  try {
+    return await fetchKey(ctx, key, startTime, endTime);
+  } catch (error) {
+    if (error instanceof UnitTimeout || (error instanceof MiFitnessError && error.auth)) throw error;
+    console.warn("benessere Mi Fitness", key, error);
+    ctx.errors.push(`${key}: ${error instanceof Error ? error.message : "errore"}`);
+    return [];
+  }
+}
+
+/** Il fuso arriva con i dati: dalle volte successive i giorni si scaricano esatti */
+function learnOffset(ctx: Ctx, records: FitnessRecord[]) {
+  const last = [...records].reverse().find((r) => typeof r.zone_offset === "number");
+  if (last) ctx.offset = zoneOffsetSeconds(last);
+}
+
+const inUnit = (unit: Unit) => {
+  const first = isoDay(unit.from);
+  const last = isoDay(unit.from + (unit.days - 1) * DAY);
+  return (date: string) => date >= first && date <= last;
+};
 
 /** Solo i campi misurati: un dato mancante non cancella quello già salvato */
 function dayData(summary: DaySummary) {
@@ -55,7 +115,23 @@ function dayData(summary: DaySummary) {
   return data;
 }
 
-/** Campi della notte da salvare (l'id esterno è la chiave) */
+async function saveDays(userId: string, summaries: Iterable<DaySummary>, keep: (date: string) => boolean) {
+  let saved = 0;
+  for (const summary of summaries) {
+    if (!keep(summary.date)) continue;
+    const update = dayData(summary);
+    if (!Object.keys(update).length) continue;
+    await prisma.wellnessDay.upsert({
+      where: { userId_date: { userId, date: summary.date } },
+      update,
+      create: { ...(update as Prisma.WellnessDayCreateWithoutUserInput), date: summary.date, user: { connect: { id: userId } } },
+    });
+    saved++;
+  }
+  return saved;
+}
+
+/** Campi della notte; la FC assente non cancella quella ricavata dai battiti */
 function sleepData(sleep: SleepInput) {
   const { date, startAt, endAt, duration, asleep, deep, light, rem, awake, score, isNap, avgHr, minHr, stages } = sleep;
   return {
@@ -70,112 +146,176 @@ function sleepData(sleep: SleepInput) {
     awake,
     score,
     isNap,
-    avgHr,
-    minHr,
+    ...(avgHr != null ? { avgHr } : {}),
+    ...(minHr != null ? { minHr } : {}),
     stages: stages.length ? (stages as unknown as Prisma.InputJsonValue) : undefined,
   };
 }
 
-/**
- * Scarica e salva i giorni locali [from, from + days). Un tipo di dato che
- * fallisce non blocca gli altri; la sessione scaduta sì.
- */
-async function syncWindow(userId: string, session: XiaomiSession, region: string, from: number, days: number, hardStop: number) {
+/** Sonno, FC a riposo, passi, calorie, SpO2 e stress di un blocco di giorni */
+async function lightUnit(ctx: Ctx, unit: Unit) {
+  const { start, end } = unitRange(ctx, unit);
   const data: Partial<Record<FitnessKey, FitnessRecord[]>> = {};
-  for (const key of KEYS) {
-    try {
-      data[key] = await fetchKey(session, region, key, {
-        startTime: from - ZONE_PAD,
-        endTime: from + days * DAY + ZONE_PAD,
-        hardStop,
-      });
-    } catch (error) {
-      if (error instanceof WindowTimeout || (error instanceof MiFitnessError && error.auth)) throw error;
-      console.warn("benessere Mi Fitness", key, error);
-    }
-  }
+  for (const key of LIGHT_KEYS) data[key] = await tryFetch(ctx, key, start, end);
+  learnOffset(ctx, Object.values(data).flat());
 
-  const first = isoDay(from);
-  const last = isoDay(from + (days - 1) * DAY);
-  const inWindow = (date: string) => date >= first && date <= last;
-
-  let saved = 0;
-  for (const summary of summarizeDays(data).values()) {
-    if (!inWindow(summary.date)) continue;
-    const update = dayData(summary);
-    if (!Object.keys(update).length) continue;
-    await prisma.wellnessDay.upsert({
-      where: { userId_date: { userId, date: summary.date } },
-      update,
-      create: { ...(update as Prisma.WellnessDayCreateWithoutUserInput), date: summary.date, user: { connect: { id: userId } } },
-    });
-    saved++;
-  }
-
-  const hr = heartRateSamples(data.heart_rate ?? []);
+  const keep = inUnit(unit);
+  const saved = await saveDays(ctx.userId, summarizeDays(data).values(), keep);
   for (const record of data.sleep ?? []) {
-    const mapped = mapSleepRecord(record);
-    if (!mapped || !inWindow(mapped.date)) continue;
-    const sleep = sleepData(withSleepHeartRate(mapped, hr));
+    const sleep = mapSleepRecord(record);
+    if (!sleep || !keep(sleep.date)) continue;
+    const fields = sleepData(sleep);
     await prisma.sleepSession.upsert({
-      where: { userId_externalId: { userId, externalId: mapped.externalId } },
-      update: sleep,
-      create: { ...sleep, userId, externalId: mapped.externalId },
+      where: { userId_externalId: { userId: ctx.userId, externalId: sleep.externalId } },
+      update: fields,
+      create: { ...fields, userId: ctx.userId, externalId: sleep.externalId },
     });
   }
   return saved;
 }
 
-/**
- * Benessere dall'orologio: prima i giorni recenti (dall'ultima volta, con
- * margine), poi lo storico a ritroso finché c'è tempo. I cursori avanzano a
- * ogni finestra completata, così una sincronizzazione interrotta riprende.
- */
-export async function syncWellness(userId: string, session: XiaomiSession, region: string, deadline: number) {
-  try {
-    return await syncRanges(userId, session, region, deadline);
-  } catch (error) {
-    if (!(error instanceof WindowTimeout)) throw error;
-    console.warn("benessere Mi Fitness: finestra interrotta per tempo, riprende alla prossima sincronizzazione");
-    return 0;
-  }
-}
+/** Battiti al minuto di un giorno: media, minimo, massimo, curva oraria e FC della notte */
+async function heartUnit(ctx: Ctx, unit: Unit) {
+  const { start, end } = unitRange(ctx, unit, HEART_PAD);
+  const records = await tryFetch(ctx, "heart_rate", start - NIGHT_LEAD, end);
+  learnOffset(ctx, records);
+  const keep = inUnit(unit);
+  const saved = await saveDays(ctx.userId, summarizeDays({ heart_rate: records }).values(), keep);
 
-async function syncRanges(userId: string, session: XiaomiSession, region: string, deadline: number) {
-  const conn = await prisma.miFitnessConnection.findUnique({
-    where: { userId },
-    select: { wellnessSyncedUntil: true, wellnessSyncedFrom: true },
+  const samples = heartRateSamples(records);
+  const nights = await prisma.sleepSession.findMany({
+    where: {
+      userId: ctx.userId,
+      date: { gte: isoDay(unit.from), lte: isoDay(unit.from + (unit.days - 1) * DAY) },
+      OR: [{ avgHr: null }, { minHr: null }],
+    },
+    select: { id: true, startAt: true, endAt: true, avgHr: true, minHr: true },
   });
-  if (!conn) return 0;
-  const today = utcMidnight(Date.now() / 1000);
-  const tomorrow = today + DAY;
-  const timeLeft = () => Date.now() < deadline;
-
-  let saved = 0;
-  const until = conn.wellnessSyncedUntil ? utcMidnight(conn.wellnessSyncedUntil.getTime() / 1000) : null;
-  let cursor = until ? Math.min(until, today) - REFRESH_DAYS * DAY : today - (WINDOW_DAYS - 1) * DAY;
-  const firstFrom = cursor;
-  while (cursor < tomorrow && timeLeft()) {
-    const days = Math.min(WINDOW_DAYS, (tomorrow - cursor) / DAY);
-    saved += await syncWindow(userId, session, region, cursor, days, deadline + HARD_STOP_MS);
-    cursor += days * DAY;
-    await prisma.miFitnessConnection.update({
-      where: { userId },
-      data: {
-        // Oggi è parziale: il cursore resta all'inizio di oggi
-        wellnessSyncedUntil: new Date(Math.min(cursor, today) * 1000),
-        ...(conn.wellnessSyncedFrom ? {} : { wellnessSyncedFrom: new Date(firstFrom * 1000) }),
-      },
+  for (const night of nights) {
+    const hr = heartRateBetween(samples, night.startAt.getTime() / 1000, night.endAt.getTime() / 1000);
+    if (!hr) continue;
+    await prisma.sleepSession.update({
+      where: { id: night.id },
+      data: { avgHr: night.avgHr ?? hr.avgHr, minHr: night.minHr ?? hr.minHr },
     });
   }
+  return saved;
+}
 
-  const oldest = today - WELLNESS_HISTORY_DAYS * DAY;
-  let from = conn.wellnessSyncedFrom ? utcMidnight(conn.wellnessSyncedFrom.getTime() / 1000) : firstFrom;
-  while (from > oldest && timeLeft()) {
-    const days = Math.min(WINDOW_DAYS, (from - oldest) / DAY);
-    from -= days * DAY;
-    saved += await syncWindow(userId, session, region, from, days, deadline + HARD_STOP_MS);
-    await prisma.miFitnessConnection.update({ where: { userId }, data: { wellnessSyncedFrom: new Date(from * 1000) } });
+type CoverageFields = { from: "wellnessSyncedFrom" | "wellnessHrFrom"; until: "wellnessSyncedUntil" | "wellnessHrUntil" };
+const LIGHT_FIELDS: CoverageFields = { from: "wellnessSyncedFrom", until: "wellnessSyncedUntil" };
+const HEART_FIELDS: CoverageFields = { from: "wellnessHrFrom", until: "wellnessHrUntil" };
+
+async function runForward(ctx: Ctx, cov: Coverage, track: Track, fields: CoverageFields, run: typeof lightUnit, deadline: number) {
+  const today = utcMidnight(Date.now() / 1000);
+  let saved = 0;
+  for (const unit of forwardUnits(cov, track, today)) {
+    if (Date.now() > deadline) break;
+    saved += await run(ctx, unit);
+    // Oggi è parziale: il cursore resta all'inizio di oggi
+    cov.until = Math.min(unit.from + unit.days * DAY, today);
+    cov.from ??= unit.from;
+    await prisma.miFitnessConnection.update({
+      where: { userId: ctx.userId },
+      data: { [fields.until]: new Date(cov.until * 1000), [fields.from]: new Date(cov.from * 1000) },
+    });
+  }
+  return saved;
+}
+
+/** Nessun giorno salvato nei 60 giorni da `from` in poi: prima l'orologio non c'era */
+async function historyEnded(userId: string, from: number) {
+  const found = await prisma.wellnessDay.findFirst({
+    where: { userId, date: { gte: isoDay(from), lt: isoDay(from + HISTORY_EMPTY_STOP_DAYS * DAY) } },
+    select: { id: true },
+  });
+  return !found;
+}
+
+async function runBackward(
+  ctx: Ctx,
+  cov: Coverage,
+  track: Track,
+  fields: CoverageFields,
+  run: typeof lightUnit,
+  deadline: number,
+  opts: { floor?: number | null; stopWhenEmpty?: boolean } = {}
+) {
+  const today = utcMidnight(Date.now() / 1000);
+  let saved = 0;
+  for (const unit of backwardUnits(cov, track, today, opts.floor)) {
+    if (Date.now() > deadline) break;
+    const unitSaved = await run(ctx, unit);
+    saved += unitSaved;
+    cov.from = unit.from;
+    // Storico finito prima del limite: il binario è completo
+    const ended = opts.stopWhenEmpty && !unitSaved && (await historyEnded(ctx.userId, unit.from));
+    if (ended) cov.from = oldestDay(track, today, opts.floor);
+    await prisma.miFitnessConnection.update({
+      where: { userId: ctx.userId },
+      data: { [fields.from]: new Date(cov.from * 1000) },
+    });
+    if (ended) break;
+  }
+  return saved;
+}
+
+/** Primo giorno con dati salvati (yyyy-MM-dd) */
+export async function firstWellnessDay(userId: string) {
+  const first = await prisma.wellnessDay.findFirst({ where: { userId }, orderBy: { date: "asc" }, select: { date: true } });
+  return first?.date ?? null;
+}
+
+/**
+ * Recenti prima (leggeri, poi battiti), poi lo storico (leggeri, poi
+ * battiti) finché c'è tempo. Restituisce i giorni salvati.
+ * `recent: false` (passi dedicati allo storico) salta i giorni recenti, già
+ * aggiornati dalla sincronizzazione normale: altrimenti ogni passo li
+ * rifarebbe e con un cloud lento lo storico non avanzerebbe mai.
+ */
+export async function syncWellness(
+  userId: string,
+  session: XiaomiSession,
+  region: string,
+  deadline: number,
+  opts: { recent?: boolean } = {}
+) {
+  const conn = await prisma.miFitnessConnection.findUnique({
+    where: { userId },
+    select: {
+      wellnessSyncedFrom: true,
+      wellnessSyncedUntil: true,
+      wellnessHrFrom: true,
+      wellnessHrUntil: true,
+      wellnessZoneOffset: true,
+    },
+  });
+  if (!conn) return 0;
+
+  const ctx: Ctx = { userId, session, region, hardStop: deadline + HARD_STOP_MS, offset: conn.wellnessZoneOffset, errors: [] };
+  const light: Coverage = { from: toEpoch(conn.wellnessSyncedFrom), until: toEpoch(conn.wellnessSyncedUntil) };
+  const heart: Coverage = { from: toEpoch(conn.wellnessHrFrom), until: toEpoch(conn.wellnessHrUntil) };
+
+  let saved = 0;
+  try {
+    const recent = opts.recent ?? true;
+    // Senza punto di partenza lo storico non sa da dove andare a ritroso
+    if (recent || light.from == null) saved += await runForward(ctx, light, LIGHT_TRACK, LIGHT_FIELDS, lightUnit, deadline);
+    if (recent || heart.from == null) saved += await runForward(ctx, heart, HEART_TRACK, HEART_FIELDS, heartUnit, deadline);
+    saved += await runBackward(ctx, light, LIGHT_TRACK, LIGHT_FIELDS, lightUnit, deadline, { stopWhenEmpty: true });
+    // Con lo storico leggero completo i battiti si fermano al primo giorno con dati
+    const today = utcMidnight(Date.now() / 1000);
+    const lightDone = light.from != null && light.from <= oldestDay(LIGHT_TRACK, today);
+    const floor = lightDone ? heartFloor(await firstWellnessDay(userId)) : null;
+    saved += await runBackward(ctx, heart, HEART_TRACK, HEART_FIELDS, heartUnit, deadline, { floor });
+  } catch (error) {
+    if (!(error instanceof UnitTimeout)) throw error;
+    console.warn("benessere Mi Fitness: blocco interrotto per tempo, riprende alla prossima sincronizzazione");
+  } finally {
+    await prisma.miFitnessConnection.update({
+      where: { userId },
+      data: { wellnessZoneOffset: ctx.offset, wellnessError: ctx.errors.length ? ctx.errors.slice(0, 3).join(" · ").slice(0, 500) : null },
+    });
   }
   return saved;
 }

@@ -1,14 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useActivity } from "@/components/analytics/use-activity";
 import { EmptyState, Section, Stat } from "@/components/analytics/ui";
 import { cn } from "@/lib/utils";
 import { lastDays, mainSleeps, restingTrend, sleepByTraining } from "@/lib/wellness/insights";
 import type { WellnessResponse } from "@/lib/wellness/types";
-import { HourlyHeartRate, TrendLine } from "./charts";
+import { HourlyHeartRate } from "./charts";
 import { heartDetail } from "./format";
 import { dayLabel, longDayLabel, useDayIndex } from "./queries";
+import { RangeTrend } from "./range-trend";
 
 /** Lettura del trend di lungo periodo della FC a riposo */
 function longTermText(change: number | null): string | null {
@@ -21,13 +22,15 @@ function longTermText(change: number | null): string | null {
 export function HeartTab({ data }: { data: WellnessResponse }) {
   const { data: activity = [] } = useActivity();
   const index = useDayIndex(data.days);
-  const days90 = useMemo(() => lastDays(90), []);
   const week = useMemo(() => lastDays(7).filter((d) => index.get(d)?.hrHourly?.length).reverse(), [index]);
   const [selected, setSelected] = useState<string | null>(null);
   const day = index.get(selected ?? week[0] ?? "");
 
   const trend = useMemo(() => restingTrend(data.days), [data.days]);
-  const nights = useMemo(() => mainSleeps(data.sleeps).slice(-30), [data.sleeps]);
+  const nights = useMemo(() => new Map(mainSleeps(data.sleeps).map((n) => [n.date, n])), [data.sleeps]);
+  const restingOf = useCallback((d: string) => index.get(d)?.restingHr ?? null, [index]);
+  const dailyAvgOf = useCallback((d: string) => index.get(d)?.avgHr ?? null, [index]);
+  const sleepHrOf = useCallback((d: string) => nights.get(d)?.avgHr ?? null, [nights]);
   const recovery = useMemo(
     () => sleepByTraining(data.sleeps, activity, data.days).filter((g) => g.restingHr != null && g.nights >= 2),
     [data, activity]
@@ -51,11 +54,7 @@ export function HeartTab({ data }: { data: WellnessResponse }) {
           />
         </div>
         <div className="mt-4">
-          <TrendLine
-            points={days90.map((d) => ({ key: d, label: dayLabel(d), value: index.get(d)?.restingHr ?? null }))}
-            unit="bpm"
-            reference={trend.baseline}
-          />
+          <RangeTrend value={restingOf} unit="bpm" reference={trend.baseline} />
         </div>
         {longTermText(trend.longTerm) && <p className="mt-3 text-sm text-muted-foreground">{longTermText(trend.longTerm)}</p>}
       </Section>
@@ -87,13 +86,15 @@ export function HeartTab({ data }: { data: WellnessResponse }) {
         </Section>
       )}
 
-      {nights.some((n) => n.avgHr != null) && (
+      {data.days.some((d) => d.avgHr != null) && (
+        <Section title="FC media del giorno" hint="Dai battiti al minuto: sale con allenamenti, stress e caldo">
+          <RangeTrend value={dailyAvgOf} unit="bpm" />
+        </Section>
+      )}
+
+      {[...nights.values()].some((n) => n.avgHr != null) && (
         <Section title="FC durante il sonno" hint="Media della notte: alta dopo allenamenti duri, alcol o malanni in arrivo">
-          <TrendLine
-            points={nights.map((n) => ({ key: n.date, label: dayLabel(n.date), value: n.avgHr }))}
-            unit="bpm"
-            tone="indigo"
-          />
+          <RangeTrend value={sleepHrOf} unit="bpm" tone="indigo" />
         </Section>
       )}
 

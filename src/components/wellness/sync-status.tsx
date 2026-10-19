@@ -1,17 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { formatDistanceToNow, parseISO, subDays } from "date-fns";
+import { format, formatDistanceToNow, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
-import { RefreshCw, Watch } from "lucide-react";
+import { History, RefreshCw, Watch } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 import { syncMiFitness, useMiFitnessSyncing } from "@/components/run/mifitness-sync";
 import { cn } from "@/lib/utils";
-import { WELLNESS_HISTORY_DAYS } from "@/lib/wellness/constants";
-import type { WellnessResponse } from "@/lib/wellness/types";
+import type { HistoryTrack, WellnessProgress, WellnessResponse } from "@/lib/wellness/types";
 import { EmptyState } from "@/components/analytics/ui";
-import { dayLabel } from "./queries";
 
 function useManualSync() {
   const qc = useQueryClient();
@@ -27,14 +25,11 @@ function useManualSync() {
 /** Ultimo aggiornamento, storico in arrivo e sincronizzazione a mano */
 export function SyncStatus({ data }: { data: WellnessResponse }) {
   const { sync, syncing } = useManualSync();
-  const historyStart = subDays(new Date(), WELLNESS_HISTORY_DAYS - 1);
-  const backfilling = data.syncedFrom && parseISO(data.syncedFrom) > historyStart;
   return (
     <div className="flex items-center justify-between gap-3 px-1 text-xs text-muted-foreground">
       <span className="min-w-0">
         <Watch className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />
         {data.lastSyncAt ? `Aggiornato ${formatDistanceToNow(new Date(data.lastSyncAt), { addSuffix: true, locale: it })}` : "Mai sincronizzato"}
-        {backfilling && ` · storico dal ${dayLabel(data.syncedFrom!)}, il resto arriva a breve`}
       </span>
       <button
         type="button"
@@ -45,6 +40,59 @@ export function SyncStatus({ data }: { data: WellnessResponse }) {
         <RefreshCw className={cn("h-3.5 w-3.5", syncing && "animate-spin")} /> {syncing ? "In corso" : "Aggiorna"}
       </button>
     </div>
+  );
+}
+
+function Bar({ label, track, detail }: { label: string; track: HistoryTrack; detail: string }) {
+  const pct = Math.round((track.done / track.total) * 100);
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-3 text-xs">
+        <span className="font-medium">{label}</span>
+        <span className="shrink-0 tabular-nums text-muted-foreground">{detail}</span>
+      </div>
+      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label={label} aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+        <div className="h-full rounded-full bg-foreground transition-[width] duration-500" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
+const sinceLabel = (track: HistoryTrack) =>
+  track.complete ? "completo" : track.since ? `dal ${format(parseISO(track.since), "d MMM yyyy", { locale: it })}` : "in avvio";
+
+/** Storico in arrivo dall'orologio: avanzamento e cosa fare se si blocca */
+export function HistoryProgress({ data, progress, active }: { data: WellnessResponse; progress: WellnessProgress | null; active: boolean }) {
+  if (!data.connected) return null;
+  if (data.needsReconnect) {
+    return (
+      <EmptyState>
+        Il collegamento a Mi Fitness è scaduto: lo storico non può avanzare.{" "}
+        <Link href="/run" className="font-medium text-foreground underline underline-offset-2">
+          Ricollega
+        </Link>
+      </EmptyState>
+    );
+  }
+  if (!progress || progress.complete) return null;
+  return (
+    <section className="space-y-3 rounded-3xl border border-border/60 bg-card p-5">
+      <p className="flex items-center gap-2 text-sm font-semibold">
+        <History className={cn("h-4 w-4", active && "animate-pulse")} /> Scarico lo storico dall&apos;orologio
+      </p>
+      <Bar label="Sonno, passi, stress e SpO₂" track={progress.light} detail={sinceLabel(progress.light)} />
+      <Bar
+        label="Battiti al minuto"
+        track={progress.heart}
+        detail={progress.heart.complete ? "completo" : `${progress.heart.done}/${progress.heart.total} giorni`}
+      />
+      <p className="text-xs text-muted-foreground">
+        {active
+          ? "Tutto lo storico dell'orologio, fino a 3 anni (battiti: 1 anno). Con questa pagina aperta va più veloce e i grafici si riempiono man mano."
+          : "Riprende alla prossima apertura e ogni notte."}
+        {data.syncError && ` Non scaricati: ${data.syncError}.`}
+      </p>
+    </section>
   );
 }
 

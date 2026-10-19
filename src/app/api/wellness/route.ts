@@ -2,10 +2,14 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { wellnessProgress } from "@/lib/mifitness/wellness-plan";
+import { firstWellnessDay } from "@/lib/mifitness/wellness-sync";
 import type { HourlyHr, SleepSegment, WellnessResponse } from "@/lib/wellness/types";
 
-const MAX_DAYS = 365;
-const DEFAULT_DAYS = 120;
+const MAX_DAYS = 3 * 365;
+const DEFAULT_DAYS = 400;
+/** Curva oraria e ipnogramma si mostrano solo per i giorni recenti: il resto pesa e basta */
+const DETAIL_DAYS = 14;
 
 const isoDay = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -20,7 +24,10 @@ export async function GET(req: Request) {
   const since = isoDay(new Date(Date.now() - days * 86_400_000));
 
   const [conn, rows, sleeps] = await Promise.all([
-    prisma.miFitnessConnection.findUnique({ where: { userId }, select: { lastSyncAt: true, wellnessSyncedFrom: true } }),
+    prisma.miFitnessConnection.findUnique({
+      where: { userId },
+      select: { lastSyncAt: true, lastError: true, wellnessSyncedFrom: true, wellnessHrFrom: true, wellnessError: true },
+    }),
     prisma.wellnessDay.findMany({
       where: { userId, date: { gte: since } },
       orderBy: { date: "asc" },
@@ -63,16 +70,22 @@ export async function GET(req: Request) {
     }),
   ]);
 
+  const detailSince = isoDay(new Date(Date.now() - DETAIL_DAYS * 86_400_000));
   const body: WellnessResponse = {
     connected: !!conn,
     lastSyncAt: conn?.lastSyncAt?.toISOString() ?? null,
-    syncedFrom: conn?.wellnessSyncedFrom ? isoDay(conn.wellnessSyncedFrom) : null,
-    days: rows.map((r) => ({ ...r, hrHourly: (r.hrHourly as unknown as HourlyHr[] | null) ?? null })),
+    progress: conn ? wellnessProgress(conn, await firstWellnessDay(userId)) : null,
+    needsReconnect: !!conn?.lastError,
+    syncError: conn?.wellnessError ?? null,
+    days: rows.map((r) => ({
+      ...r,
+      hrHourly: r.date >= detailSince ? ((r.hrHourly as unknown as HourlyHr[] | null) ?? null) : null,
+    })),
     sleeps: sleeps.map((s) => ({
       ...s,
       startAt: s.startAt.toISOString(),
       endAt: s.endAt.toISOString(),
-      stages: (s.stages as unknown as SleepSegment[] | null) ?? null,
+      stages: s.date >= detailSince ? ((s.stages as unknown as SleepSegment[] | null) ?? null) : null,
     })),
   };
   return NextResponse.json(body, { headers: { "Cache-Control": "private, max-age=60" } });

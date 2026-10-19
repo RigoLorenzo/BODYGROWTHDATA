@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { EmptyState, Section, Stat } from "@/components/analytics/ui";
 import { formatKm } from "@/lib/run/format";
 import { STEPS_GOAL, lastDays, stepsSummary } from "@/lib/wellness/insights";
 import type { WellnessResponse } from "@/lib/wellness/types";
 import { DayBars } from "./charts";
 import { dayLabel, useDayIndex } from "./queries";
+import { RangeTrend } from "./range-trend";
 
 const steps = (n: number) => n.toLocaleString("it-IT");
 
@@ -14,6 +15,7 @@ export function ActivityTab({ data }: { data: WellnessResponse }) {
   const index = useDayIndex(data.days);
   const summary = useMemo(() => stepsSummary(data.days), [data.days]);
   const month = useMemo(() => lastDays(30).map((d) => ({ date: d, day: index.get(d) })), [index]);
+  const stepsOf = useCallback((d: string) => index.get(d)?.steps || null, [index]);
 
   if (summary.avg30 == null) return <EmptyState>Nessun passo registrato negli ultimi 30 giorni.</EmptyState>;
 
@@ -58,6 +60,10 @@ export function ActivityTab({ data }: { data: WellnessResponse }) {
           {summary.best && `Giorno migliore: ${dayLabel(summary.best.date)} con ${steps(summary.best.steps)} passi. `}
           {avgKcal != null && `Calorie attive in media: ${Math.round(avgKcal)} kcal al giorno.`}
         </p>
+      </Section>
+
+      <Section title="Andamento" hint="Passi al giorno">
+        <RangeTrend value={stepsOf} unit="passi" tone="ink" reference={STEPS_GOAL} referenceLabel="obiettivo" />
       </Section>
     </div>
   );

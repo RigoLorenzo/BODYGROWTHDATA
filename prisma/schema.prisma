@@ -692,6 +692,13 @@ model MiFitnessConnection {
   wellnessSyncedUntil DateTime?
   /// …e a ritroso fino a questo (storico iniziale)
   wellnessSyncedFrom  DateTime?
+  /// Battiti al minuto: scaricati a parte, giorno per giorno
+  wellnessHrFrom      DateTime?
+  wellnessHrUntil     DateTime?
+  /// Fuso dell'orologio (secondi): i giorni locali si scaricano senza margini
+  wellnessZoneOffset  Int?
+  /// Ultimo errore di un tipo di dato (diagnostica, non blocca)
+  wellnessError       String?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 

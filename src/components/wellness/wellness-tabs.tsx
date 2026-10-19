@@ -9,7 +9,8 @@ import { HeartTab } from "./heart-tab";
 import { OverviewTab } from "./overview-tab";
 import { useWellness } from "./queries";
 import { SleepTab } from "./sleep-tab";
-import { SyncStatus, WellnessEmpty } from "./sync-status";
+import { HistoryProgress, SyncStatus, WellnessEmpty } from "./sync-status";
+import { useWellnessBackfill } from "./use-wellness-backfill";
 import { VitalsTab } from "./vitals-tab";
 
 const TABS = [
@@ -40,6 +41,7 @@ function TabContent({ tab, data }: { tab: Tab; data: WellnessResponse }) {
 export function WellnessTabs() {
   const [tab, select] = useUrlTab(TABS);
   const { data, isLoading, isError } = useWellness();
+  const backfill = useWellnessBackfill(data);
 
   return (
     <div className="space-y-5">
@@ -48,11 +50,14 @@ export function WellnessTabs() {
         <Skeleton className="h-96 rounded-3xl" />
       ) : isError || !data ? (
         <EmptyState>Dati non disponibili: riprova tra poco.</EmptyState>
-      ) : !data.days.length && !data.sleeps.length ? (
-        <WellnessEmpty connected={data.connected} />
       ) : (
         <>
-          <TabContent tab={tab} data={data} />
+          <HistoryProgress data={data} progress={backfill.progress} active={backfill.active} />
+          {!data.days.length && !data.sleeps.length ? (
+            <WellnessEmpty connected={data.connected} />
+          ) : (
+            <TabContent tab={tab} data={data} />
+          )}
           {data.connected && <SyncStatus data={data} />}
         </>
       )}

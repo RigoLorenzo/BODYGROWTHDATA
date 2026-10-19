@@ -227,14 +227,17 @@ export function restingTrend(days: WellnessDayJson[]): RestingTrend {
   if (!series.length) return { latest: null, latestDate: null, baseline: null, delta: null, longTerm: null };
   const values = series.map((d) => d.restingHr!);
   const baseline = median(values.slice(-33, -3));
-  const head = values.slice(0, 14);
-  const tail = values.slice(-14);
+  // Tendenza sugli ultimi tre mesi, anche con uno storico più lungo
+  const threeMonthsAgo = dayKey(subDays(parseISO(series.at(-1)!.date), 89));
+  const recent = series.filter((d) => d.date >= threeMonthsAgo).map((d) => d.restingHr!);
+  const head = recent.slice(0, 14);
+  const tail = recent.slice(-14);
   return {
     latest: values.at(-1)!,
     latestDate: series.at(-1)!.date,
     baseline,
     delta: baseline == null ? null : values.at(-1)! - baseline,
-    longTerm: values.length >= 42 ? mean(tail)! - mean(head)! : null,
+    longTerm: recent.length >= 42 ? mean(tail)! - mean(head)! : null,
   };
 }
 
@@ -336,6 +339,34 @@ export function stepsSummary(days: WellnessDayJson[], now = new Date()): StepsSu
 /** Ultimi `n` giorni fino a oggi, anche quelli senza dati */
 export function lastDays(n: number, now = new Date()): string[] {
   return Array.from({ length: n }, (_, i) => dayKey(addDays(subDays(now, n - 1), i)));
+}
+
+// ─── Periodi dei grafici ──────────────────────────────────────────────────────
+
+export type TrendRange = "3m" | "6m" | "1y";
+export const TREND_RANGES: { value: TrendRange; label: string; days: number }[] = [
+  { value: "3m", label: "3 mesi", days: 90 },
+  { value: "6m", label: "6 mesi", days: 182 },
+  { value: "1y", label: "1 anno", days: 365 },
+];
+/** Oltre questi giorni un punto al giorno è illeggibile: medie settimanali */
+const DAILY_POINTS_MAX = 90;
+
+/**
+ * Punti di un andamento negli ultimi `days` giorni: uno al giorno fino a tre
+ * mesi, poi la media di ogni settimana (che finisce oggi) dei giorni con dati.
+ */
+export function trendPoints(days: number, value: (date: string) => number | null, now = new Date()) {
+  const dates = lastDays(days, now);
+  if (days <= DAILY_POINTS_MAX) return dates.map((date) => ({ date, value: value(date) }));
+  const points: { date: string; value: number | null }[] = [];
+  // Settimane allineate a oggi: l'ultima è sempre completa fino a ieri/oggi
+  for (let end = dates.length; end > 0; end -= 7) {
+    const week = dates.slice(Math.max(0, end - 7), end);
+    const values = week.map(value).filter((v): v is number => v != null);
+    points.unshift({ date: week[0], value: values.length ? mean(values)! : null });
+  }
+  return points;
 }
 
 /** 452 → "7h 32m" */

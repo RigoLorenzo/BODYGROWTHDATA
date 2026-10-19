@@ -11,6 +11,7 @@ import {
   sleepRoutine,
   sleepTrainingFindings,
   stepsSummary,
+  trendPoints,
 } from "../insights";
 import type { SleepJson, WellnessDayJson } from "../types";
 
@@ -132,6 +133,26 @@ describe("battiti e prontezza", () => {
     const activity = Array.from({ length: 28 }, (_, i) => workout(-i, "run"));
     expect(loadRatio(activity, NOW)).toBeCloseTo(1, 1);
     expect(loadRatio([], NOW)).toBeNull();
+  });
+});
+
+describe("andamenti", () => {
+  it("giornaliero fino a 3 mesi, medie settimanali oltre", () => {
+    const value = (d: string) => (d.endsWith("1") ? null : Number(d.slice(-2)));
+    const daily = trendPoints(90, value, NOW);
+    expect(daily).toHaveLength(90);
+    expect(daily.at(-1)).toEqual({ date: day(0), value: null });
+
+    const weekly = trendPoints(182, () => 7, NOW);
+    expect(weekly).toHaveLength(26);
+    expect(weekly.every((p) => p.value === 7)).toBe(true);
+    expect(weekly.at(-1)!.date).toBe(day(-6));
+  });
+
+  it("la tendenza della FC a riposo guarda gli ultimi tre mesi anche con un anno di storico", () => {
+    // Un anno fa 70, negli ultimi tre mesi stabile a 58
+    const days = Array.from({ length: 365 }, (_, i) => emptyDay(i - 364, { restingHr: i < 275 ? 70 : 58 }));
+    expect(restingTrend(days).longTerm).toBe(0);
   });
 });
 
