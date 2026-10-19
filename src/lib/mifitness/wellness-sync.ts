@@ -32,6 +32,8 @@ import {
 const DAY = 86_400;
 /** Senza fuso noto si scarica con margine per coprire i giorni locali interi */
 const ZONE_PAD = 14 * 3600;
+/** Margine dei battiti col fuso noto: cambio d'ora e viaggi fino a ±3 h */
+const HEART_PAD = 3 * 3600;
 /** I battiti partono dalla sera prima: servono per la FC della notte */
 const NIGHT_LEAD = 8 * 3600;
 const MAX_PAGES = 300;
@@ -52,12 +54,16 @@ interface Ctx {
   errors: string[];
 }
 
-/** Istanti reali del blocco di giorni locali */
-function unitRange(ctx: Ctx, unit: Unit) {
+/**
+ * Istanti reali del blocco di giorni locali. Col fuso noto basta un margine
+ * piccolo: copre il cambio d'ora e i viaggi vicini (il fuso salvato può
+ * essere quello di prima). I giorni si filtrano poi col fuso di ogni dato.
+ */
+function unitRange(ctx: Ctx, unit: Unit, pad = ZONE_PAD) {
   const end = unit.from + unit.days * DAY;
   return ctx.offset == null
     ? { start: unit.from - ZONE_PAD, end: end + ZONE_PAD }
-    : { start: unit.from - ctx.offset, end: end - ctx.offset };
+    : { start: unit.from - ctx.offset - pad, end: end - ctx.offset + pad };
 }
 
 async function fetchKey(ctx: Ctx, key: FitnessKey, startTime: number, endTime: number) {
@@ -170,7 +176,7 @@ async function lightUnit(ctx: Ctx, unit: Unit) {
 
 /** Battiti al minuto di un giorno: media, minimo, massimo, curva oraria e FC della notte */
 async function heartUnit(ctx: Ctx, unit: Unit) {
-  const { start, end } = unitRange(ctx, unit);
+  const { start, end } = unitRange(ctx, unit, HEART_PAD);
   const records = await tryFetch(ctx, "heart_rate", start - NIGHT_LEAD, end);
   learnOffset(ctx, records);
   const keep = inUnit(unit);

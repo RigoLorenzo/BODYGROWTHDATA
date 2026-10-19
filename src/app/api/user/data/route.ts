@@ -24,7 +24,7 @@ export async function DELETE() {
     prisma.sleepSession.deleteMany({ where: { userId } }),
     prisma.miFitnessConnection.updateMany({
       where: { userId },
-      data: { wellnessSyncedUntil: null, wellnessSyncedFrom: null },
+      data: { wellnessSyncedUntil: null, wellnessSyncedFrom: null, wellnessHrFrom: null, wellnessHrUntil: null },
     }),
   ]);
 
