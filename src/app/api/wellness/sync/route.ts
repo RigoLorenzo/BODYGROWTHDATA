@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { MiFitnessError } from "@/lib/mifitness/client";
 import { syncWellnessOnly } from "@/lib/mifitness/sync";
 import { wellnessProgress } from "@/lib/mifitness/wellness-plan";
+import { firstWellnessDay } from "@/lib/mifitness/wellness-sync";
 
 /** Login Xiaomi e margine di chiusura restano sotto il limite di 60 s */
 const BUDGET_MS = 40_000;
@@ -29,7 +30,7 @@ export async function POST() {
       where: { userId },
       select: { wellnessSyncedFrom: true, wellnessHrFrom: true },
     });
-    return NextResponse.json({ saved, progress: wellnessProgress(state) });
+    return NextResponse.json({ saved, progress: wellnessProgress(state, await firstWellnessDay(userId)) });
   } catch (error) {
     const reconnect = error instanceof MiFitnessError && error.auth;
     console.error("storico benessere", error);

@@ -10,7 +10,7 @@ export const useWellness = () =>
   useQuery<WellnessResponse>({
     queryKey: ["wellness"],
     queryFn: async () => {
-      const res = await fetch("/api/wellness?days=120");
+      const res = await fetch("/api/wellness?days=400");
       if (!res.ok) throw new Error(`Errore ${res.status}`);
       return res.json();
     },

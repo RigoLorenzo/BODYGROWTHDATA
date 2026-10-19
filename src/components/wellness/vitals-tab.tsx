@@ -1,19 +1,21 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { EmptyState, Section, Stat } from "@/components/analytics/ui";
 import { formatDecimal } from "@/components/analytics/format";
 import { lastDays } from "@/lib/wellness/insights";
 import type { WellnessResponse } from "@/lib/wellness/types";
-import { DayBars, TrendLine } from "./charts";
+import { DayBars } from "./charts";
 import { stressLabel } from "./format";
 import { dayLabel, useDayIndex } from "./queries";
+import { RangeTrend } from "./range-trend";
 
 const average = (values: number[]) => (values.length ? values.reduce((s, v) => s + v, 0) / values.length : null);
 
 export function VitalsTab({ data }: { data: WellnessResponse }) {
   const index = useDayIndex(data.days);
   const month = useMemo(() => lastDays(30).map((d) => ({ date: d, day: index.get(d) })), [index]);
+  const spo2Of = useCallback((d: string) => index.get(d)?.spo2Avg ?? null, [index]);
   const stress = month.map((m) => m.day?.stressAvg).filter((v): v is number => v != null);
   const spo2 = month.map((m) => m.day?.spo2Avg).filter((v): v is number => v != null);
   const spo2Mins = month.map((m) => m.day?.spo2Min).filter((v): v is number => v != null);
@@ -56,12 +58,7 @@ export function VitalsTab({ data }: { data: WellnessResponse }) {
             <Stat label="Minimo" value={spo2Mins.length ? Math.min(...spo2Mins) : "—"} unit={spo2Mins.length ? "%" : undefined} />
             <Stat label="Sotto 90%" value={lowSpo2} detail="giorni" />
           </div>
-          <TrendLine
-            points={month.map(({ date, day }) => ({ key: date, label: dayLabel(date), value: day?.spo2Avg ?? null }))}
-            unit="%"
-            tone="sky"
-            digits={1}
-          />
+          <RangeTrend value={spo2Of} unit="%" tone="sky" digits={1} />
           <p className="mt-3 text-xs text-muted-foreground">
             Valori tra 95% e 100% sono normali. Cali notturni ripetuti sotto il 90% meritano un confronto con il medico.
           </p>

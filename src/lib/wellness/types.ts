@@ -89,16 +89,24 @@ export interface SleepJson {
   stages: SleepSegment[] | null;
 }
 
+export interface HistoryTrack {
+  done: number;
+  total: number;
+  /** primo giorno scaricato (yyyy-MM-dd) */
+  since: string | null;
+  complete: boolean;
+}
+
 export interface WellnessProgress {
-  light: { done: number; total: number };
-  heart: { done: number; total: number };
+  light: HistoryTrack;
+  heart: HistoryTrack;
   complete: boolean;
 }
 
 export interface WellnessResponse {
   connected: boolean;
   lastSyncAt: string | null;
-  /** storico scaricato: dati leggeri (90 gg) e battiti al minuto (30 gg) */
+  /** storico scaricato: dati leggeri (fino a 3 anni) e battiti al minuto (1 anno) */
   progress: WellnessProgress | null;
   /** token Xiaomi scaduto: lo storico non può avanzare */
   needsReconnect: boolean;

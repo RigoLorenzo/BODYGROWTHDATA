@@ -3,12 +3,15 @@ import { prisma } from "@/lib/prisma";
 import type { DaySummary, SleepInput } from "@/lib/wellness/types";
 import { MiFitnessError, listFitnessData, type FitnessKey, type FitnessRecord, type XiaomiSession } from "./client";
 import { heartRateBetween, heartRateSamples, mapSleepRecord, summarizeDays, zoneOffsetSeconds } from "./wellness-mapping";
+import { HISTORY_EMPTY_STOP_DAYS } from "@/lib/wellness/constants";
 import {
   HEART_TRACK,
   LIGHT_TRACK,
   backwardUnits,
   forwardUnits,
+  heartFloor,
   isoDay,
+  oldestDay,
   toEpoch,
   utcMidnight,
   type Coverage,
@@ -214,19 +217,47 @@ async function runForward(ctx: Ctx, cov: Coverage, track: Track, fields: Coverag
   return saved;
 }
 
-async function runBackward(ctx: Ctx, cov: Coverage, track: Track, fields: CoverageFields, run: typeof lightUnit, deadline: number) {
+/** Nessun giorno salvato nei 60 giorni da `from` in poi: prima l'orologio non c'era */
+async function historyEnded(userId: string, from: number) {
+  const found = await prisma.wellnessDay.findFirst({
+    where: { userId, date: { gte: isoDay(from), lt: isoDay(from + HISTORY_EMPTY_STOP_DAYS * DAY) } },
+    select: { id: true },
+  });
+  return !found;
+}
+
+async function runBackward(
+  ctx: Ctx,
+  cov: Coverage,
+  track: Track,
+  fields: CoverageFields,
+  run: typeof lightUnit,
+  deadline: number,
+  opts: { floor?: number | null; stopWhenEmpty?: boolean } = {}
+) {
   const today = utcMidnight(Date.now() / 1000);
   let saved = 0;
-  for (const unit of backwardUnits(cov, track, today)) {
+  for (const unit of backwardUnits(cov, track, today, opts.floor)) {
     if (Date.now() > deadline) break;
-    saved += await run(ctx, unit);
+    const unitSaved = await run(ctx, unit);
+    saved += unitSaved;
     cov.from = unit.from;
+    // Storico finito prima del limite: il binario è completo
+    const ended = opts.stopWhenEmpty && !unitSaved && (await historyEnded(ctx.userId, unit.from));
+    if (ended) cov.from = oldestDay(track, today, opts.floor);
     await prisma.miFitnessConnection.update({
       where: { userId: ctx.userId },
       data: { [fields.from]: new Date(cov.from * 1000) },
     });
+    if (ended) break;
   }
   return saved;
+}
+
+/** Primo giorno con dati salvati (yyyy-MM-dd) */
+export async function firstWellnessDay(userId: string) {
+  const first = await prisma.wellnessDay.findFirst({ where: { userId }, orderBy: { date: "asc" }, select: { date: true } });
+  return first?.date ?? null;
 }
 
 /**
@@ -265,8 +296,12 @@ export async function syncWellness(
     // Senza punto di partenza lo storico non sa da dove andare a ritroso
     if (recent || light.from == null) saved += await runForward(ctx, light, LIGHT_TRACK, LIGHT_FIELDS, lightUnit, deadline);
     if (recent || heart.from == null) saved += await runForward(ctx, heart, HEART_TRACK, HEART_FIELDS, heartUnit, deadline);
-    saved += await runBackward(ctx, light, LIGHT_TRACK, LIGHT_FIELDS, lightUnit, deadline);
-    saved += await runBackward(ctx, heart, HEART_TRACK, HEART_FIELDS, heartUnit, deadline);
+    saved += await runBackward(ctx, light, LIGHT_TRACK, LIGHT_FIELDS, lightUnit, deadline, { stopWhenEmpty: true });
+    // Con lo storico leggero completo i battiti si fermano al primo giorno con dati
+    const today = utcMidnight(Date.now() / 1000);
+    const lightDone = light.from != null && light.from <= oldestDay(LIGHT_TRACK, today);
+    const floor = lightDone ? heartFloor(await firstWellnessDay(userId)) : null;
+    saved += await runBackward(ctx, heart, HEART_TRACK, HEART_FIELDS, heartUnit, deadline, { floor });
   } catch (error) {
     if (!(error instanceof UnitTimeout)) throw error;
     console.warn("benessere Mi Fitness: blocco interrotto per tempo, riprende alla prossima sincronizzazione");

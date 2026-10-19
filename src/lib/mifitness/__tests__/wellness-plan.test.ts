@@ -21,7 +21,6 @@ describe("blocchi del benessere", () => {
 
   it("storico a ritroso dal più recente, fermo al limite", () => {
     const light = backwardUnits({ from: day(-2), until: TODAY }, LIGHT_TRACK, TODAY);
-    expect(light).toHaveLength(9);
     expect(iso(light[0].from)).toBe("2026-10-07");
     expect(iso(light.at(-1)!.from)).toBe(iso(day(-(LIGHT_TRACK.historyDays - 1))));
     expect(light.reduce((s, u) => s + u.days, 0)).toBe(LIGHT_TRACK.historyDays - 3);
@@ -29,13 +28,21 @@ describe("blocchi del benessere", () => {
     const heart = backwardUnits({ from: day(-1), until: TODAY }, HEART_TRACK, TODAY);
     expect(heart).toHaveLength(HEART_TRACK.historyDays - 2);
     expect(heart.every((u) => u.days === 1)).toBe(true);
-    expect(backwardUnits({ from: day(-89), until: TODAY }, LIGHT_TRACK, TODAY)).toEqual([]);
+    expect(backwardUnits({ from: day(-(LIGHT_TRACK.historyDays - 1)), until: TODAY }, LIGHT_TRACK, TODAY)).toEqual([]);
+  });
+
+  it("i battiti si fermano al primo giorno con dati", () => {
+    const floor = day(-10);
+    const heart = backwardUnits({ from: day(-1), until: TODAY }, HEART_TRACK, TODAY, floor);
+    expect(heart).toHaveLength(9);
+    expect(iso(heart.at(-1)!.from)).toBe(iso(floor));
   });
 
   it("avanzamento in giorni coperti", () => {
-    expect(coverageDays({ from: null, until: null }, LIGHT_TRACK, TODAY)).toEqual({ done: 0, total: 90 });
-    expect(coverageDays({ from: day(-2), until: TODAY }, LIGHT_TRACK, TODAY)).toEqual({ done: 3, total: 90 });
-    expect(coverageDays({ from: day(-200), until: TODAY }, HEART_TRACK, TODAY)).toEqual({ done: 30, total: 30 });
+    expect(coverageDays({ from: null, until: null }, LIGHT_TRACK, TODAY)).toMatchObject({ done: 0, total: 1095, complete: false });
+    expect(coverageDays({ from: day(-2), until: TODAY }, LIGHT_TRACK, TODAY)).toMatchObject({ done: 3, since: "2026-10-17" });
+    expect(coverageDays({ from: day(-400), until: TODAY }, HEART_TRACK, TODAY)).toMatchObject({ done: 365, complete: true });
+    expect(coverageDays({ from: day(-10), until: TODAY }, HEART_TRACK, TODAY, day(-10))).toMatchObject({ done: 11, total: 11, complete: true });
   });
 
   it("FC tra due istanti solo con abbastanza campioni", () => {
