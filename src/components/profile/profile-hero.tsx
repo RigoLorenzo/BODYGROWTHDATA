@@ -90,7 +90,8 @@ export function ProfileHero({ user }: { user: { name?: string | null; email?: st
       </div>
 
       <div className="mt-5 grid grid-cols-4 gap-3 border-t border-background/15 pt-4">
-        <HeroStat label="Sedute" value={summary.sessions.toLocaleString("it-IT")} />
+        {/* Il conteggio del server è esatto; l'elenco attività si ferma a 3000 sedute */}
+        <HeroStat label="Sedute" value={(overview?.total?.workouts ?? summary.sessions).toLocaleString("it-IT")} />
         <HeroStat label="Streak" value={overview?.streak ?? 0} unit="gg" />
         <HeroStat label="Record" value={records?.length ?? 0} />
         <HeroStat label="Km corsi" value={Math.round(summary.km / 1000).toLocaleString("it-IT")} />
