@@ -89,11 +89,21 @@ export interface SleepJson {
   stages: SleepSegment[] | null;
 }
 
+export interface WellnessProgress {
+  light: { done: number; total: number };
+  heart: { done: number; total: number };
+  complete: boolean;
+}
+
 export interface WellnessResponse {
   connected: boolean;
   lastSyncAt: string | null;
-  /** giorni già scaricati a ritroso (backfill in corso se più recente dell'inizio storico) */
-  syncedFrom: string | null;
+  /** storico scaricato: dati leggeri (90 gg) e battiti al minuto (30 gg) */
+  progress: WellnessProgress | null;
+  /** token Xiaomi scaduto: lo storico non può avanzare */
+  needsReconnect: boolean;
+  /** ultimo tipo di dato non scaricato (diagnostica) */
+  syncError: string | null;
   days: WellnessDayJson[];
   sleeps: SleepJson[];
 }

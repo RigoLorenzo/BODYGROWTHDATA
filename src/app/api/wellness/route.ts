@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { wellnessProgress } from "@/lib/mifitness/wellness-plan";
 import type { HourlyHr, SleepSegment, WellnessResponse } from "@/lib/wellness/types";
 
 const MAX_DAYS = 365;
@@ -20,7 +21,10 @@ export async function GET(req: Request) {
   const since = isoDay(new Date(Date.now() - days * 86_400_000));
 
   const [conn, rows, sleeps] = await Promise.all([
-    prisma.miFitnessConnection.findUnique({ where: { userId }, select: { lastSyncAt: true, wellnessSyncedFrom: true } }),
+    prisma.miFitnessConnection.findUnique({
+      where: { userId },
+      select: { lastSyncAt: true, lastError: true, wellnessSyncedFrom: true, wellnessHrFrom: true, wellnessError: true },
+    }),
     prisma.wellnessDay.findMany({
       where: { userId, date: { gte: since } },
       orderBy: { date: "asc" },
@@ -66,7 +70,9 @@ export async function GET(req: Request) {
   const body: WellnessResponse = {
     connected: !!conn,
     lastSyncAt: conn?.lastSyncAt?.toISOString() ?? null,
-    syncedFrom: conn?.wellnessSyncedFrom ? isoDay(conn.wellnessSyncedFrom) : null,
+    progress: conn ? wellnessProgress(conn) : null,
+    needsReconnect: !!conn?.lastError,
+    syncError: conn?.wellnessError ?? null,
     days: rows.map((r) => ({ ...r, hrHourly: (r.hrHourly as unknown as HourlyHr[] | null) ?? null })),
     sleeps: sleeps.map((s) => ({
       ...s,

@@ -253,16 +253,17 @@ export function mapSleepRecord(record: FitnessRecord): SleepInput | null {
   };
 }
 
+/** FC media e minima tra due istanti (secondi), se ci sono abbastanza campioni */
+export function heartRateBetween(samples: Sample[], from: number, to: number): { avgHr: number; minHr: number } | null {
+  const values = samples.filter((s) => s.time >= from && s.time <= to).map((s) => s.value);
+  if (values.length < 10) return null;
+  return { avgHr: Math.round(avg(values)), minHr: min(values) };
+}
+
 /** FC media e minima durante il sonno, dai campioni al minuto se il riepilogo non le ha */
 export function withSleepHeartRate(sleep: SleepInput, samples: Sample[]): SleepInput {
   if (sleep.avgHr && sleep.minHr) return sleep;
-  const from = sleep.startAt.getTime() / 1000;
-  const to = sleep.endAt.getTime() / 1000;
-  const values = samples.filter((s) => s.time >= from && s.time <= to).map((s) => s.value);
-  if (values.length < 10) return sleep;
-  return {
-    ...sleep,
-    avgHr: sleep.avgHr ?? Math.round(avg(values)),
-    minHr: sleep.minHr ?? min(values),
-  };
+  const hr = heartRateBetween(samples, sleep.startAt.getTime() / 1000, sleep.endAt.getTime() / 1000);
+  if (!hr) return sleep;
+  return { ...sleep, avgHr: sleep.avgHr ?? hr.avgHr, minHr: sleep.minHr ?? hr.minHr };
 }
