@@ -1,14 +1,12 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { useActivity } from "@/components/analytics/use-activity";
 import { EmptyState, Section, Stat } from "@/components/analytics/ui";
-import { cn } from "@/lib/utils";
-import { lastDays, mainSleeps, restingTrend, sleepByTraining } from "@/lib/wellness/insights";
+import { mainSleeps, restingTrend, sleepByTraining } from "@/lib/wellness/insights";
 import type { WellnessResponse } from "@/lib/wellness/types";
-import { HourlyHeartRate } from "./charts";
 import { heartDetail } from "./format";
-import { dayLabel, longDayLabel, useDayIndex } from "./queries";
+import { useDayIndex } from "./queries";
 import { RangeTrend } from "./range-trend";
 
 /** Lettura del trend di lungo periodo della FC a riposo */
@@ -22,9 +20,6 @@ function longTermText(change: number | null): string | null {
 export function HeartTab({ data }: { data: WellnessResponse }) {
   const { data: activity = [] } = useActivity();
   const index = useDayIndex(data.days);
-  const week = useMemo(() => lastDays(7).filter((d) => index.get(d)?.hrHourly?.length).reverse(), [index]);
-  const [selected, setSelected] = useState<string | null>(null);
-  const day = index.get(selected ?? week[0] ?? "");
 
   const trend = useMemo(() => restingTrend(data.days), [data.days]);
   const nights = useMemo(() => new Map(mainSleeps(data.sleeps).map((n) => [n.date, n])), [data.sleeps]);
@@ -58,33 +53,6 @@ export function HeartTab({ data }: { data: WellnessResponse }) {
         </div>
         {longTermText(trend.longTerm) && <p className="mt-3 text-sm text-muted-foreground">{longTermText(trend.longTerm)}</p>}
       </Section>
-
-      {week.length > 0 && day && (
-        <Section title="Battiti del giorno" hint={longDayLabel(day.date)}>
-          <div className="-mx-1 mb-4 flex gap-1.5 overflow-x-auto px-1 [scrollbar-width:none]">
-            {week.map((d) => (
-              <button
-                key={d}
-                type="button"
-                onClick={() => setSelected(d)}
-                aria-pressed={d === day.date}
-                className={cn(
-                  "h-8 shrink-0 rounded-full px-3 text-xs font-medium",
-                  d === day.date ? "bg-foreground text-background" : "bg-muted text-muted-foreground"
-                )}
-              >
-                {dayLabel(d)}
-              </button>
-            ))}
-          </div>
-          <div className="mb-4 grid grid-cols-3 gap-3">
-            <Stat label="Minimo" value={day.minHr ?? "—"} unit="bpm" />
-            <Stat label="Media" value={day.avgHr ?? "—"} unit="bpm" />
-            <Stat label="Massimo" value={day.maxHr ?? "—"} unit="bpm" />
-          </div>
-          <HourlyHeartRate hours={day.hrHourly ?? []} />
-        </Section>
-      )}
 
       {data.days.some((d) => d.avgHr != null) && (
         <Section title="FC media del giorno" hint="Dai battiti al minuto: sale con allenamenti, stress e caldo">

@@ -137,10 +137,7 @@ export function SleepTab({ data }: { data: WellnessResponse }) {
   const [selected, setSelected] = useState<string | null>(null);
   const byDate = useMemo(() => nightsByDate(nights), [nights]);
   const respOf = useCallback((d: string) => byDate.get(d)?.respRate ?? null, [byDate]);
-  const hoursOf = useCallback((d: string) => {
-    const n = byDate.get(d);
-    return n ? n.asleep / 60 : null;
-  }, [byDate]);
+  const asleepOf = useCallback((d: string) => byDate.get(d)?.asleep ?? null, [byDate]);
   const night = byDate.get(selected ?? "") ?? nights.at(-1);
 
   const month = useMemo(() => {
@@ -158,7 +155,9 @@ export function SleepTab({ data }: { data: WellnessResponse }) {
       };
     });
   }, [byDate]);
-  const recent = nights.slice(-30);
+  // Ultimi 30 giorni di calendario, come il grafico qui sotto
+  const monthStart = lastDays(30)[0];
+  const recent = nights.filter((n) => n.date >= monthStart);
   const avgAsleep = recent.length ? recent.reduce((s, n) => s + n.asleep, 0) / recent.length : null;
   const deepValues = recent.map(deepShare).filter((v): v is number => v != null);
   const avgDeep = deepValues.length ? (deepValues.reduce((s, v) => s + v, 0) / deepValues.length) * 100 : null;
@@ -211,7 +210,7 @@ export function SleepTab({ data }: { data: WellnessResponse }) {
       </Section>
 
       <Section title="Andamento" hint="Ore di sonno per notte">
-        <RangeTrend value={hoursOf} unit="h" tone="indigo" digits={1} reference={SLEEP_NEED_MIN / 60} referenceLabel="consigliate" />
+        <RangeTrend value={asleepOf} unit="min" tone="indigo" format={formatMinutes} reference={SLEEP_NEED_MIN} referenceLabel="consigliate" />
       </Section>
 
       {nights.some((n) => n.respRate != null) && (
