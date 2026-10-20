@@ -755,6 +755,11 @@ model SleepSession {
   isNap      Boolean  @default(false)
   avgHr      Int?
   minHr      Int?
+  maxHr      Int?
+  /// respiri al minuto (media della notte)
+  respRate   Float?
+  /// risvegli durante la notte
+  awakeCount Int?
   /// [{ stage, start, end }] (secondi epoch) per l'ipnogramma
   stages     Json?
   createdAt  DateTime @default(now())

@@ -233,6 +233,9 @@ export function mapSleepRecord(record: FitnessRecord): SleepInput | null {
   const score = minutesOf(p, "sleep_score", "score");
   const avgHr = firstNum(p, "avg_hr", "avg_hrm");
   const minHr = firstNum(p, "min_hr", "min_hrm");
+  const maxHr = firstNum(p, "max_hr", "max_hrm");
+  const breath = firstNum(p, "avg_breath", "avg_respiration", "breath_rate");
+  const awakeCount = minutesOf(p, "awake_count", "wake_count");
 
   return {
     externalId: `${record.sid ?? "watch"}|${start}`,
@@ -249,6 +252,10 @@ export function mapSleepRecord(record: FitnessRecord): SleepInput | null {
     isNap,
     avgHr: avgHr && avgHr >= HR_RANGE[0] ? Math.round(avgHr) : null,
     minHr: minHr && minHr >= HR_RANGE[0] ? Math.round(minHr) : null,
+    maxHr: maxHr && maxHr >= HR_RANGE[0] && maxHr <= HR_RANGE[1] ? Math.round(maxHr) : null,
+    // Respiri al minuto plausibili nel sonno
+    respRate: breath && breath >= 5 && breath <= 40 ? Math.round(breath * 10) / 10 : null,
+    awakeCount,
     stages,
   };
 }

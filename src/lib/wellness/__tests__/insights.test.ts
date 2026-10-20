@@ -10,6 +10,7 @@ import {
   sleepByTraining,
   sleepRoutine,
   sleepTrainingFindings,
+  sleepEfficiency,
   stepsSummary,
   trendPoints,
 } from "../insights";
@@ -36,6 +37,9 @@ function night(offset: number, extra: Partial<SleepJson> = {}): SleepJson {
     isNap: false,
     avgHr: 52,
     minHr: 46,
+    maxHr: 70,
+    respRate: 14.2,
+    awakeCount: 2,
     stages: null,
     ...extra,
   };
@@ -133,6 +137,18 @@ describe("battiti e prontezza", () => {
     const activity = Array.from({ length: 28 }, (_, i) => workout(-i, "run"));
     expect(loadRatio(activity, NOW)).toBeCloseTo(1, 1);
     expect(loadRatio([], NOW)).toBeNull();
+  });
+});
+
+describe("efficienza del sonno", () => {
+  it("tempo addormentato sul tempo a letto, e pesa nella prontezza senza punteggio", () => {
+    // 8 h a letto, 7 h 30 addormentato
+    expect(sleepEfficiency(night(0))).toBeCloseTo(450 / 480, 5);
+    expect(sleepEfficiency(night(0, { asleep: 0 }))).toBeNull();
+    const good = readiness([night(0, { score: null })], [], [], NOW)!;
+    const restless = readiness([night(0, { score: null, asleep: 300 })], [], [], NOW)!;
+    expect(good.factors[0].detail).toContain("efficienza 94%");
+    expect(restless.score).toBeLessThan(good.score);
   });
 });
 

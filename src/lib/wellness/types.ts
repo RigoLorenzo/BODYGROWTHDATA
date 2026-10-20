@@ -51,6 +51,9 @@ export interface SleepInput {
   isNap: boolean;
   avgHr: number | null;
   minHr: number | null;
+  maxHr: number | null;
+  respRate: number | null;
+  awakeCount: number | null;
   stages: SleepSegment[];
 }
 
@@ -86,6 +89,9 @@ export interface SleepJson {
   isNap: boolean;
   avgHr: number | null;
   minHr: number | null;
+  maxHr: number | null;
+  respRate: number | null;
+  awakeCount: number | null;
   stages: SleepSegment[] | null;
 }
 

@@ -35,6 +35,12 @@ export function mainSleeps(sleeps: SleepJson[]): SleepJson[] {
   return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
 }
 
+/** Tempo addormentato sul tempo a letto (0-1): Xiaomi non dà un punteggio */
+export function sleepEfficiency(s: Pick<SleepJson, "asleep" | "startAt" | "endAt">): number | null {
+  const inBed = (new Date(s.endAt).getTime() - new Date(s.startAt).getTime()) / 60_000;
+  return inBed > 0 && s.asleep > 0 ? Math.min(1, s.asleep / inBed) : null;
+}
+
 export const deepShare = (s: SleepJson) => (s.deep != null && s.asleep > 0 ? s.deep / s.asleep : null);
 export const remShare = (s: SleepJson) => (s.rem != null && s.asleep > 0 ? s.rem / s.asleep : null);
 
@@ -277,8 +283,17 @@ export function readiness(
   const lastNight = mainSleeps(sleeps).filter((s) => s.date === today || s.date === yesterday).at(-1);
   if (lastNight) {
     const byDuration = clamp((lastNight.asleep / SLEEP_NEED_MIN) * 100);
-    const score = lastNight.score != null ? (lastNight.score + byDuration) / 2 : byDuration;
-    factors.push({ key: "sleep", label: "Sonno", score, detail: `${formatMinutes(lastNight.asleep)} di sonno` });
+    const efficiency = sleepEfficiency(lastNight);
+    // Senza punteggio pesa la continuità: 95% e oltre è ottimo, sotto il 70% scarso
+    const byEfficiency = efficiency != null ? clamp(((efficiency - 0.7) / 0.25) * 100) : null;
+    const score =
+      lastNight.score != null
+        ? (lastNight.score + byDuration) / 2
+        : byEfficiency != null
+          ? byDuration * 0.7 + byEfficiency * 0.3
+          : byDuration;
+    const detail = `${formatMinutes(lastNight.asleep)} di sonno${efficiency != null ? `, efficienza ${Math.round(efficiency * 100)}%` : ""}`;
+    factors.push({ key: "sleep", label: "Sonno", score, detail });
   }
 
   const trend = restingTrend(days);

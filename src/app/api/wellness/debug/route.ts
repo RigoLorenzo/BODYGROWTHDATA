@@ -24,8 +24,22 @@ const KEYS = [
   "stress",
   "spo2",
 ];
+/** Nomi alternativi per stress e SpO2 (provati su meno periodi, per stare nei 60 s) */
+const EXTRA_KEYS = [
+  "single_stress",
+  "all_day_stress",
+  "stress_record",
+  "manual_stress",
+  "single_spo2",
+  "blood_oxygen",
+  "spo2_record",
+  "manual_spo2",
+  "huami_all_day_stress_record",
+  "huami_manual_measure_record",
+];
 /** Finestre di 3 giorni a ritroso: oggi, 1 settimana, 1, 3, 6 e 12 mesi */
 const DAYS_AGO = [0, 7, 30, 90, 180, 365];
+const EXTRA_DAYS_AGO = [0, 30];
 const DAY = 86_400;
 const PARALLEL = 6;
 
@@ -60,7 +74,10 @@ function span(records: FitnessRecord[]) {
 async function probeCloud(userId: string) {
   return withMiFitnessSession(userId, async (session, region) => {
     const now = Math.floor(Date.now() / 1000);
-    const jobs = KEYS.flatMap((key) => DAYS_AGO.map((ago) => ({ key, ago })));
+    const jobs = [
+      ...KEYS.flatMap((key) => DAYS_AGO.map((ago) => ({ key, ago }))),
+      ...EXTRA_KEYS.flatMap((key) => EXTRA_DAYS_AGO.map((ago) => ({ key, ago }))),
+    ];
     const results: Record<string, Record<string, unknown>> = {};
     for (let i = 0; i < jobs.length; i += PARALLEL) {
       await Promise.all(

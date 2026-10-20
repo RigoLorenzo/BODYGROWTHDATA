@@ -2,11 +2,13 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useActivity } from "@/components/analytics/use-activity";
+import { formatDecimal } from "@/components/analytics/format";
 import { EmptyState, Section, Stat } from "@/components/analytics/ui";
 import { cn } from "@/lib/utils";
 import {
   SLEEP_NEED_MIN,
   deepShare,
+  sleepEfficiency,
   formatMinutes,
   lastDays,
   mainSleeps,
@@ -19,6 +21,7 @@ import type { SleepJson, WellnessResponse } from "@/lib/wellness/types";
 import { Hypnogram, NightBars, StageBar, StageLegend } from "./charts";
 import { FindingList } from "./finding-list";
 import { dayLabel, longDayLabel, nightsByDate, timeLabel } from "./queries";
+import { QualityStat } from "./quality-stat";
 import { RangeTrend } from "./range-trend";
 
 const pct = (part: number | null, total: number) => (part != null && total > 0 ? `${Math.round((part / total) * 100)}%` : "—");
@@ -28,10 +31,23 @@ function NightDetail({ night }: { night: SleepJson }) {
   const end = new Date(night.endAt).getTime() / 1000;
   return (
     <>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-x-3 gap-y-4">
         <Stat label="Dormito" value={formatMinutes(night.asleep)} detail={`${timeLabel(night.startAt)} → ${timeLabel(night.endAt)}`} />
-        <Stat label="Punteggio" value={night.score ?? "—"} detail={night.score != null ? scoreLabel(night.score) : undefined} />
-        <Stat label="FC notte" value={night.avgHr ?? "—"} unit={night.avgHr ? "bpm" : undefined} detail={night.minHr ? `minima ${night.minHr}` : undefined} />
+        <QualityStat night={night} />
+        <Stat
+          label="FC notte"
+          value={night.avgHr ?? "—"}
+          unit={night.avgHr ? "bpm" : undefined}
+          detail={night.minHr ? `min ${night.minHr}${night.maxHr ? ` · max ${night.maxHr}` : ""}` : undefined}
+        />
+        <Stat
+          label="Respiro"
+          value={night.respRate != null ? formatDecimal(night.respRate) : "—"}
+          unit={night.respRate != null ? "/min" : undefined}
+          detail={night.respRate != null ? "atti al minuto" : undefined}
+        />
+        <Stat label="Risvegli" value={night.awakeCount ?? "—"} detail={night.awake != null ? `${formatMinutes(night.awake)} svegli` : undefined} />
+        <Stat label="A letto" value={formatMinutes(inBedMinutes(night))} />
       </div>
       <div className="mt-4">
         {night.stages?.length ? (
@@ -67,7 +83,14 @@ function NightDetail({ night }: { night: SleepJson }) {
   );
 }
 
-const scoreLabel = (s: number) => (s >= 85 ? "ottimo" : s >= 70 ? "buono" : s >= 60 ? "discreto" : "scarso");
+const inBedMinutes = (n: SleepJson) => (new Date(n.endAt).getTime() - new Date(n.startAt).getTime()) / 60_000;
+
+/** "7h 32m · efficienza 93%" per il dettaglio della barra */
+function nightCaption(n: SleepJson) {
+  const efficiency = sleepEfficiency(n);
+  const quality = n.score != null ? `punteggio ${n.score}` : efficiency != null ? `efficienza ${Math.round(efficiency * 100)}%` : null;
+  return [formatMinutes(n.asleep), quality].filter(Boolean).join(" · ");
+}
 
 function TrainingComparison({ groups }: { groups: SleepGroup[] }) {
   const columns = [
@@ -113,6 +136,7 @@ export function SleepTab({ data }: { data: WellnessResponse }) {
   const nights = useMemo(() => mainSleeps(data.sleeps), [data.sleeps]);
   const [selected, setSelected] = useState<string | null>(null);
   const byDate = useMemo(() => nightsByDate(nights), [nights]);
+  const respOf = useCallback((d: string) => byDate.get(d)?.respRate ?? null, [byDate]);
   const hoursOf = useCallback((d: string) => {
     const n = byDate.get(d);
     return n ? n.asleep / 60 : null;
@@ -130,7 +154,7 @@ export function SleepTab({ data }: { data: WellnessResponse }) {
         light: n?.light ?? 0,
         rem: n?.rem ?? 0,
         other: n ? Math.max(0, n.asleep - staged) : 0,
-        caption: n ? `${formatMinutes(n.asleep)}${n.score != null ? ` · punteggio ${n.score}` : ""}` : "nessun dato",
+        caption: n ? nightCaption(n) : "nessun dato",
       };
     });
   }, [byDate]);
@@ -189,6 +213,15 @@ export function SleepTab({ data }: { data: WellnessResponse }) {
       <Section title="Andamento" hint="Ore di sonno per notte">
         <RangeTrend value={hoursOf} unit="h" tone="indigo" digits={1} reference={SLEEP_NEED_MIN / 60} referenceLabel="consigliate" />
       </Section>
+
+      {nights.some((n) => n.respRate != null) && (
+        <Section title="Respirazione nel sonno" hint="Atti al minuto: di solito 12-20, stabili notte dopo notte">
+          <RangeTrend value={respOf} unit="/min" tone="sky" digits={1} />
+          <p className="mt-3 text-xs text-muted-foreground">
+            Un aumento di 1-2 atti sopra la tua media per più notti può anticipare stanchezza, malanni o un recupero incompleto.
+          </p>
+        </Section>
+      )}
 
       <Section title="Abitudini" hint="Ultime due settimane">
         <div className="grid grid-cols-3 gap-3">

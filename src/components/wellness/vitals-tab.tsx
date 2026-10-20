@@ -22,13 +22,27 @@ export function VitalsTab({ data }: { data: WellnessResponse }) {
   const lowSpo2 = spo2Mins.filter((v) => v < 90).length;
 
   if (!stress.length && !spo2.length) {
-    return <EmptyState>Nessun dato di stress o ossigeno: attiva il monitoraggio nell&apos;app Mi Fitness.</EmptyState>;
+    return (
+      <EmptyState>
+        Nessun dato di stress o ossigeno negli ultimi 30 giorni. Nell&apos;app Mi Fitness, alla pagina del dispositivo,
+        attiva il monitoraggio continuo dello stress e la SpO₂ durante il sonno: senza, l&apos;orologio misura solo a mano.
+      </EmptyState>
+    );
   }
   const stressAvg = average(stress);
   const stressWeek = average(month.slice(-7).map((m) => m.day?.stressAvg).filter((v): v is number => v != null));
 
+  // Pochi giorni misurati: quasi sempre il monitoraggio continuo è spento
+  const sparse = stress.length < 7 || spo2.length < 7;
+
   return (
     <div className="space-y-5">
+      {sparse && (
+        <p className="rounded-2xl bg-muted/60 p-4 text-xs text-muted-foreground">
+          Dati misurati in pochi giorni (stress {stress.length}, SpO₂ {spo2.length} su 30). Per averli ogni giorno attiva in
+          Mi Fitness il monitoraggio continuo dello stress e la SpO₂ durante il sonno.
+        </p>
+      )}
       {stressAvg != null && (
         <Section title="Stress" hint="Dalla variabilità del battito, scala 1-100">
           <div className="mb-4 grid grid-cols-3 gap-3">

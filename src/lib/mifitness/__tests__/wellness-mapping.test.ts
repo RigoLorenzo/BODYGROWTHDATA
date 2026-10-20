@@ -80,6 +80,9 @@ describe("sonno Mi Fitness", () => {
         sleep_awake_duration: 10,
         sleep_score: 81,
         avg_hr: 52,
+        max_hr: 78,
+        avg_breath: 14.34,
+        awake_count: 3,
         items,
       }),
     })!;
@@ -95,6 +98,9 @@ describe("sonno Mi Fitness", () => {
       score: 81,
       isNap: false,
       avgHr: 52,
+      maxHr: 78,
+      respRate: 14.3,
+      awakeCount: 3,
     });
     expect(night.stages.map((s) => s.stage)).toEqual(["light", "deep", "light", "rem", "awake"]);
   });
