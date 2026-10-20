@@ -21,6 +21,7 @@ import {
 import type { WellnessResponse } from "@/lib/wellness/types";
 import { StageBar, StageLegend } from "./charts";
 import { FindingList } from "./finding-list";
+import { QualityStat } from "./quality-stat";
 import { heartDetail, stressLabel } from "./format";
 import { timeLabel } from "./queries";
 
@@ -93,7 +94,7 @@ export function OverviewTab({ data }: { data: WellnessResponse }) {
         >
           <div className="grid grid-cols-3 gap-3">
             <Stat label="Dormito" value={formatMinutes(lastNight.asleep)} />
-            <Stat label="Punteggio" value={lastNight.score ?? "—"} />
+            <QualityStat night={lastNight} />
             <Stat label="FC notte" value={lastNight.avgHr ?? "—"} unit={lastNight.avgHr ? "bpm" : undefined} />
           </div>
           <div className="mt-4 space-y-2">

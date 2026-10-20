@@ -134,6 +134,7 @@ async function saveDays(userId: string, summaries: Iterable<DaySummary>, keep: (
 /** Campi della notte; la FC assente non cancella quella ricavata dai battiti */
 function sleepData(sleep: SleepInput) {
   const { date, startAt, endAt, duration, asleep, deep, light, rem, awake, score, isNap, avgHr, minHr, stages } = sleep;
+  const { maxHr, respRate, awakeCount } = sleep;
   return {
     date,
     startAt,
@@ -148,6 +149,9 @@ function sleepData(sleep: SleepInput) {
     isNap,
     ...(avgHr != null ? { avgHr } : {}),
     ...(minHr != null ? { minHr } : {}),
+    maxHr,
+    respRate,
+    awakeCount,
     stages: stages.length ? (stages as unknown as Prisma.InputJsonValue) : undefined,
   };
 }
