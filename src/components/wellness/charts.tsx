@@ -4,7 +4,7 @@ import { useState } from "react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import type { HourlyHr, SleepSegment, SleepStage } from "@/lib/wellness/types";
+import type { SleepSegment, SleepStage } from "@/lib/wellness/types";
 
 /**
  * Grafici del benessere in HTML/SVG, senza librerie: linee sottili, una sola
@@ -58,6 +58,7 @@ export function TrendLine({
   tone = "rose",
   height = 112,
   digits = 0,
+  format,
 }: {
   points: LinePoint[];
   unit: string;
@@ -66,6 +67,8 @@ export function TrendLine({
   tone?: keyof typeof TONES;
   height?: number;
   digits?: number;
+  /** formato del valore (unità compresa), es. minuti → "7h 36m" */
+  format?: (v: number) => string;
 }) {
   const color = TONES[tone];
   const [active, setActive] = useState<number | null>(null);
@@ -79,7 +82,7 @@ export function TrendLine({
   const max = hi + pad;
   const x = (i: number) => (points.length === 1 ? W / 2 : (i / (points.length - 1)) * W);
   const y = (v: number) => height - ((v - min) / (max - min)) * height;
-  const fmt = (v: number) => v.toFixed(digits).replace(".", ",");
+  const fmt = format ?? ((v: number) => `${v.toFixed(digits).replace(".", ",")} ${unit}`);
 
   // Tratti separati dove manca il dato
   let d = "";
@@ -106,7 +109,7 @@ export function TrendLine({
         <span>
           {point?.label}:{" "}
           <span className="font-semibold tabular-nums text-foreground">
-            {point?.value != null ? `${fmt(point.value)} ${unit}` : "—"}
+            {point?.value != null ? fmt(point.value) : "—"}
           </span>
         </span>
         {reference != null && (
@@ -122,7 +125,7 @@ export function TrendLine({
         onPointerDown={onMove}
         onPointerLeave={() => setActive(null)}
         role="img"
-        aria-label={`Andamento in ${unit}: da ${fmt(values[0])} a ${fmt(values[values.length - 1])}`}
+        aria-label={`Andamento: da ${fmt(values[0])} a ${fmt(values[values.length - 1])}`}
       >
         <svg viewBox={`0 0 ${W} ${height}`} preserveAspectRatio="none" className="absolute inset-0 h-full w-full overflow-visible" aria-hidden>
           {reference != null && (
@@ -143,64 +146,6 @@ export function TrendLine({
       <div className="mt-1.5 flex justify-between text-[10px] text-muted-foreground">
         <span>{points[0].label}</span>
         <span>{points[points.length - 1].label}</span>
-      </div>
-    </div>
-  );
-}
-
-/** Frequenza cardiaca ora per ora: barra dal minimo al massimo, tacca sulla media */
-export function HourlyHeartRate({ hours }: { hours: HourlyHr[] }) {
-  const [active, setActive] = useState<number | null>(null);
-  if (!hours.length) return <p className="py-6 text-center text-sm text-muted-foreground">Nessun battito registrato</p>;
-  const byHour = new Map(hours.map((h) => [h.h, h]));
-  const lo = Math.min(...hours.map((h) => h.min)) - 5;
-  const hi = Math.max(...hours.map((h) => h.max)) + 5;
-  const pct = (v: number) => ((v - lo) / (hi - lo)) * 100;
-  const shown = active != null ? byHour.get(active) : null;
-
-  return (
-    <div>
-      <p className="mb-2 h-4 text-xs text-muted-foreground">
-        {shown ? (
-          <>
-            {String(shown.h).padStart(2, "0")}:00 ·{" "}
-            <span className="font-semibold tabular-nums text-foreground">
-              media {shown.avg} · min {shown.min} · max {shown.max} bpm
-            </span>
-          </>
-        ) : (
-          "Tocca un'ora per i dettagli"
-        )}
-      </p>
-      <div className="flex h-32 items-stretch gap-[2px]" onPointerLeave={() => setActive(null)}>
-        {Array.from({ length: 24 }, (_, h) => {
-          const hr = byHour.get(h);
-          return (
-            <button
-              key={h}
-              type="button"
-              aria-label={hr ? `${h}:00, media ${hr.avg} bpm, da ${hr.min} a ${hr.max}` : `${h}:00, nessun dato`}
-              onPointerEnter={() => setActive(h)}
-              onClick={() => setActive(h)}
-              className="relative min-w-0 flex-1"
-            >
-              {hr && (
-                <>
-                  <span
-                    className={cn("absolute inset-x-0 rounded-full", active === h ? "bg-rose-500/45" : "bg-rose-500/25")}
-                    style={{ bottom: `${pct(hr.min)}%`, top: `${100 - pct(hr.max)}%` }}
-                  />
-                  <span className="absolute inset-x-0 h-[3px] -translate-y-1/2 rounded-full bg-rose-500" style={{ top: `${100 - pct(hr.avg)}%` }} />
-                </>
-              )}
-            </button>
-          );
-        })}
-      </div>
-      <div className="mt-1.5 flex justify-between text-[10px] text-muted-foreground">
-        {["00", "06", "12", "18", "23"].map((t) => (
-          <span key={t}>{t}</span>
-        ))}
       </div>
     </div>
   );

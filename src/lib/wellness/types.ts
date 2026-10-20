@@ -67,7 +67,6 @@ export interface WellnessDayJson {
   avgHr: number | null;
   minHr: number | null;
   maxHr: number | null;
-  hrHourly: HourlyHr[] | null;
   spo2Avg: number | null;
   spo2Min: number | null;
   stressAvg: number | null;

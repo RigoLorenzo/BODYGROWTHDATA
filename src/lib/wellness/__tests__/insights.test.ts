@@ -54,7 +54,6 @@ const emptyDay = (offset: number, extra: Partial<WellnessDayJson> = {}): Wellnes
   avgHr: null,
   minHr: null,
   maxHr: null,
-  hrHourly: null,
   spo2Avg: null,
   spo2Min: null,
   stressAvg: null,

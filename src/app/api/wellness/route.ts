@@ -4,11 +4,11 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { wellnessProgress } from "@/lib/mifitness/wellness-plan";
 import { firstWellnessDay } from "@/lib/mifitness/wellness-sync";
-import type { HourlyHr, SleepSegment, WellnessResponse } from "@/lib/wellness/types";
+import type { SleepSegment, WellnessResponse } from "@/lib/wellness/types";
 
 const MAX_DAYS = 3 * 365;
 const DEFAULT_DAYS = 400;
-/** Curva oraria e ipnogramma si mostrano solo per i giorni recenti: il resto pesa e basta */
+/** L'ipnogramma si mostra solo per le notti recenti: il resto pesa e basta */
 const DETAIL_DAYS = 14;
 
 const isoDay = (d: Date) => d.toISOString().slice(0, 10);
@@ -40,7 +40,6 @@ export async function GET(req: Request) {
         avgHr: true,
         minHr: true,
         maxHr: true,
-        hrHourly: true,
         spo2Avg: true,
         spo2Min: true,
         stressAvg: true,
@@ -80,10 +79,7 @@ export async function GET(req: Request) {
     progress: conn ? wellnessProgress(conn, await firstWellnessDay(userId)) : null,
     needsReconnect: !!conn?.lastError,
     syncError: conn?.wellnessError ?? null,
-    days: rows.map((r) => ({
-      ...r,
-      hrHourly: r.date >= detailSince ? ((r.hrHourly as unknown as HourlyHr[] | null) ?? null) : null,
-    })),
+    days: rows,
     sleeps: sleeps.map((s) => ({
       ...s,
       startAt: s.startAt.toISOString(),

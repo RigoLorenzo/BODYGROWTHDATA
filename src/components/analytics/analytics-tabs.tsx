@@ -6,6 +6,7 @@ import { CalendarTab } from "./calendar-tab";
 import { MuscleFrequencyGrid } from "./muscle-frequency-grid";
 import { MuscleStatsGrid } from "./muscle-stats-grid";
 import { ProgressScore } from "./progress-score";
+import { RecordsTab } from "./records-tab";
 import { RunTab } from "./run-tab";
 import { SummaryTab } from "./summary-tab";
 import { TabStrip, useUrlTab } from "./tab-strip";
@@ -29,6 +30,7 @@ const MuscleTrendChart = dynamic(() => import("./muscle-trend-chart").then((m) =
 
 const TABS = [
   { value: "riepilogo", label: "Riepilogo" },
+  { value: "record", label: "Record" },
   { value: "calendario", label: "Calendario" },
   { value: "progressi", label: "Progressi" },
   { value: "volume", label: "Volume" },
@@ -66,6 +68,8 @@ function TabContent({ tab }: { tab: Tab }) {
       );
     case "corsa":
       return <RunTab />;
+    case "record":
+      return <RecordsTab />;
     default:
       return <SummaryTab />;
   }
