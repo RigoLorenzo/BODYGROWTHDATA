@@ -254,13 +254,22 @@ export interface Readiness {
   label: string;
   tone: "good" | "neutral" | "warn" | "bad";
   factors: { key: "sleep" | "heart" | "load"; label: string; score: number; detail: string }[];
+  /** segnali di recupero non ancora arrivati dall'orologio */
+  missing: ("sleep" | "heart")[];
 }
 
-/** Carico acuto/cronico dai minuti di allenamento (7 contro 28 giorni) */
+/**
+ * Carico acuto/cronico dai minuti di allenamento (7 contro 28 giorni).
+ * Serve allenamento in almeno 3 delle 4 settimane: chi riprende dopo una
+ * pausa avrebbe sempre una "settimana più intensa del solito".
+ */
 export function loadRatio(activity: ActivityItem[], now = new Date()): number | null {
+  const recent = activity.filter((a) => a.startedAt > subDays(now, 28) && a.startedAt <= now);
+  const weeks = new Set(recent.map((a) => Math.floor((now.getTime() - a.startedAt.getTime()) / (7 * 86_400_000))));
+  if (weeks.size < 3) return null;
   const minutesSince = (days: number) => {
     const from = subDays(now, days);
-    return activity.filter((a) => a.startedAt > from && a.startedAt <= now).reduce((s, a) => s + a.duration / 60, 0);
+    return recent.filter((a) => a.startedAt > from).reduce((s, a) => s + a.duration / 60, 0);
   };
   const chronic = minutesSince(28) / 4;
   if (chronic < 30) return null;
@@ -269,7 +278,9 @@ export function loadRatio(activity: ActivityItem[], now = new Date()): number | 
 
 /**
  * Quanto sei pronto oggi (0-100): sonno della notte, FC a riposo rispetto
- * alla tua base e carico della settimana. Pesa solo ciò che è misurato.
+ * alla tua base e carico della settimana. Pesa solo ciò che è misurato,
+ * ma senza sonno né FC a riposo non c'è prontezza: il carico da solo non
+ * dice quanto hai recuperato.
  */
 export function readiness(
   sleeps: SleepJson[],
@@ -317,13 +328,14 @@ export function readiness(
     });
   }
 
-  if (!factors.length) return null;
+  const missing = (["sleep", "heart"] as const).filter((key) => !factors.some((f) => f.key === key));
+  if (missing.length === 2) return null;
   const weights = { sleep: 0.45, heart: 0.35, load: 0.2 };
   const total = factors.reduce((s, f) => s + weights[f.key], 0);
   const score = Math.round(factors.reduce((s, f) => s + f.score * weights[f.key], 0) / total);
   const [label, tone]: [string, Readiness["tone"]] =
     score >= 75 ? ["Pronto a spingere", "good"] : score >= 55 ? ["Allenamento normale", "neutral"] : score >= 40 ? ["Meglio andare leggeri", "warn"] : ["Giornata di recupero", "bad"];
-  return { score, label, tone, factors: factors.map((f) => ({ ...f, score: Math.round(f.score) })) };
+  return { score, label, tone, factors: factors.map((f) => ({ ...f, score: Math.round(f.score) })), missing: [...missing] };
 }
 
 // ─── Passi ────────────────────────────────────────────────────────────────────

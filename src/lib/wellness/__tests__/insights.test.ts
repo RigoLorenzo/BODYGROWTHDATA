@@ -137,6 +137,21 @@ describe("battiti e prontezza", () => {
     expect(loadRatio(activity, NOW)).toBeCloseTo(1, 1);
     expect(loadRatio([], NOW)).toBeNull();
   });
+
+  it("niente rapporto di carico se si riprende dopo una pausa", () => {
+    // Allenamento solo negli ultimi 10 giorni: due settimane su quattro
+    const comeback = Array.from({ length: 10 }, (_, i) => workout(-i, "gym"));
+    expect(loadRatio(comeback, NOW)).toBeNull();
+  });
+
+  it("senza sonno né FC a riposo recenti non c'è prontezza, solo carico", () => {
+    const heavy = [...Array.from({ length: 7 }, (_, i) => workout(-i, "gym")), workout(-10, "gym"), workout(-17, "gym"), workout(-24, "gym")];
+    expect(loadRatio(heavy, NOW)).toBeGreaterThan(2);
+    expect(readiness([night(-3)], [], heavy, NOW)).toBeNull();
+    const sleepOnly = readiness([night(0)], [], heavy, NOW)!;
+    expect(sleepOnly.missing).toEqual(["heart"]);
+    expect(sleepOnly.score).toBeGreaterThan(50);
+  });
 });
 
 describe("efficienza del sonno", () => {
