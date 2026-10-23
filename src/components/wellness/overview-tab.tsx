@@ -2,7 +2,8 @@
 
 import { useMemo } from "react";
 import Link from "next/link";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
+import { it } from "date-fns/locale";
 import { Brain, ChevronRight, Droplet, Footprints, Gauge, HeartPulse, type LucideIcon } from "lucide-react";
 import { useActivity } from "@/components/analytics/use-activity";
 import { Section, Stat } from "@/components/analytics/ui";
@@ -18,7 +19,7 @@ import {
   stepsSummary,
   type Readiness,
 } from "@/lib/wellness/insights";
-import type { WellnessResponse } from "@/lib/wellness/types";
+import type { SleepJson, WellnessResponse } from "@/lib/wellness/types";
 import { StageBar, StageLegend } from "./charts";
 import { FindingList } from "./finding-list";
 import { QualityStat } from "./quality-stat";
@@ -31,6 +32,27 @@ const TONE: Record<Readiness["tone"], string> = {
   warn: "text-amber-300 dark:text-amber-600",
   bad: "text-red-300 dark:text-red-600",
 };
+
+const MISSING: Record<Readiness["missing"][number], string> = { sleep: "il sonno di stanotte", heart: "la FC a riposo di oggi" };
+
+/** Senza sonno né FC a riposo recenti il punteggio non si calcola */
+function ReadinessPending() {
+  return (
+    <section className="rounded-3xl border border-border/60 bg-card p-5">
+      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        <Gauge className="h-4 w-4" /> Prontezza di oggi
+      </div>
+      <p className="mt-2 text-sm">In attesa del sonno di stanotte e della FC a riposo dall&apos;orologio.</p>
+      <p className="mt-1 text-xs text-muted-foreground">Apri Mi Fitness sul telefono per sincronizzare l&apos;orologio, poi tocca Aggiorna.</p>
+    </section>
+  );
+}
+
+/** Orari della notte, con il giorno se non è quella appena passata */
+function nightHint(night: SleepJson, today: string) {
+  const hours = `${timeLabel(night.startAt)} → ${timeLabel(night.endAt)}`;
+  return night.date === today ? hours : `${format(parseISO(night.date), "EEE d MMM", { locale: it })} · ${hours}`;
+}
 
 /** Il numero del giorno: quanto sei pronto ad allenarti */
 function ReadinessHero({ value }: { value: Readiness }) {
@@ -56,7 +78,10 @@ function ReadinessHero({ value }: { value: Readiness }) {
           </li>
         ))}
       </ul>
-      <p className="mt-4 text-xs text-background/60">Sonno della notte, FC a riposo rispetto alla tua norma e carico degli ultimi 7 giorni.</p>
+      <p className="mt-4 text-xs text-background/60">
+        Sonno della notte, FC a riposo rispetto alla tua norma e carico degli ultimi 7 giorni.
+        {value.missing.length > 0 && ` Manca ${value.missing.map((m) => MISSING[m]).join(" e ")}: il punteggio usa solo il resto.`}
+      </p>
     </section>
   );
 }
@@ -74,18 +99,19 @@ export function OverviewTab({ data }: { data: WellnessResponse }) {
       steps: stepsSummary(data.days, now),
       todayDay: data.days.find((d) => d.date === today) ?? data.days.at(-1) ?? null,
       findings: sleepTrainingFindings(sleepByTraining(data.sleeps, activity, data.days)),
+      today,
     };
   }, [data, activity]);
-  const { ready, lastNight, heart, steps, todayDay, findings } = view;
+  const { ready, lastNight, heart, steps, todayDay, findings, today } = view;
 
   return (
     <div className="space-y-5">
-      {ready && <ReadinessHero value={ready} />}
+      {ready ? <ReadinessHero value={ready} /> : data.connected && <ReadinessPending />}
 
       {lastNight && (
         <Section
           title="Ultima notte"
-          hint={`${timeLabel(lastNight.startAt)} → ${timeLabel(lastNight.endAt)}`}
+          hint={nightHint(lastNight, today)}
           action={
             <Link href="/wellness?tab=sonno" className="flex items-center text-xs font-medium text-muted-foreground">
               Sonno <ChevronRight className="h-4 w-4" />
