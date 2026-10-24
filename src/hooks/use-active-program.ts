@@ -30,7 +30,8 @@ const toPlanExercises = (day: PlanDay) =>
       sets: ex.sets,
       repsMin: ex.repsMin,
       repsMax: ex.repsMax,
-      notes: ex.notes ?? undefined,
+      // Anche vuota: nel piano la nota è quella del giorno, non quella dell'ultima volta
+      notes: ex.notes ?? "",
     }));
 
 /** Avvia un giorno del piano (o un allenamento libero) */

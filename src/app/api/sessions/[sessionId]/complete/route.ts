@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { finalizeSession } from "@/lib/session-manager";
 import { advanceActiveProgram } from "@/lib/program-progress";
+import { cleanNote } from "@/lib/exercise-notes";
 
 interface Params { params: Promise<{ sessionId: string }> }
 
@@ -23,6 +24,7 @@ interface IncomingExercise {
   restTimerSeconds?: number;
   restAfterSeconds?: number;
   workSeconds?: number;
+  notes?: string | null;
   sets: IncomingSet[];
 }
 
@@ -60,6 +62,7 @@ export async function POST(req: Request, { params }: Params) {
               restTimerSeconds: ex.restTimerSeconds ?? 90,
               restAfterSeconds: ex.restAfterSeconds ?? null,
               workSeconds: ex.workSeconds ?? null,
+              notes: typeof ex.notes === "string" ? cleanNote(ex.notes) : null,
             },
           });
 
