@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { Moon } from "lucide-react";
 import { useActivity } from "@/components/analytics/use-activity";
 import { formatDecimal } from "@/components/analytics/format";
 import { EmptyState, Section, Stat } from "@/components/analytics/ui";
@@ -14,6 +15,7 @@ import {
   mainSleeps,
   sleepByTraining,
   sleepRoutine,
+  sleepScore,
   sleepTrainingFindings,
   type SleepGroup,
 } from "@/lib/wellness/insights";
@@ -23,6 +25,7 @@ import { FindingList } from "./finding-list";
 import { dayLabel, longDayLabel, nightsByDate, timeLabel } from "./queries";
 import { QualityStat } from "./quality-stat";
 import { RangeTrend } from "./range-trend";
+import { ScoreHero } from "./score-hero";
 
 const pct = (part: number | null, total: number) => (part != null && total > 0 ? `${Math.round((part / total) * 100)}%` : "—");
 
@@ -85,11 +88,12 @@ function NightDetail({ night }: { night: SleepJson }) {
 
 const inBedMinutes = (n: SleepJson) => (new Date(n.endAt).getTime() - new Date(n.startAt).getTime()) / 60_000;
 
-/** "7h 32m · efficienza 93%" per il dettaglio della barra */
+/** "7h 32m · punteggio 81 · efficienza 93%" per il dettaglio della barra */
 function nightCaption(n: SleepJson) {
   const efficiency = sleepEfficiency(n);
-  const quality = n.score != null ? `punteggio ${n.score}` : efficiency != null ? `efficienza ${Math.round(efficiency * 100)}%` : null;
-  return [formatMinutes(n.asleep), quality].filter(Boolean).join(" · ");
+  return [formatMinutes(n.asleep), `punteggio ${sleepScore(n).score}`, efficiency != null && `efficienza ${Math.round(efficiency * 100)}%`]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 function TrainingComparison({ groups }: { groups: SleepGroup[] }) {
@@ -169,9 +173,17 @@ export function SleepTab({ data }: { data: WellnessResponse }) {
 
   if (!night) return <EmptyState>Nessuna notte registrata: dormi con l&apos;orologio al polso per vedere le fasi del sonno.</EmptyState>;
 
+  const isLast = night === nights.at(-1);
   return (
     <div className="space-y-5">
-      <Section title={night === nights.at(-1) ? "Ultima notte" : "Notte"} hint={longDayLabel(night.date)}>
+      <ScoreHero
+        icon={Moon}
+        title={isLast ? "Punteggio sonno" : `Punteggio sonno · ${dayLabel(night.date)}`}
+        value={sleepScore(night)}
+        note="0 è non aver dormito, 100 un riposo completo. Conta soprattutto la durata (piena da 8 ore), poi efficienza, profondo e REM, continuità."
+      />
+
+      <Section title={isLast ? "Ultima notte" : "Notte"} hint={longDayLabel(night.date)}>
         <NightDetail night={night} />
         <StageLegend />
         {nights.length > 1 && (
@@ -190,7 +202,7 @@ export function SleepTab({ data }: { data: WellnessResponse }) {
                     n.date === night.date ? "bg-foreground text-background" : "bg-muted text-muted-foreground"
                   )}
                 >
-                  {dayLabel(n.date)}
+                  {dayLabel(n.date)} · {sleepScore(n).score}
                 </button>
               ))}
           </div>
