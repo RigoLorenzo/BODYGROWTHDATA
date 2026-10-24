@@ -8,6 +8,8 @@ export type ExerciseHistory = Record<
     sets: LoggedSet[];
     /** true se viene dall'ultima volta che hai fatto lo stesso giorno del piano */
     sameDay?: boolean;
+    /** nota dell'esercizio quella volta */
+    notes?: string | null;
   }
 >;
 
@@ -72,7 +74,8 @@ export function buildActiveExercise(seed: ExerciseSeed, history?: ExerciseHistor
     targetSets: seed.sets,
     targetRepsMin: seed.repsMin,
     targetRepsMax: seed.repsMax,
-    notes: seed.notes,
+    // Senza nota del piano resta quella dell'ultima volta, finché non la cambi
+    notes: seed.notes ?? history?.notes ?? undefined,
     lastSets: last.length ? last : undefined,
     lastDate: last.length ? history?.date : undefined,
     lastSameDay: last.length ? history?.sameDay : undefined,

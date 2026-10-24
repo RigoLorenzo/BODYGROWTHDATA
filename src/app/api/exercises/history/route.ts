@@ -8,6 +8,7 @@ const MAX_ID_LENGTH = 60;
 
 type HistoryRow = {
   exerciseId: string;
+  notes: string | null;
   session: { startedAt: Date };
   sets: { weight: number | null; reps: number | null }[];
 };
@@ -25,6 +26,7 @@ function latestByExercise(userId: string, ids: string[], programDayId?: string):
     distinct: ["exerciseId"],
     select: {
       exerciseId: true,
+      notes: true,
       session: { select: { startedAt: true } },
       sets: {
         where: { type: { not: "WARMUP" } },
@@ -69,7 +71,7 @@ export async function GET(req: Request) {
   );
 
   const toEntry = (r: HistoryRow, isSameDay: boolean) =>
-    [r.exerciseId, { date: r.session.startedAt, sets: r.sets, sameDay: isSameDay }] as const;
+    [r.exerciseId, { date: r.session.startedAt, sets: r.sets, sameDay: isSameDay, notes: r.notes }] as const;
 
   return NextResponse.json(
     Object.fromEntries([...sameDay.map((r) => toEntry(r, true)), ...anyDay.map((r) => toEntry(r, false))])

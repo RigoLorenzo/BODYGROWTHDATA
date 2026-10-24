@@ -167,6 +167,7 @@ export function useWorkoutSession() {
           exerciseId: ex.exerciseId,
           orderIndex: ex.orderIndex ?? idx,
           restTimerSeconds: ex.restTimerSeconds,
+          notes: ex.notes,
           sets: ex.sets
             .filter((s) => s.completed)
             .map((s, setIndex) => ({

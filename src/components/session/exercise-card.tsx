@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { SetRow } from "./set-row";
 import { Plus, ChevronDown, ChevronUp, Trash2, TrendingUp, CheckCircle2, History, Repeat } from "lucide-react";
 import { ExerciseSelector } from "./exercise-selector";
+import { ExerciseNote } from "./exercise-note";
 import { buildActiveExercise, fetchExerciseHistory } from "@/lib/active-exercise";
 import { calculateExerciseVolume } from "@/lib/volume-calculator";
 import { formatVolume, cn } from "@/lib/utils";
@@ -194,7 +195,7 @@ function ExerciseCardComponent({ exercise, expanded, onToggle, onFinished }: Pro
 
         {expanded && (
           <CardContent id={`sets-${exercise.id}`} className="p-3 pt-2 space-y-1">
-            {exercise.notes && <p className="text-xs text-primary/80 px-1">{exercise.notes}</p>}
+            <ExerciseNote exercise={exercise} />
 
             {exercise.lastSets && (
               <div className="space-y-1 px-1 text-xs text-muted-foreground">
