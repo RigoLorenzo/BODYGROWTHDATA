@@ -16,6 +16,8 @@ interface SessionState {
   /** Sostituisce l'esercizio (es. macchina occupata) mantenendo posizione e obiettivi */
   replaceExercise: (exerciseId: string, replacement: ActiveExercise) => void;
   reorderExercises: (exercises: ActiveExercise[]) => void;
+  /** Nota dell'esercizio (vuota: nessuna nota) */
+  setExerciseNotes: (exerciseId: string, notes: string) => void;
 
   // Set actions
   addSet: (exerciseId: string, set: ActiveSet) => void;
@@ -84,6 +86,9 @@ export const useSessionStore = create<SessionState>()(
           update((session) => mapExercise(session, exerciseId, () => ({ ...replacement, id: exerciseId }))),
 
         reorderExercises: (exercises) => update((session) => ({ ...session, exercises })),
+
+        setExerciseNotes: (exerciseId, notes) =>
+          update((session) => mapExercise(session, exerciseId, (ex) => ({ ...ex, notes }))),
 
         addSet: (exerciseId, newSet) =>
           update((session) => mapExercise(session, exerciseId, (ex) => ({ ...ex, sets: [...ex.sets, newSet] }))),

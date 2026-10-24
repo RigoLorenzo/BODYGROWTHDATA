@@ -66,7 +66,7 @@ export interface ActiveExercise {
   targetSets?: number;
   targetRepsMin?: number;
   targetRepsMax?: number;
-  /** Note del piano (es. "Forza — RIR 1") */
+  /** Nota dell'esercizio: dal piano o dall'ultima volta, modificabile in allenamento */
   notes?: string;
   /** Serie di lavoro dell'ultima volta che hai fatto l'esercizio */
   lastSets?: { weight: number | null; reps: number | null }[];
