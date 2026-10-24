@@ -1,5 +1,14 @@
 import { describe, expect, it } from "@jest/globals";
-import { localParts, mapSleepRecord, stageMapping, summarizeDays, withSleepHeartRate, zoneOffsetSeconds } from "../wellness-mapping";
+import {
+  dailyRestingHr,
+  dailySleeps,
+  localParts,
+  mapSleepRecord,
+  stageMapping,
+  summarizeDays,
+  withSleepHeartRate,
+  zoneOffsetSeconds,
+} from "../wellness-mapping";
 
 const ROME = 7200;
 // 18/10/2025 00:00 a Roma
@@ -132,5 +141,49 @@ describe("sonno Mi Fitness", () => {
     const samples = Array.from({ length: 20 }, (_, i) => ({ time: bed + i * 600, value: 48 + (i % 5), offset: ROME }));
     expect(withSleepHeartRate(night, samples)).toMatchObject({ avgHr: 50, minHr: 48 });
     expect(withSleepHeartRate(night, samples.slice(0, 3)).avgHr).toBeNull();
+  });
+});
+
+describe("riepiloghi giornalieri Mi Fitness", () => {
+  // Riga del 24/10/2026: time è la mezzanotte UTC del giorno locale
+  const DAY_KEY = Date.UTC(2026, 9, 24) / 1000;
+  const bed = Date.UTC(2026, 9, 23, 22, 49) / 1000; // 00:49 a Roma
+  const wake = Date.UTC(2026, 9, 24, 6, 8) / 1000; // 08:08 a Roma
+  const nap = { bedtime: wake + 6 * 3600, wake_up_time: wake + 6.5 * 3600, duration: 30, timezone: 8 };
+  const night = {
+    bedtime: bed,
+    wake_up_time: wake,
+    duration: 439,
+    timezone: 8,
+    sleep_deep_duration: 167,
+    sleep_light_duration: 182,
+    sleep_rem_duration: 90,
+    sleep_awake_duration: 4,
+  };
+  const row = (value: Record<string, unknown>) => ({ time: DAY_KEY, sid: "agg", source_sid_list: ["watch1"], value: JSON.stringify(value) });
+
+  it("una notte per sessione, con punteggio e FC del giorno sulla più lunga", () => {
+    const sleeps = dailySleeps([row({ sleep_score: 84, avg_hr: 58, total_duration: 469, segment_details: [night, nap] })]);
+    expect(sleeps).toHaveLength(2);
+    expect(sleeps[0]).toMatchObject({
+      externalId: `watch1|${bed}`,
+      date: "2026-10-24",
+      asleep: 439,
+      deep: 167,
+      score: 84,
+      avgHr: 58,
+      isNap: false,
+      stages: [],
+    });
+    expect(sleeps[1]).toMatchObject({ isNap: true, score: null, avgHr: null });
+  });
+
+  it("righe senza sessioni o illeggibili non danno notti", () => {
+    expect(dailySleeps([row({ total_duration: 0 }), { time: DAY_KEY, value: "non json" }])).toEqual([]);
+  });
+
+  it("FC a riposo da avg_rhr, sul giorno locale della riga", () => {
+    const days = dailyRestingHr([row({ avg_hr: 70, avg_rhr: 49.6 }), { time: DAY_KEY - 86_400, value: JSON.stringify({ avg_rhr: 0 }) }]);
+    expect([...days]).toEqual([["2026-10-24", 50]]);
   });
 });

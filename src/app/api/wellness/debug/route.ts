@@ -3,7 +3,7 @@ export const maxDuration = 60;
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { listFitnessData, type FitnessRecord } from "@/lib/mifitness/client";
+import { listDailyReport, listFitnessData, type FitnessRecord } from "@/lib/mifitness/client";
 import { withMiFitnessSession } from "@/lib/mifitness/sync";
 
 /**
@@ -37,6 +37,8 @@ const EXTRA_KEYS = [
   "huami_all_day_stress_record",
   "huami_manual_measure_record",
 ];
+/** Riepiloghi giornalieri (quelli dell'app Mi Fitness): sonno e FC a riposo */
+const DAILY_KEYS = ["sleep", "heart_rate"];
 /** Finestre di 3 giorni a ritroso: oggi, 1 settimana, 1, 3, 6 e 12 mesi */
 const DAYS_AGO = [0, 7, 30, 90, 180, 365];
 const EXTRA_DAYS_AGO = [0, 30];
@@ -75,22 +77,25 @@ async function probeCloud(userId: string) {
   return withMiFitnessSession(userId, async (session, region) => {
     const now = Math.floor(Date.now() / 1000);
     const jobs = [
-      ...KEYS.flatMap((key) => DAYS_AGO.map((ago) => ({ key, ago }))),
-      ...EXTRA_KEYS.flatMap((key) => EXTRA_DAYS_AGO.map((ago) => ({ key, ago }))),
+      ...KEYS.flatMap((key) => DAYS_AGO.map((ago) => ({ key, ago, daily: false }))),
+      ...EXTRA_KEYS.flatMap((key) => EXTRA_DAYS_AGO.map((ago) => ({ key, ago, daily: false }))),
+      ...DAILY_KEYS.flatMap((key) => EXTRA_DAYS_AGO.map((ago) => ({ key, ago, daily: true }))),
     ];
     const results: Record<string, Record<string, unknown>> = {};
     for (let i = 0; i < jobs.length; i += PARALLEL) {
       await Promise.all(
-        jobs.slice(i, i + PARALLEL).map(async ({ key, ago }) => {
+        jobs.slice(i, i + PARALLEL).map(async ({ key, ago, daily }) => {
           const endTime = now - ago * DAY;
           const label = ago ? `${ago} giorni fa` : "ultimi 3 giorni";
+          const name = daily ? `riepilogo ${key}` : key;
           try {
-            const page = await listFitnessData(session, region, { key, startTime: endTime - 3 * DAY, endTime });
-            (results[key] ??= {})[label] = page.records.length
+            const range = { key, startTime: endTime - 3 * DAY, endTime };
+            const page = daily ? await listDailyReport(session, region, range) : await listFitnessData(session, region, range);
+            (results[name] ??= {})[label] = page.records.length
               ? { records: page.records.length, hasMore: page.hasMore, ...span(page.records), fields: fieldsOf(page.records[0]) }
               : 0;
           } catch (error) {
-            (results[key] ??= {})[label] = `errore: ${error instanceof Error ? error.message : "sconosciuto"}`;
+            (results[name] ??= {})[label] = `errore: ${error instanceof Error ? error.message : "sconosciuto"}`;
           }
         })
       );

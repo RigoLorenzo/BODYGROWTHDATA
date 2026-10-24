@@ -232,6 +232,39 @@ export async function listFitnessData(
   return { records: result?.data_list ?? [], hasMore: !!result?.has_more, nextKey: result?.next_key || null };
 }
 
+/** Riepilogo giornaliero: `time` è la mezzanotte UTC del giorno locale che rappresenta */
+export interface DailyReportRecord extends FitnessRecord {
+  tag?: string;
+  source_sid_list?: string[];
+}
+
+/**
+ * Riepiloghi giornalieri (tag daily_report), quelli che mostra l'app Mi
+ * Fitness: sonno con punteggio e sessioni, FC a riposo. Arrivano anche
+ * quando mancano i dati grezzi. Giorni con startTime < time <= endTime.
+ */
+export async function listDailyReport(
+  session: XiaomiSession,
+  region: string,
+  opts: { key: string; startTime: number; endTime: number; nextKey?: string | null }
+): Promise<{ records: DailyReportRecord[]; hasMore: boolean; nextKey: string | null }> {
+  const result = await request<{ data_list?: DailyReportRecord[]; has_more?: boolean; next_key?: string }>(
+    session,
+    region,
+    "/app/v1/data/get_aggregated_fitness_data_by_time",
+    {
+      tag: "daily_report",
+      key: opts.key,
+      start_time: opts.startTime,
+      end_time: opts.endTime,
+      reverse: true,
+      limit: 50,
+      ...(opts.nextKey ? { next_key: opts.nextKey } : {}),
+    }
+  );
+  return { records: result?.data_list ?? [], hasMore: !!result?.has_more, nextKey: result?.next_key || null };
+}
+
 /** La regione giusta è quella che contiene gli allenamenti dell'account */
 export async function discoverRegion(session: XiaomiSession): Promise<string> {
   const startTime = Math.floor(Date.now() / 1000) - 2 * 365 * 86_400;
