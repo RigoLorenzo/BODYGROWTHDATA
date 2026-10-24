@@ -1,5 +1,5 @@
 import type { DaySummary, HourlyHr, SleepInput, SleepSegment, SleepStage } from "@/lib/wellness/types";
-import type { FitnessKey, FitnessRecord } from "./client";
+import type { DailyReportRecord, FitnessKey, FitnessRecord } from "./client";
 
 /**
  * Dati salute di Mi Fitness → riepiloghi giornalieri e notti. Funzioni pure:
@@ -258,6 +258,50 @@ export function mapSleepRecord(record: FitnessRecord): SleepInput | null {
     awakeCount,
     stages,
   };
+}
+
+// ─── Riepiloghi giornalieri (daily_report) ────────────────────────────────────
+
+/** Giorno locale di un riepilogo: la data UTC del suo `time` */
+const reportDay = (record: FitnessRecord) => (record.time ? new Date(record.time * 1000).toISOString().slice(0, 10) : null);
+
+/** FC a riposo per giorno dai riepiloghi del battito (avg_rhr) */
+export function dailyRestingHr(records: FitnessRecord[]): Map<string, number> {
+  const days = new Map<string, number>();
+  for (const record of records) {
+    const date = reportDay(record);
+    const bpm = firstNum(parsePayload(record), "avg_rhr");
+    if (date && bpm != null && bpm >= HR_RANGE[0] && bpm <= HR_RANGE[1]) days.set(date, Math.round(bpm));
+  }
+  return days;
+}
+
+const DAY_SLEEP_FIELDS = ["sleep_score", "avg_hr", "min_hr", "max_hr"];
+
+/**
+ * Notti dai riepiloghi del sonno: una per sessione (segment_details), con
+ * gli stessi campi delle registrazioni grezze ma senza ipnogramma. Punteggio
+ * e FC del giorno vanno alla sessione più lunga, la notte.
+ */
+export function dailySleeps(records: DailyReportRecord[]): SleepInput[] {
+  const sleeps: SleepInput[] = [];
+  for (const record of records) {
+    const day = parsePayload(record);
+    const segments = (Array.isArray(day.segment_details) ? day.segment_details : []).filter(
+      (s): s is Payload => !!s && typeof s === "object"
+    );
+    const longest = segments.reduce<Payload | null>((a, b) => (!a || (num(b.duration) ?? 0) > (num(a.duration) ?? 0) ? b : a), null);
+    for (const segment of segments) {
+      const fromDay = segment === longest ? Object.fromEntries(DAY_SLEEP_FIELDS.filter((k) => segment[k] == null && day[k] != null).map((k) => [k, day[k]])) : {};
+      const sleep = mapSleepRecord({
+        sid: record.source_sid_list?.[0] ?? record.sid,
+        zone_offset: num(segment.timezone) ?? undefined,
+        value: { ...segment, ...fromDay },
+      });
+      if (sleep) sleeps.push(sleep);
+    }
+  }
+  return sleeps;
 }
 
 /** FC media e minima tra due istanti (secondi), se ci sono abbastanza campioni */

@@ -24,18 +24,20 @@ import { FindingList } from "./finding-list";
 import { QualityStat } from "./quality-stat";
 import { ScoreHero } from "./score-hero";
 import { heartDetail, stressLabel } from "./format";
-import { timeLabel } from "./queries";
+import { dayLabel, timeLabel } from "./queries";
 
 const MISSING: Record<Readiness["missing"][number], string> = { sleep: "il sonno di stanotte", heart: "la FC a riposo di oggi" };
 
 /** Senza sonno né FC a riposo recenti il punteggio non si calcola */
-function ReadinessPending() {
+function ReadinessPending({ sleepDate, restingDate }: { sleepDate: string | null; restingDate: string | null }) {
+  const last = [sleepDate && `sonno del ${dayLabel(sleepDate)}`, restingDate && `FC a riposo del ${dayLabel(restingDate)}`].filter(Boolean);
   return (
     <section className="rounded-3xl border border-border/60 bg-card p-5">
       <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
         <Gauge className="h-4 w-4" /> Prontezza di oggi
       </div>
       <p className="mt-2 text-sm">In attesa del sonno di stanotte e della FC a riposo dall&apos;orologio.</p>
+      {last.length > 0 && <p className="mt-1 text-sm text-muted-foreground">Ultimi arrivati: {last.join(", ")}.</p>}
       <p className="mt-1 text-xs text-muted-foreground">Apri Mi Fitness sul telefono per sincronizzare l&apos;orologio, poi tocca Aggiorna.</p>
     </section>
   );
@@ -80,7 +82,7 @@ export function OverviewTab({ data }: { data: WellnessResponse }) {
 
   return (
     <div className="space-y-5">
-      {ready ? <ReadinessHero value={ready} /> : data.connected && <ReadinessPending />}
+      {ready ? <ReadinessHero value={ready} /> : data.connected && <ReadinessPending sleepDate={lastNight?.date ?? null} restingDate={heart.latestDate} />}
 
       {lastNight && (
         <Section

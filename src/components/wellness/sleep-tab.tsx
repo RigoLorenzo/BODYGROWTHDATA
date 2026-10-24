@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { format } from "date-fns";
 import { Moon } from "lucide-react";
 import { useActivity } from "@/components/analytics/use-activity";
 import { formatDecimal } from "@/components/analytics/format";
@@ -174,11 +175,13 @@ export function SleepTab({ data }: { data: WellnessResponse }) {
   if (!night) return <EmptyState>Nessuna notte registrata: dormi con l&apos;orologio al polso per vedere le fasi del sonno.</EmptyState>;
 
   const isLast = night === nights.at(-1);
+  // La data compare se la notte non è quella appena passata: dati vecchi ben visibili
+  const isToday = night.date === format(new Date(), "yyyy-MM-dd");
   return (
     <div className="space-y-5">
       <ScoreHero
         icon={Moon}
-        title={isLast ? "Punteggio sonno" : `Punteggio sonno · ${dayLabel(night.date)}`}
+        title={isToday ? "Punteggio sonno" : `Punteggio sonno · ${dayLabel(night.date)}`}
         value={sleepScore(night)}
         note="0 è non aver dormito, 100 un riposo completo. Conta soprattutto la durata (piena da 8 ore), poi efficienza, profondo e REM, continuità."
       />
