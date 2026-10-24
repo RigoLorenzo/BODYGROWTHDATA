@@ -11,6 +11,7 @@ import {
   sleepRoutine,
   sleepTrainingFindings,
   sleepEfficiency,
+  sleepScore,
   stepsSummary,
   trendPoints,
 } from "../insights";
@@ -151,6 +152,33 @@ describe("battiti e prontezza", () => {
     const sleepOnly = readiness([night(0)], [], heavy, NOW)!;
     expect(sleepOnly.missing).toEqual(["heart"]);
     expect(sleepOnly.score).toBeGreaterThan(50);
+  });
+});
+
+describe("punteggio sonno", () => {
+  it("0 senza sonno, alto con 8 ore piene e continue", () => {
+    expect(sleepScore(night(0, { asleep: 0, deep: 0, light: 0, rem: 0 })).score).toBe(0);
+    const full = sleepScore(night(0, { asleep: 480, deep: 100, light: 270, rem: 110, awake: 5, awakeCount: 1 }));
+    expect(full.score).toBeGreaterThanOrEqual(95);
+    expect(full.label).toBe("Ottimo");
+  });
+
+  it("la durata limita il totale: 3 ore perfette restano scarse", () => {
+    const short = sleepScore(night(0, { asleep: 180, deep: 50, light: 80, rem: 50, awake: 0, awakeCount: 0 }));
+    expect(short.score).toBeLessThanOrEqual(37);
+    expect(short.label).toBe("Scarso");
+  });
+
+  it("più risvegli e meno profondo abbassano il punteggio a parità di durata", () => {
+    const calm = sleepScore(night(0));
+    const restless = sleepScore(night(0, { deep: 30, light: 360, rem: 60, awake: 70, awakeCount: 8 }));
+    expect(restless.score).toBeLessThan(calm.score);
+    expect(restless.factors.map((f) => f.key)).toEqual(["duration", "efficiency", "stages", "calm"]);
+  });
+
+  it("senza fasi né risvegli pesa solo ciò che c'è", () => {
+    const bare = sleepScore(night(0, { deep: null, light: null, rem: null, awake: null, awakeCount: null }));
+    expect(bare.factors.map((f) => f.key)).toEqual(["duration", "efficiency"]);
   });
 });
 

@@ -7,7 +7,6 @@ import { it } from "date-fns/locale";
 import { Brain, ChevronRight, Droplet, Footprints, Gauge, HeartPulse, type LucideIcon } from "lucide-react";
 import { useActivity } from "@/components/analytics/use-activity";
 import { Section, Stat } from "@/components/analytics/ui";
-import { cn } from "@/lib/utils";
 import {
   STEPS_GOAL,
   formatMinutes,
@@ -23,15 +22,9 @@ import type { SleepJson, WellnessResponse } from "@/lib/wellness/types";
 import { StageBar, StageLegend } from "./charts";
 import { FindingList } from "./finding-list";
 import { QualityStat } from "./quality-stat";
+import { ScoreHero } from "./score-hero";
 import { heartDetail, stressLabel } from "./format";
 import { timeLabel } from "./queries";
-
-const TONE: Record<Readiness["tone"], string> = {
-  good: "text-lime-400 dark:text-lime-600",
-  neutral: "text-background",
-  warn: "text-amber-300 dark:text-amber-600",
-  bad: "text-red-300 dark:text-red-600",
-};
 
 const MISSING: Record<Readiness["missing"][number], string> = { sleep: "il sonno di stanotte", heart: "la FC a riposo di oggi" };
 
@@ -56,33 +49,14 @@ function nightHint(night: SleepJson, today: string) {
 
 /** Il numero del giorno: quanto sei pronto ad allenarti */
 function ReadinessHero({ value }: { value: Readiness }) {
+  const missing = value.missing.length ? ` Manca ${value.missing.map((m) => MISSING[m]).join(" e ")}: il punteggio usa solo il resto.` : "";
   return (
-    <section className="rounded-3xl bg-foreground p-5 text-background">
-      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-background/70">
-        <Gauge className="h-4 w-4" /> Prontezza di oggi
-      </div>
-      <div className="mt-2 flex items-end gap-3">
-        <span className="font-display text-6xl font-bold tabular-nums leading-none">{value.score}</span>
-        <span className={cn("pb-1 text-lg font-semibold", TONE[value.tone])}>{value.label}</span>
-      </div>
-      <ul className="mt-5 space-y-3">
-        {value.factors.map((f) => (
-          <li key={f.key}>
-            <div className="flex items-baseline justify-between text-sm">
-              <span className="font-medium">{f.label}</span>
-              <span className="text-xs text-background/70">{f.detail}</span>
-            </div>
-            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-background/15">
-              <div className="h-full rounded-full bg-background" style={{ width: `${f.score}%` }} />
-            </div>
-          </li>
-        ))}
-      </ul>
-      <p className="mt-4 text-xs text-background/60">
-        Sonno della notte, FC a riposo rispetto alla tua norma e carico degli ultimi 7 giorni.
-        {value.missing.length > 0 && ` Manca ${value.missing.map((m) => MISSING[m]).join(" e ")}: il punteggio usa solo il resto.`}
-      </p>
-    </section>
+    <ScoreHero
+      icon={Gauge}
+      title="Prontezza di oggi"
+      value={value}
+      note={`Sonno della notte, FC a riposo rispetto alla tua norma e carico degli ultimi 7 giorni.${missing}`}
+    />
   );
 }
 

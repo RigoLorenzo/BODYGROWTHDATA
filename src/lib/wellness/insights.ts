@@ -247,13 +247,90 @@ export function restingTrend(days: WellnessDayJson[]): RestingTrend {
   };
 }
 
+// ─── Punteggio sonno ──────────────────────────────────────────────────────────
+
+export type Tone = "good" | "neutral" | "warn" | "bad";
+
+export interface ScoreFactor<K extends string> {
+  key: K;
+  label: string;
+  score: number;
+  detail: string;
+}
+
+export interface SleepScore {
+  score: number;
+  label: string;
+  tone: Tone;
+  factors: ScoreFactor<"duration" | "efficiency" | "stages" | "calm">[];
+}
+
+/** Sotto le 2 ore la durata vale 0, da 8 ore in su 100 */
+const SLEEP_FLOOR_MIN = 120;
+const SLEEP_FULL_MIN = 480;
+/** Quote di profondo e REM oltre cui la fase vale piena */
+const DEEP_TARGET = 0.2;
+const REM_TARGET = 0.22;
+const SLEEP_WEIGHTS = { duration: 0.5, efficiency: 0.2, stages: 0.2, calm: 0.1 };
+/** Dormire poco non si compensa: al massimo 20 punti oltre la durata */
+const DURATION_CAP_MARGIN = 20;
+
+const weighted = <K extends string>(factors: ScoreFactor<K>[], weights: Record<K, number>) =>
+  factors.reduce((s, f) => s + f.score * weights[f.key], 0) / factors.reduce((s, f) => s + weights[f.key], 0);
+
+/**
+ * Quanto hai dormito bene (0-100): durata, efficienza, profondo e REM,
+ * continuità. 0 è non aver dormito, 100 un riposo completo. Pesa solo ciò
+ * che l'orologio ha misurato; la durata limita il totale.
+ */
+export function sleepScore(night: SleepJson): SleepScore {
+  const duration = clamp(((night.asleep - SLEEP_FLOOR_MIN) / (SLEEP_FULL_MIN - SLEEP_FLOOR_MIN)) * 100);
+  const factors: SleepScore["factors"] = [{ key: "duration", label: "Durata", score: duration, detail: formatMinutes(night.asleep) }];
+
+  const efficiency = sleepEfficiency(night);
+  if (efficiency != null) {
+    factors.push({
+      key: "efficiency",
+      label: "Efficienza",
+      score: clamp(((efficiency - 0.7) / 0.25) * 100),
+      detail: `${Math.round(efficiency * 100)}% del tempo a letto`,
+    });
+  }
+
+  const deep = deepShare(night);
+  const rem = remShare(night);
+  if (deep != null && rem != null) {
+    factors.push({
+      key: "stages",
+      label: "Profondo e REM",
+      score: (Math.min(1, deep / DEEP_TARGET) + Math.min(1, rem / REM_TARGET)) * 50,
+      detail: `profondo ${Math.round(deep * 100)}%, REM ${Math.round(rem * 100)}%`,
+    });
+  }
+
+  if (night.awake != null) {
+    const wakes = night.awakeCount ?? 0;
+    factors.push({
+      key: "calm",
+      label: "Continuità",
+      score: clamp(100 - Math.max(0, night.awake - 10) * 2 - Math.max(0, wakes - 2) * 5),
+      detail: `${formatMinutes(night.awake)} sveglio${night.awakeCount != null ? `, ${wakes} risvegli` : ""}`,
+    });
+  }
+
+  const score = night.asleep > 0 ? Math.round(Math.min(weighted(factors, SLEEP_WEIGHTS), duration + DURATION_CAP_MARGIN)) : 0;
+  const [label, tone]: [string, Tone] =
+    score >= 85 ? ["Ottimo", "good"] : score >= 70 ? ["Buono", "neutral"] : score >= 50 ? ["Discreto", "warn"] : ["Scarso", "bad"];
+  return { score, label, tone, factors: factors.map((f) => ({ ...f, score: Math.round(f.score) })) };
+}
+
 // ─── Prontezza ────────────────────────────────────────────────────────────────
 
 export interface Readiness {
   score: number;
   label: string;
-  tone: "good" | "neutral" | "warn" | "bad";
-  factors: { key: "sleep" | "heart" | "load"; label: string; score: number; detail: string }[];
+  tone: Tone;
+  factors: ScoreFactor<"sleep" | "heart" | "load">[];
   /** segnali di recupero non ancora arrivati dall'orologio */
   missing: ("sleep" | "heart")[];
 }
@@ -293,18 +370,9 @@ export function readiness(
   const yesterday = dayKey(subDays(now, 1));
   const lastNight = mainSleeps(sleeps).filter((s) => s.date === today || s.date === yesterday).at(-1);
   if (lastNight) {
-    const byDuration = clamp((lastNight.asleep / SLEEP_NEED_MIN) * 100);
     const efficiency = sleepEfficiency(lastNight);
-    // Senza punteggio pesa la continuità: 95% e oltre è ottimo, sotto il 70% scarso
-    const byEfficiency = efficiency != null ? clamp(((efficiency - 0.7) / 0.25) * 100) : null;
-    const score =
-      lastNight.score != null
-        ? (lastNight.score + byDuration) / 2
-        : byEfficiency != null
-          ? byDuration * 0.7 + byEfficiency * 0.3
-          : byDuration;
     const detail = `${formatMinutes(lastNight.asleep)} di sonno${efficiency != null ? `, efficienza ${Math.round(efficiency * 100)}%` : ""}`;
-    factors.push({ key: "sleep", label: "Sonno", score, detail });
+    factors.push({ key: "sleep", label: "Sonno", score: sleepScore(lastNight).score, detail });
   }
 
   const trend = restingTrend(days);
@@ -330,10 +398,8 @@ export function readiness(
 
   const missing = (["sleep", "heart"] as const).filter((key) => !factors.some((f) => f.key === key));
   if (missing.length === 2) return null;
-  const weights = { sleep: 0.45, heart: 0.35, load: 0.2 };
-  const total = factors.reduce((s, f) => s + weights[f.key], 0);
-  const score = Math.round(factors.reduce((s, f) => s + f.score * weights[f.key], 0) / total);
-  const [label, tone]: [string, Readiness["tone"]] =
+  const score = Math.round(weighted(factors, { sleep: 0.45, heart: 0.35, load: 0.2 }));
+  const [label, tone]: [string, Tone] =
     score >= 75 ? ["Pronto a spingere", "good"] : score >= 55 ? ["Allenamento normale", "neutral"] : score >= 40 ? ["Meglio andare leggeri", "warn"] : ["Giornata di recupero", "bad"];
   return { score, label, tone, factors: factors.map((f) => ({ ...f, score: Math.round(f.score) })), missing: [...missing] };
 }
