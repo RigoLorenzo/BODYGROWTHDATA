@@ -4,6 +4,7 @@ import "./globals.css";
 import { Providers } from "@/components/providers";
 import { Toaster } from "@/components/ui/toaster";
 import { PwaRegister } from "@/components/pwa-register";
+import { UpdateNotice } from "@/components/update-notice";
 import { Analytics } from "@vercel/analytics/next";
 import { ThemeSync } from "@/components/theme-sync";
 import { themeBootScript } from "@/lib/theme";
@@ -74,6 +75,7 @@ export default function RootLayout({
           {children}
           <Toaster />
           <PwaRegister />
+          <UpdateNotice />
           <ThemeSync />
         </Providers>
         <Analytics />
