@@ -22,8 +22,6 @@ import {
 
 interface Layout {
   pad: number;
-  logo: number;
-  brand: number;
   meta: number;
   title: [number, number, number];
   hero: number;
@@ -43,8 +41,6 @@ interface Layout {
 const LAYOUTS: Record<ShareFormat, Layout> = {
   story: {
     pad: 80,
-    logo: 76,
-    brand: 44,
     meta: 30,
     title: [128, 104, 86],
     hero: 270,
@@ -54,15 +50,13 @@ const LAYOUTS: Record<ShareFormat, Layout> = {
     rowName: 32,
     rowValue: 34,
     rowGap: 22,
-    maxExercises: 8,
-    maxExercisesLongTitle: 7,
+    maxExercises: 10,
+    maxExercisesLongTitle: 9,
     showLegend: true,
     sectionGap: 50,
   },
   post: {
     pad: 64,
-    logo: 60,
-    brand: 36,
     meta: 24,
     title: [100, 84, 70],
     hero: 190,
@@ -72,8 +66,8 @@ const LAYOUTS: Record<ShareFormat, Layout> = {
     rowName: 28,
     rowValue: 30,
     rowGap: 14,
-    maxExercises: 6,
-    maxExercisesLongTitle: 5,
+    maxExercises: 8,
+    maxExercisesLongTitle: 7,
     showLegend: false,
     sectionGap: 34,
   },
@@ -92,7 +86,6 @@ export interface WorkoutShareImageProps {
   dateLabel: string;
   timeLabel: string;
   athlete: string | null;
-  logoSrc: string;
 }
 
 const titleSize = (title: string, sizes: Layout["title"]) =>
@@ -106,53 +99,14 @@ function titleWraps(title: string, layout: Layout, width: number) {
   return title.length > charsPerLine;
 }
 
-function Header({ layout, p, logoSrc, athlete }: Ctx & { logoSrc: string; athlete: string | null }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: layout.logo * 0.28 }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={logoSrc}
-          width={layout.logo}
-          height={layout.logo}
-          alt=""
-          style={{ borderRadius: layout.logo * 0.24, border: `2px solid ${p.line}` }}
-        />
-        <div
-          style={{
-            display: "flex",
-            fontFamily: DISPLAY,
-            fontWeight: 800,
-            fontSize: layout.brand,
-            letterSpacing: layout.brand * 0.14,
-            color: p.text,
-          }}
-        >
-          BODYGROWTH
-        </div>
-      </div>
-      {athlete && (
-        <div
-          style={{
-            display: "flex",
-            fontFamily: BODY,
-            fontWeight: 600,
-            fontSize: layout.meta,
-            color: p.muted,
-            maxWidth: 420,
-            overflow: "hidden",
-            whiteSpace: "nowrap",
-            textOverflow: "ellipsis",
-          }}
-        >
-          {athlete}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function TitleBlock({ layout, p, title, dateLabel, timeLabel }: Ctx & { title: string; dateLabel: string; timeLabel: string }) {
+function TitleBlock({
+  layout,
+  p,
+  title,
+  dateLabel,
+  timeLabel,
+  athlete,
+}: Ctx & { title: string; dateLabel: string; timeLabel: string; athlete: string | null }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: layout.meta * 0.6 }}>
       <WorkoutDate dateLabel={dateLabel} timeLabel={timeLabel} size={layout.meta} color={p.text} mutedColor={p.muted} />
@@ -170,6 +124,22 @@ function TitleBlock({ layout, p, title, dateLabel, timeLabel }: Ctx & { title: s
       >
         {title}
       </div>
+      {athlete && (
+        <div
+          style={{
+            display: "flex",
+            fontFamily: BODY,
+            fontWeight: 600,
+            fontSize: layout.meta,
+            color: p.muted,
+            overflow: "hidden",
+            whiteSpace: "nowrap",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {athlete}
+        </div>
+      )}
     </div>
   );
 }
@@ -475,7 +445,7 @@ function ExerciseList({ layout, p, stats, maxRows }: Ctx & { stats: WorkoutShare
 }
 
 export function WorkoutShareImage(props: WorkoutShareImageProps) {
-  const { format, variant, stats, title, dateLabel, timeLabel, athlete, logoSrc } = props;
+  const { format, variant, stats, title, dateLabel, timeLabel, athlete } = props;
   const layout = LAYOUTS[format];
   const p = PALETTES[variant];
   const ctx = { layout, p };
@@ -496,9 +466,18 @@ export function WorkoutShareImage(props: WorkoutShareImageProps) {
         fontFamily: BODY,
       }}
     >
-      <div style={{ display: "flex", flexDirection: "column", gap: layout.sectionGap, flex: 1, overflow: "hidden" }}>
-        <Header {...ctx} logoSrc={logoSrc} athlete={athlete} />
-        <TitleBlock {...ctx} title={title} dateLabel={dateLabel} timeLabel={timeLabel} />
+      {/* Centrato: con pochi esercizi la scheda resta bilanciata */}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          gap: layout.sectionGap,
+          flex: 1,
+          overflow: "hidden",
+        }}
+      >
+        <TitleBlock {...ctx} title={title} dateLabel={dateLabel} timeLabel={timeLabel} athlete={athlete} />
         <Hero {...ctx} stats={stats} />
         <StatsGrid {...ctx} stats={stats} />
         {stats.muscles.length > 0 && <MuscleBar {...ctx} muscles={stats.muscles} />}

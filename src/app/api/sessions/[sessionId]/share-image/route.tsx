@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { splitDayName } from "@/lib/plan-format";
-import { loadShareFonts, loadShareLogo } from "@/lib/share-image-assets";
+import { loadShareFonts } from "@/lib/share-image-assets";
 import {
   buildWorkoutShareStats,
   safeTimeZone,
@@ -70,11 +70,7 @@ export async function GET(req: Request, { params }: Params) {
   if (!workout) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const { dateLabel, timeLabel, hour } = zonedDateParts(workout.startedAt, timeZone);
-  const [fonts, logoSrc, title] = await Promise.all([
-    loadShareFonts(),
-    loadShareLogo(),
-    workoutTitle(workout.programDayId, hour),
-  ]);
+  const [fonts, title] = await Promise.all([loadShareFonts(), workoutTitle(workout.programDayId, hour)]);
 
   const stats = buildWorkoutShareStats(workout);
   const image =
@@ -89,7 +85,6 @@ export async function GET(req: Request, { params }: Params) {
         dateLabel={dateLabel}
         timeLabel={timeLabel}
         athlete={session.user.name ?? null}
-        logoSrc={logoSrc}
       />
     );
 
