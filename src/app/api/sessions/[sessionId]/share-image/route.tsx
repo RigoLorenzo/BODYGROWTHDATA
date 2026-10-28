@@ -3,7 +3,6 @@ import { ImageResponse } from "next/og";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { appUrl } from "@/lib/app-url";
 import { splitDayName } from "@/lib/plan-format";
 import { loadShareFonts, loadShareLogo } from "@/lib/share-image-assets";
 import {
@@ -80,14 +79,7 @@ export async function GET(req: Request, { params }: Params) {
   const stats = buildWorkoutShareStats(workout);
   const image =
     style === "transparent" ? (
-      <WorkoutShareSticker
-        ink={ink}
-        stats={stats}
-        title={title}
-        dateLabel={dateLabel}
-        timeLabel={timeLabel}
-        logoSrc={logoSrc}
-      />
+      <WorkoutShareSticker ink={ink} stats={stats} title={title} dateLabel={dateLabel} timeLabel={timeLabel} />
     ) : (
       <WorkoutShareImage
         format={format}
@@ -98,7 +90,6 @@ export async function GET(req: Request, { params }: Params) {
         timeLabel={timeLabel}
         athlete={session.user.name ?? null}
         logoSrc={logoSrc}
-        domain={new URL(appUrl(req)).host.replace(/^www\./, "")}
       />
     );
 

@@ -6,7 +6,6 @@ import {
   safeTimeZone,
   splitTonnage,
   timeOfDayTitle,
-  tonnageEquivalence,
   zonedDateParts,
   type ShareExerciseLike,
 } from "../workout-share";
@@ -39,17 +38,6 @@ describe("formatShareDuration", () => {
     expect(formatShareDuration(48 * 60)).toBe("48 min");
     expect(formatShareDuration(73 * 60)).toBe("1h 13m");
     expect(formatShareDuration(3600)).toBe("1h");
-  });
-});
-
-describe("tonnageEquivalence", () => {
-  it("sceglie il paragone più grande che stia almeno una volta", () => {
-    expect(tonnageEquivalence(7740)).toEqual({ count: "1,3", label: "elefanti africani" });
-    expect(tonnageEquivalence(6000)).toEqual({ count: "1", label: "elefante africano" });
-    expect(tonnageEquivalence(500)).toEqual({ count: "1,1", label: "pianoforti a coda" });
-  });
-  it("niente paragone per volumi minimi", () => {
-    expect(tonnageEquivalence(100)).toBeNull();
   });
 });
 

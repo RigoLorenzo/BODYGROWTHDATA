@@ -13,7 +13,6 @@ import {
   SectionLabel,
   TrophyIcon,
   WorkoutDate,
-  equivalenceText,
   heroMetric,
   hiddenExercisesText,
   recordCountText,
@@ -29,7 +28,6 @@ interface Layout {
   title: [number, number, number];
   hero: number;
   heroUnit: number;
-  heroCaption: number;
   stat: number;
   statLabel: number;
   rowName: number;
@@ -51,14 +49,13 @@ const LAYOUTS: Record<ShareFormat, Layout> = {
     title: [128, 104, 86],
     hero: 270,
     heroUnit: 110,
-    heroCaption: 34,
     stat: 84,
     statLabel: 22,
     rowName: 32,
     rowValue: 34,
     rowGap: 22,
-    maxExercises: 6,
-    maxExercisesLongTitle: 5,
+    maxExercises: 8,
+    maxExercisesLongTitle: 7,
     showLegend: true,
     sectionGap: 50,
   },
@@ -70,14 +67,13 @@ const LAYOUTS: Record<ShareFormat, Layout> = {
     title: [100, 84, 70],
     hero: 190,
     heroUnit: 80,
-    heroCaption: 26,
     stat: 64,
     statLabel: 18,
     rowName: 28,
     rowValue: 30,
     rowGap: 14,
-    maxExercises: 4,
-    maxExercisesLongTitle: 3,
+    maxExercises: 6,
+    maxExercisesLongTitle: 5,
     showLegend: false,
     sectionGap: 34,
   },
@@ -97,7 +93,6 @@ export interface WorkoutShareImageProps {
   timeLabel: string;
   athlete: string | null;
   logoSrc: string;
-  domain: string;
 }
 
 const titleSize = (title: string, sizes: Layout["title"]) =>
@@ -227,7 +222,6 @@ function TopSet({ layout, p, topSet }: Ctx & { topSet: NonNullable<WorkoutShareS
 
 function Hero({ layout, p, stats }: Ctx & { stats: WorkoutShareStats }) {
   const { label, value, unit } = heroMetric(stats);
-  const caption = equivalenceText(stats);
   return (
     <div style={{ display: "flex", flexDirection: "column" }}>
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 24 }}>
@@ -263,20 +257,6 @@ function Hero({ layout, p, stats }: Ctx & { stats: WorkoutShareStats }) {
         </div>
         {stats.topSet && <TopSet layout={layout} p={p} topSet={stats.topSet} />}
       </div>
-      {caption && (
-        <div
-          style={{
-            display: "flex",
-            fontFamily: BODY,
-            fontWeight: 500,
-            fontSize: layout.heroCaption,
-            color: p.muted,
-            marginTop: layout.heroCaption * 0.4,
-          }}
-        >
-          {caption}
-        </div>
-      )}
     </div>
   );
 }
@@ -494,48 +474,8 @@ function ExerciseList({ layout, p, stats, maxRows }: Ctx & { stats: WorkoutShare
   );
 }
 
-function Footer({ layout, p, logoSrc, domain }: Ctx & { logoSrc: string; domain: string }) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        flex: 1,
-        borderTop: `2px solid ${p.line}`,
-        paddingTop: layout.meta,
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={logoSrc} width={layout.meta * 1.6} height={layout.meta * 1.6} alt="" style={{ borderRadius: 10 }} />
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          <div style={{ display: "flex", fontFamily: BODY, fontWeight: 500, fontSize: layout.meta * 0.75, color: p.faint }}>
-            Tracciato con
-          </div>
-          <div
-            style={{
-              display: "flex",
-              fontFamily: DISPLAY,
-              fontWeight: 800,
-              fontSize: layout.meta * 1.05,
-              letterSpacing: layout.meta * 0.1,
-              color: p.text,
-            }}
-          >
-            BODYGROWTH
-          </div>
-        </div>
-      </div>
-      <div style={{ display: "flex", fontFamily: BODY, fontWeight: 600, fontSize: layout.meta * 0.85, color: p.accent }}>
-        {domain}
-      </div>
-    </div>
-  );
-}
-
 export function WorkoutShareImage(props: WorkoutShareImageProps) {
-  const { format, variant, stats, title, dateLabel, timeLabel, athlete, logoSrc, domain } = props;
+  const { format, variant, stats, title, dateLabel, timeLabel, athlete, logoSrc } = props;
   const layout = LAYOUTS[format];
   const p = PALETTES[variant];
   const ctx = { layout, p };
@@ -547,7 +487,6 @@ export function WorkoutShareImage(props: WorkoutShareImageProps) {
       style={{
         display: "flex",
         flexDirection: "column",
-        justifyContent: "space-between",
         width,
         height,
         padding: layout.pad,
@@ -564,9 +503,6 @@ export function WorkoutShareImage(props: WorkoutShareImageProps) {
         <StatsGrid {...ctx} stats={stats} />
         {stats.muscles.length > 0 && <MuscleBar {...ctx} muscles={stats.muscles} />}
         {stats.exercises.length > 0 && <ExerciseList {...ctx} stats={stats} maxRows={maxRows} />}
-      </div>
-      <div style={{ display: "flex", marginTop: layout.sectionGap * 0.6 }}>
-        <Footer {...ctx} logoSrc={logoSrc} domain={domain} />
       </div>
     </div>
   );

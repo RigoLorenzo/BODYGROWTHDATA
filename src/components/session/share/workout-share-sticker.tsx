@@ -13,7 +13,6 @@ import {
   SectionLabel,
   TrophyIcon,
   WorkoutDate,
-  equivalenceText,
   heroMetric,
   hiddenExercisesText,
 } from "./share-image-kit";
@@ -48,7 +47,7 @@ const INKS: Record<StickerInk, StickerColors> = {
     heroShadow: "0 4px 24px rgba(255,255,255,0.5)",
   },
 };
-const MAX_EXERCISES = 5;
+const MAX_EXERCISES = 7;
 const CONTENT_WIDTH = 900;
 
 export interface WorkoutShareStickerProps {
@@ -57,7 +56,6 @@ export interface WorkoutShareStickerProps {
   title: string;
   dateLabel: string;
   timeLabel: string;
-  logoSrc: string;
 }
 
 function Stat({ c, label, value }: { c: StickerColors; label: string; value: string }) {
@@ -97,7 +95,6 @@ function Stat({ c, label, value }: { c: StickerColors; label: string; value: str
 
 function Hero({ c, stats }: { c: StickerColors; stats: WorkoutShareStats }) {
   const { label, value, unit } = heroMetric(stats);
-  const caption = equivalenceText(stats);
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
       <SectionLabel size={24} color={c.soft} shadow={c.shadow}>{label}</SectionLabel>
@@ -129,21 +126,6 @@ function Hero({ c, stats }: { c: StickerColors; stats: WorkoutShareStats }) {
           {unit}
         </div>
       </div>
-      {caption && (
-        <div
-          style={{
-            display: "flex",
-            fontFamily: BODY,
-            fontWeight: 600,
-            fontSize: 30,
-            color: c.text,
-            marginTop: 8,
-            textShadow: c.shadow,
-          }}
-        >
-          {caption}
-        </div>
-      )}
     </div>
   );
 }
@@ -217,29 +199,7 @@ function Exercises({ c, stats }: { c: StickerColors; stats: WorkoutShareStats })
   );
 }
 
-function Brand({ c, logoSrc }: { c: StickerColors; logoSrc: string }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={logoSrc} width={56} height={56} alt="" style={{ borderRadius: 14 }} />
-      <div
-        style={{
-          display: "flex",
-          fontFamily: DISPLAY,
-          fontWeight: 800,
-          fontSize: 44,
-          letterSpacing: 6,
-          color: c.text,
-          textShadow: c.shadow,
-        }}
-      >
-        BODYGROWTH
-      </div>
-    </div>
-  );
-}
-
-export function WorkoutShareSticker({ ink, stats, title, dateLabel, timeLabel, logoSrc }: WorkoutShareStickerProps) {
+export function WorkoutShareSticker({ ink, stats, title, dateLabel, timeLabel }: WorkoutShareStickerProps) {
   const c = INKS[ink];
   const top = stats.topSet;
   return (
@@ -331,7 +291,6 @@ export function WorkoutShareSticker({ ink, stats, title, dateLabel, timeLabel, l
 
       {stats.exercises.length > 0 && <Exercises c={c} stats={stats} />}
 
-      <Brand c={c} logoSrc={logoSrc} />
     </div>
   );
 }

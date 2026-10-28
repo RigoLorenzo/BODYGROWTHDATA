@@ -173,11 +173,6 @@ export function heroMetric(stats: WorkoutShareStats) {
   return { label: "Ripetizioni totali", value: formatNumberIt(stats.reps), unit: "rip." };
 }
 
-export const equivalenceText = (stats: WorkoutShareStats) =>
-  stats.tonnage > 0 && stats.equivalence
-    ? `Come sollevare ${stats.equivalence.count} ${stats.equivalence.label}`
-    : null;
-
 export const hiddenExercisesText = (hidden: number) =>
   hidden === 1 ? "+ 1 altro esercizio" : `+ ${hidden} altri esercizi`;
 

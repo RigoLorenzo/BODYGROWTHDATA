@@ -57,11 +57,6 @@ export interface ShareRecord {
   label: string;
 }
 
-export interface TonnageEquivalence {
-  count: string;
-  label: string;
-}
-
 export interface WorkoutShareStats {
   tonnage: number;
   workingSets: number;
@@ -72,7 +67,6 @@ export interface WorkoutShareStats {
   muscles: ShareMuscle[];
   exercises: ShareExercise[];
   records: ShareRecord[];
-  equivalence: TonnageEquivalence | null;
 }
 
 const isWorking = (set: ShareSetLike) => (set.type ?? "WORKING") !== "WARMUP";
@@ -217,29 +211,6 @@ export function bestRecordsByExercise(records: SharePersonalRecordLike[]): Map<s
   );
 }
 
-// Pesi indicativi, abbastanza noti da rendere l'idea a colpo d'occhio
-const EQUIVALENCES = [
-  { kg: 150_000, singular: "balenottera azzurra", plural: "balenottere azzurre" },
-  { kg: 12_000, singular: "autobus", plural: "autobus" },
-  { kg: 6_000, singular: "elefante africano", plural: "elefanti africani" },
-  { kg: 2_300, singular: "rinoceronte", plural: "rinoceronti" },
-  { kg: 1_000, singular: "utilitaria", plural: "utilitarie" },
-  { kg: 450, singular: "pianoforte a coda", plural: "pianoforti a coda" },
-  { kg: 190, singular: "leone", plural: "leoni" },
-];
-
-/** "≈ 2,1 elefanti africani": il paragone più grande che stia almeno una volta */
-export function tonnageEquivalence(kg: number): TonnageEquivalence | null {
-  const match = EQUIVALENCES.find((item) => kg >= item.kg);
-  if (!match) return null;
-  const ratio = kg / match.kg;
-  const rounded = ratio < 10 ? Math.round(ratio * 10) / 10 : Math.round(ratio);
-  return {
-    count: formatNumberIt(rounded, 1),
-    label: rounded === 1 ? match.singular : match.plural,
-  };
-}
-
 function aggregateMuscles(exercises: { muscle: string; sets: number }[]): ShareMuscle[] {
   const totals = new Map<string, number>();
   for (const { muscle, sets } of exercises) totals.set(muscle, (totals.get(muscle) ?? 0) + sets);
@@ -295,6 +266,5 @@ export function buildWorkoutShareStats(workout: ShareWorkoutLike): WorkoutShareS
       pr: records.get(ex.name)?.label ?? null,
     })),
     records: Array.from(records.values()),
-    equivalence: tonnageEquivalence(tonnage),
   };
 }
