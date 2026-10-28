@@ -1,20 +1,25 @@
 /**
- * Scheda condivisibile dell'allenamento, renderizzata in PNG da next/og (Satori).
- *
- * Vincoli di Satori: solo stili inline, ogni <div> con più figli deve essere
- * flex, testo in un unico nodo stringa. I font coprono solo il latino: niente
- * emoji o simboli fuori set (stelle, ≈…), le icone sono SVG inline.
+ * Scheda condivisibile dell'allenamento con sfondo (scura o chiara),
+ * renderizzata in PNG da next/og. Vincoli di Satori in share-image-kit.
  */
 
 import type { ShareExercise, ShareMuscle, WorkoutShareStats } from "@/lib/workout-share";
-import { formatKg, formatNumberIt, formatShareDuration, splitTonnage } from "@/lib/workout-share";
-
-export type ShareFormat = "story" | "post";
-
-export const SHARE_FORMATS: Record<ShareFormat, { width: number; height: number }> = {
-  story: { width: 1080, height: 1920 },
-  post: { width: 1080, height: 1350 },
-};
+import { formatKg, formatNumberIt, formatShareDuration } from "@/lib/workout-share";
+import {
+  BODY,
+  DISPLAY,
+  PALETTES,
+  SHARE_FORMATS,
+  SectionLabel,
+  TrophyIcon,
+  WorkoutDate,
+  equivalenceText,
+  heroMetric,
+  hiddenExercisesText,
+  recordCountText,
+  type Palette,
+  type ShareFormat,
+} from "./share-image-kit";
 
 interface Layout {
   pad: number;
@@ -78,21 +83,14 @@ const LAYOUTS: Record<ShareFormat, Layout> = {
   },
 };
 
-const COLORS = {
-  bg: "#09090b",
-  accent: "#d4ff3a",
-  text: "#fafafa",
-  muted: "rgba(250,250,250,0.6)",
-  faint: "rgba(250,250,250,0.38)",
-  line: "rgba(250,250,250,0.12)",
-  surface: "rgba(250,250,250,0.05)",
-};
-
-const DISPLAY = "Barlow Condensed";
-const BODY = "Inter";
+interface Ctx {
+  layout: Layout;
+  p: Palette;
+}
 
 export interface WorkoutShareImageProps {
   format: ShareFormat;
+  variant: "dark" | "light";
   stats: WorkoutShareStats;
   title: string;
   dateLabel: string;
@@ -113,39 +111,7 @@ function titleWraps(title: string, layout: Layout, width: number) {
   return title.length > charsPerLine;
 }
 
-function SectionLabel({ children, size }: { children: string; size: number }) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        fontFamily: BODY,
-        fontWeight: 600,
-        fontSize: size,
-        letterSpacing: size * 0.18,
-        textTransform: "uppercase",
-        color: COLORS.faint,
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
-function TrophyIcon({ size, color }: { size: number; color: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <path
-        d="M7 4h10v3a5 5 0 0 1-10 0V4Zm0 1H4v1.5A3.5 3.5 0 0 0 7.5 10M17 5h3v1.5a3.5 3.5 0 0 1-3.5 3.5M12 12v4m-4 4h8m-6.5 0 .5-4h4l.5 4"
-        stroke={color}
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function Header({ layout, logoSrc, athlete }: { layout: Layout; logoSrc: string; athlete: string | null }) {
+function Header({ layout, p, logoSrc, athlete }: Ctx & { logoSrc: string; athlete: string | null }) {
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
       <div style={{ display: "flex", alignItems: "center", gap: layout.logo * 0.28 }}>
@@ -155,7 +121,7 @@ function Header({ layout, logoSrc, athlete }: { layout: Layout; logoSrc: string;
           width={layout.logo}
           height={layout.logo}
           alt=""
-          style={{ borderRadius: layout.logo * 0.24, border: `2px solid ${COLORS.line}` }}
+          style={{ borderRadius: layout.logo * 0.24, border: `2px solid ${p.line}` }}
         />
         <div
           style={{
@@ -164,7 +130,7 @@ function Header({ layout, logoSrc, athlete }: { layout: Layout; logoSrc: string;
             fontWeight: 800,
             fontSize: layout.brand,
             letterSpacing: layout.brand * 0.14,
-            color: COLORS.text,
+            color: p.text,
           }}
         >
           BODYGROWTH
@@ -177,7 +143,7 @@ function Header({ layout, logoSrc, athlete }: { layout: Layout; logoSrc: string;
             fontFamily: BODY,
             fontWeight: 600,
             fontSize: layout.meta,
-            color: COLORS.muted,
+            color: p.muted,
             maxWidth: 420,
             overflow: "hidden",
             whiteSpace: "nowrap",
@@ -191,22 +157,10 @@ function Header({ layout, logoSrc, athlete }: { layout: Layout; logoSrc: string;
   );
 }
 
-function TitleBlock({ layout, title, meta }: { layout: Layout; title: string; meta: string }) {
+function TitleBlock({ layout, p, title, dateLabel, timeLabel }: Ctx & { title: string; dateLabel: string; timeLabel: string }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: layout.meta * 0.5 }}>
-      <div
-        style={{
-          display: "flex",
-          fontFamily: BODY,
-          fontWeight: 600,
-          fontSize: layout.meta,
-          letterSpacing: layout.meta * 0.12,
-          textTransform: "uppercase",
-          color: COLORS.muted,
-        }}
-      >
-        {meta}
-      </div>
+    <div style={{ display: "flex", flexDirection: "column", gap: layout.meta * 0.6 }}>
+      <WorkoutDate dateLabel={dateLabel} timeLabel={timeLabel} size={layout.meta} color={p.text} mutedColor={p.muted} />
       <div
         style={{
           display: "block",
@@ -216,7 +170,7 @@ function TitleBlock({ layout, title, meta }: { layout: Layout; title: string; me
           fontSize: titleSize(title, layout.title),
           lineHeight: 0.92,
           textTransform: "uppercase",
-          color: COLORS.text,
+          color: p.text,
         }}
       >
         {title}
@@ -225,7 +179,7 @@ function TitleBlock({ layout, title, meta }: { layout: Layout; title: string; me
   );
 }
 
-function TopSet({ layout, topSet }: { layout: Layout; topSet: NonNullable<WorkoutShareStats["topSet"]> }) {
+function TopSet({ layout, p, topSet }: Ctx & { topSet: NonNullable<WorkoutShareStats["topSet"]> }) {
   return (
     <div
       style={{
@@ -238,7 +192,7 @@ function TopSet({ layout, topSet }: { layout: Layout; topSet: NonNullable<Workou
         paddingBottom: layout.hero * 0.04,
       }}
     >
-      <SectionLabel size={layout.statLabel}>Serie top</SectionLabel>
+      <SectionLabel size={layout.statLabel} color={p.faint}>Serie top</SectionLabel>
       <div
         style={{
           display: "flex",
@@ -246,7 +200,7 @@ function TopSet({ layout, topSet }: { layout: Layout; topSet: NonNullable<Workou
           fontWeight: 800,
           fontSize: layout.stat * 0.85,
           lineHeight: 1,
-          color: COLORS.text,
+          color: p.text,
           whiteSpace: "nowrap",
         }}
       >
@@ -258,7 +212,7 @@ function TopSet({ layout, topSet }: { layout: Layout; topSet: NonNullable<Workou
           fontFamily: BODY,
           fontWeight: 600,
           fontSize: layout.statLabel * 1.15,
-          color: COLORS.muted,
+          color: p.muted,
           maxWidth: 420,
           overflow: "hidden",
           whiteSpace: "nowrap",
@@ -271,19 +225,14 @@ function TopSet({ layout, topSet }: { layout: Layout; topSet: NonNullable<Workou
   );
 }
 
-/** Il tonnellaggio è il numero da copertina; a corpo libero lo sono le ripetizioni */
-function heroMetric(stats: WorkoutShareStats) {
-  if (stats.tonnage > 0) return { label: "Tonnellaggio totale", ...splitTonnage(stats.tonnage) };
-  return { label: "Ripetizioni totali", value: formatNumberIt(stats.reps), unit: "rip." };
-}
-
-function Hero({ layout, stats }: { layout: Layout; stats: WorkoutShareStats }) {
+function Hero({ layout, p, stats }: Ctx & { stats: WorkoutShareStats }) {
   const { label, value, unit } = heroMetric(stats);
+  const caption = equivalenceText(stats);
   return (
     <div style={{ display: "flex", flexDirection: "column" }}>
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 24 }}>
         <div style={{ display: "flex", flexDirection: "column" }}>
-          <SectionLabel size={layout.statLabel}>{label}</SectionLabel>
+          <SectionLabel size={layout.statLabel} color={p.faint}>{label}</SectionLabel>
           <div style={{ display: "flex", alignItems: "flex-end", gap: layout.heroUnit * 0.15 }}>
             <div
               style={{
@@ -293,7 +242,7 @@ function Hero({ layout, stats }: { layout: Layout; stats: WorkoutShareStats }) {
                 fontSize: layout.hero,
                 lineHeight: 0.9,
                 letterSpacing: -layout.hero * 0.01,
-                color: COLORS.accent,
+                color: p.hero,
               }}
             >
               {value}
@@ -305,34 +254,34 @@ function Hero({ layout, stats }: { layout: Layout; stats: WorkoutShareStats }) {
                 fontWeight: 700,
                 fontSize: layout.heroUnit,
                 lineHeight: 1.1,
-                color: COLORS.text,
+                color: p.text,
               }}
             >
               {unit}
             </div>
           </div>
         </div>
-        {stats.topSet && <TopSet layout={layout} topSet={stats.topSet} />}
+        {stats.topSet && <TopSet layout={layout} p={p} topSet={stats.topSet} />}
       </div>
-      {stats.tonnage > 0 && stats.equivalence && (
+      {caption && (
         <div
           style={{
             display: "flex",
             fontFamily: BODY,
             fontWeight: 500,
             fontSize: layout.heroCaption,
-            color: COLORS.muted,
+            color: p.muted,
             marginTop: layout.heroCaption * 0.4,
           }}
         >
-          {`Come sollevare ${stats.equivalence.count} ${stats.equivalence.label}`}
+          {caption}
         </div>
       )}
     </div>
   );
 }
 
-function StatsGrid({ layout, stats }: { layout: Layout; stats: WorkoutShareStats }) {
+function StatsGrid({ layout, p, stats }: Ctx & { stats: WorkoutShareStats }) {
   const items = [
     { label: "Durata", value: stats.durationSeconds ? formatShareDuration(stats.durationSeconds) : "—" },
     { label: "Serie", value: formatNumberIt(stats.workingSets) },
@@ -343,8 +292,8 @@ function StatsGrid({ layout, stats }: { layout: Layout; stats: WorkoutShareStats
     <div
       style={{
         display: "flex",
-        borderTop: `2px solid ${COLORS.line}`,
-        borderBottom: `2px solid ${COLORS.line}`,
+        borderTop: `2px solid ${p.line}`,
+        borderBottom: `2px solid ${p.line}`,
         padding: `${layout.stat * 0.32}px 0`,
       }}
     >
@@ -357,7 +306,7 @@ function StatsGrid({ layout, stats }: { layout: Layout; stats: WorkoutShareStats
             // La durata ("1h 13m") è il valore più largo
             flex: index === 0 ? 1.35 : 1,
             paddingLeft: index === 0 ? 0 : layout.stat * 0.3,
-            borderLeft: index === 0 ? "none" : `2px solid ${COLORS.line}`,
+            borderLeft: index === 0 ? "none" : `2px solid ${p.line}`,
           }}
         >
           <div
@@ -367,7 +316,7 @@ function StatsGrid({ layout, stats }: { layout: Layout; stats: WorkoutShareStats
               fontWeight: 700,
               fontSize: layout.stat,
               lineHeight: 1,
-              color: COLORS.text,
+              color: p.text,
             }}
           >
             {item.value}
@@ -380,7 +329,7 @@ function StatsGrid({ layout, stats }: { layout: Layout; stats: WorkoutShareStats
               fontSize: layout.statLabel,
               letterSpacing: layout.statLabel * 0.12,
               textTransform: "uppercase",
-              color: COLORS.faint,
+              color: p.faint,
               marginTop: layout.statLabel * 0.5,
             }}
           >
@@ -392,11 +341,11 @@ function StatsGrid({ layout, stats }: { layout: Layout; stats: WorkoutShareStats
   );
 }
 
-function MuscleBar({ layout, muscles }: { layout: Layout; muscles: ShareMuscle[] }) {
-  const legend = muscles.slice(0, 4);
+function MuscleBar({ layout, p, muscles }: Ctx & { muscles: ShareMuscle[] }) {
+  const legend = muscles.slice(0, layout.showLegend ? 4 : 3);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: layout.statLabel * 0.8 }}>
-      <SectionLabel size={layout.statLabel}>Muscoli allenati</SectionLabel>
+      <SectionLabel size={layout.statLabel} color={p.faint}>Muscoli allenati</SectionLabel>
       <div style={{ display: "flex", height: layout.statLabel * 0.7, borderRadius: 999, overflow: "hidden" }}>
         {muscles.map((m, index) => (
           <div
@@ -406,13 +355,13 @@ function MuscleBar({ layout, muscles }: { layout: Layout; muscles: ShareMuscle[]
               width: `${m.share * 100}%`,
               height: "100%",
               background: m.color,
-              borderLeft: index === 0 ? "none" : `3px solid ${COLORS.bg}`,
+              borderLeft: index === 0 ? "none" : `3px solid ${p.bg}`,
             }}
           />
         ))}
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", columnGap: layout.rowName, rowGap: layout.statLabel * 0.6 }}>
-        {(layout.showLegend ? legend : legend.slice(0, 3)).map((m) => (
+        {legend.map((m) => (
           <div key={m.muscle} style={{ display: "flex", alignItems: "center", gap: layout.statLabel * 0.5 }}>
             <div style={{ display: "flex", width: 14, height: 14, borderRadius: 999, background: m.color }} />
             <div
@@ -421,7 +370,7 @@ function MuscleBar({ layout, muscles }: { layout: Layout; muscles: ShareMuscle[]
                 fontFamily: BODY,
                 fontWeight: 600,
                 fontSize: layout.statLabel * 1.15,
-                color: COLORS.muted,
+                color: p.muted,
               }}
             >
               {`${m.label} ${Math.round(m.share * 100)}%`}
@@ -433,7 +382,7 @@ function MuscleBar({ layout, muscles }: { layout: Layout; muscles: ShareMuscle[]
   );
 }
 
-function ExerciseRow({ layout, exercise }: { layout: Layout; exercise: ShareExercise }) {
+function ExerciseRow({ layout, p, exercise }: Ctx & { exercise: ShareExercise }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: layout.rowName * 0.6 }}>
       <div
@@ -445,44 +394,42 @@ function ExerciseRow({ layout, exercise }: { layout: Layout; exercise: ShareExer
           background: exercise.color,
         }}
       />
-      <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: layout.rowName * 0.4 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: layout.rowName * 0.4, flex: 1, minWidth: 0 }}>
+        <div
+          style={{
+            display: "flex",
+            fontFamily: BODY,
+            fontWeight: 600,
+            fontSize: layout.rowName,
+            color: p.text,
+            overflow: "hidden",
+            whiteSpace: "nowrap",
+            textOverflow: "ellipsis",
+            maxWidth: exercise.pr ? "62%" : "100%",
+          }}
+        >
+          {exercise.name}
+        </div>
+        {exercise.pr && (
           <div
             style={{
               display: "flex",
+              alignItems: "center",
+              gap: 6,
+              background: p.pillBg,
+              color: p.pillText,
+              borderRadius: 999,
+              padding: `${layout.rowName * 0.12}px ${layout.rowName * 0.4}px`,
               fontFamily: BODY,
-              fontWeight: 600,
-              fontSize: layout.rowName,
-              color: COLORS.text,
-              overflow: "hidden",
-              whiteSpace: "nowrap",
-              textOverflow: "ellipsis",
-              maxWidth: exercise.pr ? "62%" : "100%",
+              fontWeight: 700,
+              fontSize: layout.rowName * 0.6,
+              letterSpacing: 1,
             }}
           >
-            {exercise.name}
+            <TrophyIcon size={layout.rowName * 0.62} color={p.pillText} />
+            {`PR ${exercise.pr}`}
           </div>
-          {exercise.pr && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                background: COLORS.accent,
-                color: COLORS.bg,
-                borderRadius: 999,
-                padding: `${layout.rowName * 0.12}px ${layout.rowName * 0.4}px`,
-                fontFamily: BODY,
-                fontWeight: 700,
-                fontSize: layout.rowName * 0.6,
-                letterSpacing: 1,
-              }}
-            >
-              <TrophyIcon size={layout.rowName * 0.62} color={COLORS.bg} />
-              {`PR ${exercise.pr}`}
-            </div>
-          )}
-        </div>
+        )}
       </div>
       <div
         style={{
@@ -490,7 +437,7 @@ function ExerciseRow({ layout, exercise }: { layout: Layout; exercise: ShareExer
           fontFamily: DISPLAY,
           fontWeight: 600,
           fontSize: layout.rowValue,
-          color: COLORS.muted,
+          color: p.muted,
           whiteSpace: "nowrap",
         }}
       >
@@ -500,15 +447,14 @@ function ExerciseRow({ layout, exercise }: { layout: Layout; exercise: ShareExer
   );
 }
 
-function ExerciseList({ layout, stats, maxRows }: { layout: Layout; stats: WorkoutShareStats; maxRows: number }) {
+function ExerciseList({ layout, p, stats, maxRows }: Ctx & { stats: WorkoutShareStats; maxRows: number }) {
   const visible = stats.exercises.slice(0, maxRows);
   const hidden = stats.exercises.length - visible.length;
-  const recordCount = stats.records.length;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: layout.rowGap }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <SectionLabel size={layout.statLabel}>Esercizi</SectionLabel>
-        {recordCount > 0 && (
+        <SectionLabel size={layout.statLabel} color={p.faint}>Esercizi</SectionLabel>
+        {stats.records.length > 0 && (
           <div
             style={{
               display: "flex",
@@ -519,16 +465,16 @@ function ExerciseList({ layout, stats, maxRows }: { layout: Layout; stats: Worko
               fontSize: layout.statLabel,
               letterSpacing: layout.statLabel * 0.12,
               textTransform: "uppercase",
-              color: COLORS.accent,
+              color: p.accent,
             }}
           >
-            <TrophyIcon size={layout.statLabel * 1.2} color={COLORS.accent} />
-            {recordCount === 1 ? "1 record personale" : `${recordCount} record personali`}
+            <TrophyIcon size={layout.statLabel * 1.2} color={p.accent} />
+            {recordCountText(stats.records.length)}
           </div>
         )}
       </div>
       {visible.map((exercise, index) => (
-        <ExerciseRow key={`${exercise.name}-${index}`} layout={layout} exercise={exercise} />
+        <ExerciseRow key={`${exercise.name}-${index}`} layout={layout} p={p} exercise={exercise} />
       ))}
       {hidden > 0 && (
         <div
@@ -537,18 +483,18 @@ function ExerciseList({ layout, stats, maxRows }: { layout: Layout; stats: Worko
             fontFamily: BODY,
             fontWeight: 600,
             fontSize: layout.rowName * 0.8,
-            color: COLORS.faint,
+            color: p.faint,
             paddingLeft: layout.rowName * 0.6 + 6,
           }}
         >
-          {hidden === 1 ? "+ 1 altro esercizio" : `+ ${hidden} altri esercizi`}
+          {hiddenExercisesText(hidden)}
         </div>
       )}
     </div>
   );
 }
 
-function Footer({ layout, logoSrc, domain }: { layout: Layout; logoSrc: string; domain: string }) {
+function Footer({ layout, p, logoSrc, domain }: Ctx & { logoSrc: string; domain: string }) {
   return (
     <div
       style={{
@@ -556,7 +502,7 @@ function Footer({ layout, logoSrc, domain }: { layout: Layout; logoSrc: string; 
         alignItems: "center",
         justifyContent: "space-between",
         flex: 1,
-        borderTop: `2px solid ${COLORS.line}`,
+        borderTop: `2px solid ${p.line}`,
         paddingTop: layout.meta,
       }}
     >
@@ -564,7 +510,7 @@ function Footer({ layout, logoSrc, domain }: { layout: Layout; logoSrc: string; 
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={logoSrc} width={layout.meta * 1.6} height={layout.meta * 1.6} alt="" style={{ borderRadius: 10 }} />
         <div style={{ display: "flex", flexDirection: "column" }}>
-          <div style={{ display: "flex", fontFamily: BODY, fontWeight: 500, fontSize: layout.meta * 0.75, color: COLORS.faint }}>
+          <div style={{ display: "flex", fontFamily: BODY, fontWeight: 500, fontSize: layout.meta * 0.75, color: p.faint }}>
             Tracciato con
           </div>
           <div
@@ -574,14 +520,14 @@ function Footer({ layout, logoSrc, domain }: { layout: Layout; logoSrc: string; 
               fontWeight: 800,
               fontSize: layout.meta * 1.05,
               letterSpacing: layout.meta * 0.1,
-              color: COLORS.text,
+              color: p.text,
             }}
           >
             BODYGROWTH
           </div>
         </div>
       </div>
-      <div style={{ display: "flex", fontFamily: BODY, fontWeight: 600, fontSize: layout.meta * 0.85, color: COLORS.accent }}>
+      <div style={{ display: "flex", fontFamily: BODY, fontWeight: 600, fontSize: layout.meta * 0.85, color: p.accent }}>
         {domain}
       </div>
     </div>
@@ -589,8 +535,10 @@ function Footer({ layout, logoSrc, domain }: { layout: Layout; logoSrc: string; 
 }
 
 export function WorkoutShareImage(props: WorkoutShareImageProps) {
-  const { format, stats, title, dateLabel, timeLabel, athlete, logoSrc, domain } = props;
+  const { format, variant, stats, title, dateLabel, timeLabel, athlete, logoSrc, domain } = props;
   const layout = LAYOUTS[format];
+  const p = PALETTES[variant];
+  const ctx = { layout, p };
   const { width, height } = SHARE_FORMATS[format];
   const maxRows = titleWraps(title, layout, width) ? layout.maxExercisesLongTitle : layout.maxExercises;
 
@@ -603,23 +551,22 @@ export function WorkoutShareImage(props: WorkoutShareImageProps) {
         width,
         height,
         padding: layout.pad,
-        background: COLORS.bg,
-        backgroundImage:
-          "radial-gradient(circle at 92% 4%, rgba(212,255,58,0.20) 0%, rgba(9,9,11,0) 42%), radial-gradient(circle at 0% 100%, rgba(59,130,246,0.16) 0%, rgba(9,9,11,0) 48%)",
-        color: COLORS.text,
+        background: p.bg,
+        backgroundImage: p.bgImage,
+        color: p.text,
         fontFamily: BODY,
       }}
     >
       <div style={{ display: "flex", flexDirection: "column", gap: layout.sectionGap, flex: 1, overflow: "hidden" }}>
-        <Header layout={layout} logoSrc={logoSrc} athlete={athlete} />
-        <TitleBlock layout={layout} title={title} meta={`${dateLabel} · ${timeLabel}`} />
-        <Hero layout={layout} stats={stats} />
-        <StatsGrid layout={layout} stats={stats} />
-        {stats.muscles.length > 0 && <MuscleBar layout={layout} muscles={stats.muscles} />}
-        {stats.exercises.length > 0 && <ExerciseList layout={layout} stats={stats} maxRows={maxRows} />}
+        <Header {...ctx} logoSrc={logoSrc} athlete={athlete} />
+        <TitleBlock {...ctx} title={title} dateLabel={dateLabel} timeLabel={timeLabel} />
+        <Hero {...ctx} stats={stats} />
+        <StatsGrid {...ctx} stats={stats} />
+        {stats.muscles.length > 0 && <MuscleBar {...ctx} muscles={stats.muscles} />}
+        {stats.exercises.length > 0 && <ExerciseList {...ctx} stats={stats} maxRows={maxRows} />}
       </div>
       <div style={{ display: "flex", marginTop: layout.sectionGap * 0.6 }}>
-        <Footer layout={layout} logoSrc={logoSrc} domain={domain} />
+        <Footer {...ctx} logoSrc={logoSrc} domain={domain} />
       </div>
     </div>
   );

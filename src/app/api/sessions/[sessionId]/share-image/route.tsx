@@ -12,16 +12,21 @@ import {
   timeOfDayTitle,
   zonedDateParts,
 } from "@/lib/workout-share";
+import { WorkoutShareImage } from "@/components/session/share/workout-share-image";
+import { WorkoutShareSticker, type StickerInk } from "@/components/session/share/workout-share-sticker";
 import {
-  SHARE_FORMATS,
-  WorkoutShareImage,
+  shareImageSize,
   type ShareFormat,
-} from "@/components/session/share/workout-share-image";
+  type ShareStyle,
+} from "@/components/session/share/share-image-kit";
 
 interface Params { params: Promise<{ sessionId: string }> }
 
 const isShareFormat = (value: string | null): value is ShareFormat =>
   value === "story" || value === "post";
+
+const isShareStyle = (value: string | null): value is ShareStyle =>
+  value === "dark" || value === "light" || value === "transparent";
 
 async function workoutTitle(programDayId: string | null, hour: number) {
   if (programDayId) {
@@ -34,7 +39,11 @@ async function workoutTitle(programDayId: string | null, hour: number) {
   return timeOfDayTitle(hour);
 }
 
-/** PNG della scheda allenamento da condividere sui social (storia 9:16 o post 4:5) */
+/**
+ * PNG dell'allenamento da condividere sui social: scheda scura o chiara
+ * (storia 9:16 o post 4:5) oppure sticker trasparente da mettere su una foto,
+ * con testo bianco o nero (`ink`) a seconda della foto.
+ */
 export async function GET(req: Request, { params }: Params) {
   const { sessionId } = await params;
   const session = await auth().catch(() => null);
@@ -43,6 +52,9 @@ export async function GET(req: Request, { params }: Params) {
   const url = new URL(req.url);
   const formatParam = url.searchParams.get("format");
   const format: ShareFormat = isShareFormat(formatParam) ? formatParam : "story";
+  const styleParam = url.searchParams.get("style");
+  const style: ShareStyle = isShareStyle(styleParam) ? styleParam : "dark";
+  const ink: StickerInk = url.searchParams.get("ink") === "dark" ? "dark" : "light";
   const timeZone = safeTimeZone(url.searchParams.get("tz"));
 
   // Solo le sedute dell'utente: l'immagine contiene i suoi dati di allenamento
@@ -65,12 +77,22 @@ export async function GET(req: Request, { params }: Params) {
     workoutTitle(workout.programDayId, hour),
   ]);
 
-  const { width, height } = SHARE_FORMATS[format];
-  return new ImageResponse(
-    (
+  const stats = buildWorkoutShareStats(workout);
+  const image =
+    style === "transparent" ? (
+      <WorkoutShareSticker
+        ink={ink}
+        stats={stats}
+        title={title}
+        dateLabel={dateLabel}
+        timeLabel={timeLabel}
+        logoSrc={logoSrc}
+      />
+    ) : (
       <WorkoutShareImage
         format={format}
-        stats={buildWorkoutShareStats(workout)}
+        variant={style}
+        stats={stats}
         title={title}
         dateLabel={dateLabel}
         timeLabel={timeLabel}
@@ -78,12 +100,13 @@ export async function GET(req: Request, { params }: Params) {
         logoSrc={logoSrc}
         domain={new URL(appUrl(req)).host.replace(/^www\./, "")}
       />
-    ),
-    {
-      width,
-      height,
-      fonts,
-      headers: { "Cache-Control": "private, no-store" },
-    }
-  );
+    );
+
+  const { width, height } = shareImageSize(style, format);
+  return new ImageResponse(image, {
+    width,
+    height,
+    fonts,
+    headers: { "Cache-Control": "private, no-store" },
+  });
 }
