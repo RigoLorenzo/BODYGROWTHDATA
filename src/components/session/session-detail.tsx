@@ -10,8 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { formatDate, getMuscleColor, getMuscleLabel } from "@/lib/utils";
-import { ChevronLeft, Trash2, Star } from "lucide-react";
+import { ChevronLeft, Trash2, Star, Share2 } from "lucide-react";
 import { WorkoutSummaryCard } from "./workout-summary-card";
+import { ShareWorkoutDialog } from "./share/share-workout-dialog";
 import Link from "next/link";
 import { toast } from "@/hooks/use-toast";
 
@@ -39,6 +40,7 @@ export function SessionDetail({ workout }: Props) {
   const queryClient = useQueryClient();
   const prs = workout.personalRecords ?? [];
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
@@ -68,16 +70,22 @@ export function SessionDetail({ workout }: Props) {
             <p className="text-sm text-muted-foreground">{formatDate(workout.startedAt)}</p>
           </div>
         </div>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Elimina allenamento"
-          className="text-destructive hover:text-destructive"
-          onClick={() => setShowDeleteConfirm(true)}
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="icon-sm" aria-label="Condividi allenamento" onClick={() => setShareOpen(true)}>
+            <Share2 className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Elimina allenamento"
+            className="text-destructive hover:text-destructive"
+            onClick={() => setShowDeleteConfirm(true)}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
+      <ShareWorkoutDialog sessionId={workout.id} open={shareOpen} onOpenChange={setShareOpen} />
 
       {/* Summary card */}
       <WorkoutSummaryCard workout={workout} />

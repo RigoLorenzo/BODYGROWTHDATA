@@ -6,7 +6,7 @@ import { it } from "date-fns/locale";
 import { Star, Clock, Dumbbell, Zap, Share2, ChevronDown, ChevronUp, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getMuscleColor, getMuscleLabel, formatVolume, formatWorkoutDuration, formatClock } from "@/lib/utils";
-import { toast } from "@/hooks/use-toast";
+import { ShareWorkoutDialog } from "./share/share-workout-dialog";
 import type { Prisma } from "@prisma/client";
 
 type WorkoutDetail = Prisma.WorkoutSessionGetPayload<{
@@ -23,6 +23,7 @@ interface Props {
 
 export function WorkoutSummaryCard({ workout, onClose }: Props) {
   const [showExercises, setShowExercises] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   // Aggregate by muscle
   const muscleMap = new Map<string, { sets: number; tonnage: number }>();
@@ -39,21 +40,6 @@ export function WorkoutSummaryCard({ workout, onClose }: Props) {
   const prs = workout.personalRecords ?? [];
   const dateLabel = format(new Date(workout.startedAt), "EEEE d MMMM yyyy", { locale: it });
   const duration = formatWorkoutDuration(new Date(workout.startedAt), workout.endedAt ? new Date(workout.endedAt) : undefined);
-
-  const handleShare = async () => {
-    const muscleText = muscles.map(([m, v]) => `${getMuscleLabel(m)}: ${v.sets} serie`).join(" | ");
-    const text = `💪 Allenamento completato!\n📅 ${dateLabel}\n⏱ ${duration} · 🏋️ ${formatVolume(totalTonnage)} tonnellaggio · ${workout.totalSets ?? 0} serie\n${muscleText}\n\n#BODYGROWTH #Fitness #Workout`;
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: "Il mio allenamento", text });
-      } catch {
-        // user cancelled
-      }
-    } else {
-      await navigator.clipboard.writeText(text).catch(() => {});
-      toast({ title: "Testo copiato!", description: "Incollalo dove vuoi condividerlo." });
-    }
-  };
 
   return (
     <div className="rounded-3xl overflow-hidden bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900 border border-white/10 shadow-2xl">
@@ -158,7 +144,7 @@ export function WorkoutSummaryCard({ workout, onClose }: Props) {
         <Button
           size="sm"
           className="flex-1 bg-white/10 hover:bg-white/20 text-white border-0"
-          onClick={handleShare}
+          onClick={() => setShareOpen(true)}
         >
           <Share2 className="h-3.5 w-3.5 mr-1.5" />
           Condividi
@@ -173,6 +159,8 @@ export function WorkoutSummaryCard({ workout, onClose }: Props) {
           </Button>
         )}
       </div>
+
+      <ShareWorkoutDialog sessionId={workout.id} open={shareOpen} onOpenChange={setShareOpen} />
     </div>
   );
 }
