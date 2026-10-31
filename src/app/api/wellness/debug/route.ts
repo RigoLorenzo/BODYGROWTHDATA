@@ -3,7 +3,7 @@ export const maxDuration = 60;
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { listDailyReport, listFitnessData, type FitnessRecord, type XiaomiSession } from "@/lib/mifitness/client";
+import { listDailyReport, listFitnessData, probeRequest, type FitnessRecord, type XiaomiSession } from "@/lib/mifitness/client";
 import { withMiFitnessSession } from "@/lib/mifitness/sync";
 
 /**
@@ -100,8 +100,66 @@ async function probeCloud(userId: string) {
         })
       );
     }
-    return { region, keys: results, recenti: await probeRecentDays(session, region, now) };
+    const [recenti, linee] = await Promise.all([probeRecentDays(session, region, now), probeLines(session, region, now)]);
+    return { region, keys: results, recenti, linee };
   });
+}
+
+/** Secondi o millisecondi → ISO al minuto */
+const anyTime = (t: unknown) => (typeof t === "number" && t > 0 ? isoTime(t > 1e12 ? Math.floor(t / 1000) : t) : null);
+
+/** Forma della risposta: chiavi, liste con quanti elementi e il loro intervallo di tempo */
+function describe(result: unknown): unknown {
+  if (result == null) return "vuoto";
+  if (Array.isArray(result)) return describeList(result);
+  if (typeof result !== "object") return typeof result;
+  return Object.fromEntries(
+    Object.entries(result as Record<string, unknown>).map(([k, v]) => [
+      k,
+      Array.isArray(v) ? describeList(v) : typeof v === "object" && v ? Object.keys(v) : typeof v === "string" ? `stringa(${v.length})` : v,
+    ])
+  );
+}
+
+function describeList(items: unknown[]) {
+  const records = items.filter((i): i is FitnessRecord => !!i && typeof i === "object");
+  const times = records.map((r) => timeOf(r) ?? (typeof r.time === "number" ? r.time : null)).filter((t): t is number => t != null);
+  const uploads = records.map((r) => r.update_time).filter((t): t is number => typeof t === "number");
+  return {
+    elementi: items.length,
+    campi: records[0] ? Object.keys(records[0]).sort() : null,
+    tipi: [...new Set(records.map((r) => r.key).filter(Boolean))],
+    dal: times.length ? anyTime(Math.min(...times)) : null,
+    al: times.length ? anyTime(Math.max(...times)) : null,
+    ultimoCaricamento: uploads.length ? anyTime(Math.max(...uploads)) : null,
+  };
+}
+
+/**
+ * Dove sono le notti recenti: accessi "ultimo dato" e "per caricamento"
+ * (watermark) della linea vecchia e la linea nuova /healthkit/v1, che le
+ * versioni recenti di Mi Fitness possono usare (parametri da confermare:
+ * si provano le varianti note).
+ */
+async function probeLines(session: XiaomiSession, region: string, now: number) {
+  const from = now - 4 * DAY;
+  const probes: [string, string, object][] = [
+    ["ultimo sonno", "/app/v1/data/get_latest_fitness_data", { key: "sleep" }],
+    ["ultima FC a riposo", "/app/v1/data/get_latest_fitness_data", { key: "resting_heart_rate" }],
+    ["sonno per caricamento", "/app/v1/data/get_fitness_data_by_watermark", { key: "sleep", watermark: 0, limit: 50 }],
+    ["watermark massimo", "/app/v1/data/get_max_watermark", { key: "sleep" }],
+    ["riepiloghi per caricamento", "/app/v1/data/get_aggregated_fitness_data_by_watermark", { tag: "daily_report", watermark: 0, limit: 50 }],
+    ["linea nuova: sonno", "/healthkit/v1/fitnessPoints/duration", { key: "sleep", startTime: from * 1000, endTime: now * 1000, limit: 50 }],
+    ["linea nuova: sonno (snake)", "/healthkit/v1/fitnessPoints/duration", { key: "sleep", start_time: from * 1000, end_time: now * 1000, limit: 50 }],
+    ["linea nuova: per caricamento", "/healthkit/v1/fitnessPoints/watermark", { key: "sleep", watermark: 0, limit: 50 }],
+  ];
+  const results = await Promise.allSettled(probes.map(([, path, payload]) => probeRequest(session, region, path, payload)));
+  return Object.fromEntries(
+    probes.map(([name], i) => {
+      const r = results[i];
+      return [name, r.status === "fulfilled" ? describe(r.value) : `errore: ${r.reason instanceof Error ? r.reason.message : "sconosciuto"}`];
+    })
+  );
 }
 
 const RECENT_DAYS = 6;
