@@ -49,7 +49,13 @@ export async function disconnectMiFitness(userId: string) {
 async function attachTrack(session: XiaomiSession, region: string, run: { id: string; externalId: string | null; startedAt: Date; elevationGain: number | null }) {
   const ctx = run.externalId ? parseExternalId(run.externalId) : null;
   if (!ctx) return false;
-  const samples = await downloadGpsTrack(session, region, ctx);
+  const samples = await downloadGpsTrack(session, region, ctx).catch(async (error) => {
+    // Un file che non si scarica non va ritentato a ogni sincronizzazione per sempre
+    if (Date.now() - run.startedAt.getTime() > 86_400_000) {
+      await prisma.runActivity.update({ where: { id: run.id }, data: { detailed: true } });
+    }
+    throw error;
+  });
   const analyzed = analyzeTrack(
     samples.map((s) => ({ lat: s.lat, lon: s.lon, time: s.time * 1000, ...(s.altitude != null ? { ele: s.altitude } : {}) }))
   );
@@ -100,15 +106,42 @@ export async function syncWellnessOnly(userId: string, budgetMs: number) {
   return syncWellness(userId, session, conn.region, Date.now() + budgetMs, { recent: false });
 }
 
-/** Tempo concesso al benessere dopo le corse, entro il limite della funzione */
+/** Tempo concesso al benessere, entro il limite della funzione */
 const WELLNESS_BUDGET_MS = 25_000;
+/** Durata massima di una sincronizzazione: la funzione si ferma a 60 s */
+const SYNC_LIMIT_MS = 50_000;
+/** Oltre la scadenza un blocco del benessere può finire entro questo margine */
+const WELLNESS_HARD_STOP_MS = 10_000;
+/** Una traccia può durare fino al timeout di una richiesta Xiaomi */
+const TRACK_RESERVE_MS = 20_000;
+
+/** Riga di log per capire cosa è arrivato: solo conteggi e date */
+async function logSync(userId: string, summary: Record<string, unknown>) {
+  const [sleep, resting, conn] = await Promise.all([
+    prisma.sleepSession.findFirst({ where: { userId, isNap: false }, orderBy: { date: "desc" }, select: { date: true } }),
+    prisma.wellnessDay.findFirst({ where: { userId, restingHr: { not: null } }, orderBy: { date: "desc" }, select: { date: true } }),
+    prisma.miFitnessConnection.findUnique({ where: { userId }, select: { wellnessError: true } }),
+  ]);
+  console.info(
+    "sync Mi Fitness",
+    JSON.stringify({ ...summary, lastSleep: sleep?.date ?? null, lastResting: resting?.date ?? null, wellnessError: conn?.wellnessError ?? null })
+  );
+}
 
 /**
  * Scarica gli allenamenti di corsa dall'ultima sincronizzazione (con 3 giorni
- * di margine; un anno al primo collegamento), le tracce delle più recenti e
- * poi i dati benessere (sonno, battiti, passi…) finché resta tempo.
+ * di margine; un anno al primo collegamento), poi i dati benessere (sonno,
+ * battiti, passi…) e infine le tracce GPS se resta tempo. Il benessere viene
+ * prima delle tracce: è il dato che serve ogni mattina, mentre una traccia
+ * si scarica anche aprendo la corsa. Tutto entro `limitMs`, sotto il limite
+ * della funzione.
  */
-export async function syncMiFitness(userId: string, opts: { full?: boolean; wellnessBudgetMs?: number } = {}) {
+export async function syncMiFitness(
+  userId: string,
+  opts: { full?: boolean; wellnessBudgetMs?: number; limitMs?: number } = {}
+) {
+  const started = Date.now();
+  const limit = started + (opts.limitMs ?? SYNC_LIMIT_MS);
   const { session, conn } = await openSession(userId);
   const now = Math.floor(Date.now() / 1000);
   const since =
@@ -135,6 +168,18 @@ export async function syncMiFitness(userId: string, opts: { full?: boolean; well
     if (!result.hasMore || !result.nextKey) break;
     nextKey = result.nextKey;
   }
+  const runsMs = Date.now() - started;
+
+  // Il benessere non deve far fallire l'import delle corse (salvo token scaduto)
+  let wellness = 0;
+  const wellnessDeadline = Math.min(Date.now() + (opts.wellnessBudgetMs ?? WELLNESS_BUDGET_MS), limit - WELLNESS_HARD_STOP_MS);
+  try {
+    wellness = await syncWellness(userId, session, conn.region, wellnessDeadline);
+  } catch (error) {
+    if (error instanceof MiFitnessError && error.auth) throw error;
+    console.warn("benessere Mi Fitness", error);
+  }
+  const wellnessMs = Date.now() - started - runsMs;
 
   const pending = await prisma.runActivity.findMany({
     where: { userId, source: "MI_FITNESS", detailed: false },
@@ -142,21 +187,18 @@ export async function syncMiFitness(userId: string, opts: { full?: boolean; well
     take: TRACKS_PER_SYNC,
     select: { id: true, externalId: true, startedAt: true, elevationGain: true },
   });
+  let tracks = 0;
   for (const run of pending) {
-    await attachTrack(session, conn.region, run).catch((error) => console.warn("traccia Mi Fitness", run.id, error));
+    if (Date.now() + TRACK_RESERVE_MS > limit) break;
+    const attached = await attachTrack(session, conn.region, run).catch((error) => {
+      console.warn("traccia Mi Fitness", run.id, error);
+      return false;
+    });
+    if (attached) tracks++;
   }
 
   await updateUserStreak(userId);
-
-  // Il benessere non deve far fallire l'import delle corse (salvo token scaduto)
-  let wellness = 0;
-  try {
-    wellness = await syncWellness(userId, session, conn.region, Date.now() + (opts.wellnessBudgetMs ?? WELLNESS_BUDGET_MS));
-  } catch (error) {
-    if (error instanceof MiFitnessError && error.auth) throw error;
-    console.warn("benessere Mi Fitness", error);
-  }
-
   await prisma.miFitnessConnection.update({ where: { userId }, data: { lastSyncAt: new Date(), lastError: null } });
+  await logSync(userId, { imported, wellness, tracks, pendingTracks: pending.length, runsMs, wellnessMs, totalMs: Date.now() - started });
   return { imported, wellness };
 }

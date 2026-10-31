@@ -50,7 +50,7 @@ export async function POST() {
     return done({ status: "error", error: error instanceof Error ? error.message : "Collegamento non riuscito" }, 502);
   }
   // Al collegamento poco benessere: il resto arriva con le sincronizzazioni successive
-  const imported = await syncMiFitness(session.user.id, { wellnessBudgetMs: 8_000 })
+  const imported = await syncMiFitness(session.user.id, { wellnessBudgetMs: 8_000, limitMs: 30_000 })
     .then((r) => r.imported)
     .catch(() => null);
   return done({ status: "connected", imported });
