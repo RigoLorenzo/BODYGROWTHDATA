@@ -205,6 +205,8 @@ export interface FitnessRecord {
   /** secondi rispetto a UTC */
   zone_offset?: number;
   zone_name?: string;
+  /** secondi: ultimo caricamento sul cloud */
+  update_time?: number;
   value?: string | Record<string, unknown>;
 }
 
@@ -246,15 +248,16 @@ export interface DailyReportRecord extends FitnessRecord {
 export async function listDailyReport(
   session: XiaomiSession,
   region: string,
-  opts: { key: string; startTime: number; endTime: number; nextKey?: string | null }
+  // Senza key tutti i tipi del giorno; tag diversi solo per la diagnostica (es. daily_mark)
+  opts: { key?: string; tag?: string; startTime: number; endTime: number; nextKey?: string | null }
 ): Promise<{ records: DailyReportRecord[]; hasMore: boolean; nextKey: string | null }> {
   const result = await request<{ data_list?: DailyReportRecord[]; has_more?: boolean; next_key?: string }>(
     session,
     region,
     "/app/v1/data/get_aggregated_fitness_data_by_time",
     {
-      tag: "daily_report",
-      key: opts.key,
+      tag: opts.tag ?? "daily_report",
+      ...(opts.key ? { key: opts.key } : {}),
       start_time: opts.startTime,
       end_time: opts.endTime,
       reverse: true,

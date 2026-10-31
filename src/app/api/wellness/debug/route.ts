@@ -3,7 +3,7 @@ export const maxDuration = 60;
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { listDailyReport, listFitnessData, type FitnessRecord } from "@/lib/mifitness/client";
+import { listDailyReport, listFitnessData, type FitnessRecord, type XiaomiSession } from "@/lib/mifitness/client";
 import { withMiFitnessSession } from "@/lib/mifitness/sync";
 
 /**
@@ -100,8 +100,56 @@ async function probeCloud(userId: string) {
         })
       );
     }
-    return { region, keys: results };
+    return { region, keys: results, recenti: await probeRecentDays(session, region, now) };
   });
+}
+
+const RECENT_DAYS = 6;
+const MAX_RECENT_PAGES = 5;
+const isoDay = (t?: number) => (t ? new Date(t * 1000).toISOString().slice(0, 10) : "?");
+
+/**
+ * Ultimi giorni, come li vede l'app Mi Fitness: riepiloghi e indice dei giorni
+ * con dati (tag daily_mark) senza filtro per tipo, più le notti grezze con
+ * l'orario di caricamento. Solo tipi, giorni e orari.
+ */
+async function probeRecentDays(session: XiaomiSession, region: string, now: number) {
+  const endTime = Math.floor(now / DAY) * DAY + DAY;
+  const startTime = endTime - (RECENT_DAYS + 1) * DAY;
+  const out: Record<string, unknown> = {};
+
+  for (const tag of ["daily_report", "daily_mark"]) {
+    try {
+      const byKey: Record<string, string[]> = {};
+      let nextKey: string | null = null;
+      for (let page = 0; page < MAX_RECENT_PAGES; page++) {
+        const result = await listDailyReport(session, region, { tag, startTime, endTime, nextKey });
+        for (const r of result.records) (byKey[r.key ?? "?"] ??= []).push(isoDay(r.time));
+        if (!result.hasMore || !result.nextKey) break;
+        nextKey = result.nextKey;
+      }
+      out[tag] = Object.fromEntries(Object.entries(byKey).map(([k, days]) => [k, [...new Set(days)].sort()]));
+    } catch (error) {
+      out[tag] = `errore: ${error instanceof Error ? error.message : "sconosciuto"}`;
+    }
+  }
+
+  try {
+    const raw = await listFitnessData(session, region, { key: "sleep", startTime: startTime - DAY, endTime });
+    out["sonno grezzo"] = raw.records.map((r) => {
+      const p = payloadOf(r);
+      return {
+        time: isoTime(r.time),
+        bedtime: isoTime(typeof p.bedtime === "number" ? p.bedtime : undefined),
+        wake: isoTime(typeof p.wake_up_time === "number" ? p.wake_up_time : undefined),
+        // update_time può essere in millisecondi
+        uploaded: isoTime(r.update_time && r.update_time > 1e12 ? Math.floor(r.update_time / 1000) : r.update_time),
+      };
+    });
+  } catch (error) {
+    out["sonno grezzo"] = `errore: ${error instanceof Error ? error.message : "sconosciuto"}`;
+  }
+  return out;
 }
 
 async function summarizeDb(userId: string) {
