@@ -159,6 +159,10 @@ async function request<T>(session: XiaomiSession, region: string, path: string, 
   return body.result as T;
 }
 
+/** Richiesta firmata a un percorso qualsiasi: solo per la diagnostica delle linee Xiaomi */
+export const probeRequest = (session: XiaomiSession, region: string, path: string, payload: object) =>
+  request<unknown>(session, region, path, payload);
+
 /** Allenamento come arriva dal cloud: il riepilogo è JSON dentro `value` */
 export interface SportRecord {
   sid?: string;
