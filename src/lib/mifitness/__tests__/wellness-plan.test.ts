@@ -9,14 +9,15 @@ const iso = (epoch: number) => new Date(epoch * 1000).toISOString().slice(0, 10)
 const show = (units: { from: number; days: number }[]) => units.map((u) => `${iso(u.from)}+${u.days}`);
 
 describe("blocchi del benessere", () => {
-  it("prima volta: gli ultimi giorni in un blocco leggero, i battiti un giorno alla volta", () => {
-    expect(show(forwardUnits({ from: null, until: null }, LIGHT_TRACK, TODAY))).toEqual(["2026-10-17+3"]);
+  it("prima volta: l'ultima settimana in un blocco leggero, i battiti un giorno alla volta", () => {
+    // Sonno e FC a riposo arrivano anche giorni dopo: si rilegge una settimana più oggi
+    expect(show(forwardUnits({ from: null, until: null }, LIGHT_TRACK, TODAY))).toEqual(["2026-10-12+8"]);
     expect(show(forwardUnits({ from: null, until: null }, HEART_TRACK, TODAY))).toEqual(["2026-10-18+1", "2026-10-19+1"]);
   });
 
   it("dopo giorni senza sincronizzare recupera il buco a blocchi, fino a oggi", () => {
     const units = forwardUnits({ from: day(-40), until: day(-13) }, LIGHT_TRACK, TODAY);
-    expect(show(units)).toEqual(["2026-10-04+10", "2026-10-14+6"]);
+    expect(show(units)).toEqual(["2026-09-29+10", "2026-10-09+10", "2026-10-19+1"]);
   });
 
   it("storico a ritroso dal più recente, fermo al limite", () => {

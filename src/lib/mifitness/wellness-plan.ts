@@ -15,7 +15,11 @@ export interface Track {
   /** giorni recenti riletti ogni volta (i dati arrivano in ritardo), oltre a oggi */
   refreshDays: number;
 }
-export const LIGHT_TRACK: Track = { unitDays: 10, historyDays: WELLNESS_HISTORY_DAYS, refreshDays: 2 };
+/**
+ * Sonno e FC a riposo arrivano sul cloud anche giorni dopo (visto: notti del
+ * 23-24/10 caricate dopo il 27): l'ultima settimana si rilegge ogni volta.
+ */
+export const LIGHT_TRACK: Track = { unitDays: 10, historyDays: WELLNESS_HISTORY_DAYS, refreshDays: 7 };
 export const HEART_TRACK: Track = { unitDays: 1, historyDays: HEART_HISTORY_DAYS, refreshDays: 1 };
 
 /** Giorni locali già scaricati: [from, until), come mezzanotti UTC delle date */
