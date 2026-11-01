@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CalendarTab } from "./calendar-tab";
+import { HistoryTab } from "./history-tab";
 import { MuscleFrequencyGrid } from "./muscle-frequency-grid";
 import { MuscleStatsGrid } from "./muscle-stats-grid";
 import { ProgressScore } from "./progress-score";
@@ -31,7 +31,7 @@ const MuscleTrendChart = dynamic(() => import("./muscle-trend-chart").then((m) =
 const TABS = [
   { value: "riepilogo", label: "Riepilogo" },
   { value: "record", label: "Record" },
-  { value: "calendario", label: "Calendario" },
+  { value: "storico", label: "Storico" },
   { value: "progressi", label: "Progressi" },
   { value: "volume", label: "Volume" },
   { value: "muscoli", label: "Muscoli" },
@@ -41,8 +41,8 @@ type Tab = (typeof TABS)[number]["value"];
 
 function TabContent({ tab }: { tab: Tab }) {
   switch (tab) {
-    case "calendario":
-      return <CalendarTab />;
+    case "storico":
+      return <HistoryTab />;
     case "progressi":
       return (
         <div className="space-y-5">
@@ -77,7 +77,8 @@ function TabContent({ tab }: { tab: Tab }) {
 
 /** Schede nell'URL (?tab=): i link portano al punto giusto e "indietro" ci ritorna */
 export function AnalyticsTabs() {
-  const [tab, select] = useUrlTab(TABS);
+  // "calendario": nome precedente della scheda Storico
+  const [tab, select] = useUrlTab(TABS, { calendario: "storico" });
   return (
     <div className="space-y-5">
       <TabStrip tabs={TABS} value={tab} onChange={select} label="Sezioni di Analytics" />

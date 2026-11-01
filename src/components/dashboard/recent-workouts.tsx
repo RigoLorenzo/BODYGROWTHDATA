@@ -51,7 +51,7 @@ export function RecentWorkouts({ initialData }: Props) {
     <section>
       <div className="mb-2 flex items-baseline justify-between px-1">
         <h2 className="font-display text-xl font-bold uppercase tracking-wide">Ultimi allenamenti</h2>
-        <Link href="/analytics?tab=calendario" className="-mr-2 flex h-10 items-center px-2 text-xs text-muted-foreground active:text-foreground">
+        <Link href="/analytics?tab=storico" className="-mr-2 flex h-10 items-center px-2 text-xs text-muted-foreground active:text-foreground">
           Storico <ChevronRight className="h-3.5 w-3.5" />
         </Link>
       </div>

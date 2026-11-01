@@ -9,12 +9,16 @@ export interface TabOption<T extends string> {
   label: string;
 }
 
-/** Scheda scelta nell'URL (?tab=): la prima è quella predefinita e non compare */
-export function useUrlTab<T extends string>(tabs: readonly TabOption<T>[]) {
+/**
+ * Scheda scelta nell'URL (?tab=): la prima è quella predefinita e non compare.
+ * `aliases`: vecchi nomi di schede rinominate, così i link salvati funzionano.
+ */
+export function useUrlTab<T extends string>(tabs: readonly TabOption<T>[], aliases: Partial<Record<string, T>> = {}) {
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const requested = params.get("tab");
+  const raw = params.get("tab");
+  const requested = (raw && aliases[raw]) ?? raw;
   const tab = tabs.find((t) => t.value === requested)?.value ?? tabs[0].value;
 
   const select = (value: T) => {
