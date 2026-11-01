@@ -32,5 +32,10 @@ export default async function WorkoutDetailPage({ params }: Props) {
   const run = await prisma.runActivity.findUnique({ where: { sessionId }, select: { id: true } });
   if (run) redirect(`/run/${run.id}`);
 
-  return <SessionDetail workout={workout} />;
+  // Titolo come nella scheda condivisa: il giorno del piano, se c'è
+  const day = workout.programDayId
+    ? await prisma.programDay.findUnique({ where: { id: workout.programDayId }, select: { name: true } })
+    : null;
+
+  return <SessionDetail workout={workout} dayName={day?.name ?? null} />;
 }
