@@ -4,11 +4,11 @@ import { useState } from "react";
 import Link from "next/link";
 import { eachDayOfInterval, format, getDay, isToday, subDays } from "date-fns";
 import { it } from "date-fns/locale";
-import { ChevronDown, Dumbbell, Footprints } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { byDay, itemsInPeriod, periodLabel, type ActivityItem, type Period, type PeriodWindow } from "@/lib/insights";
-import { formatKm } from "@/lib/run/format";
-import { cn, formatVolume } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { formatHours } from "./format";
+import { KIND_STYLE, activityMetric } from "./activity-kind";
 import { ActivityLegend, EmptyState, Section } from "./ui";
 import { activityHref } from "./use-activity";
 
@@ -35,7 +35,9 @@ function MonthDots({ from, to, items }: { from: Date; to: Date; items: ActivityI
         {list.map((day) => {
           const sessions = days.get(dayKey(day)) ?? [];
           const gym = sessions.some((s) => s.kind === "gym");
+          // Corsa, bici e altro insieme: il colore della resistenza
           const run = sessions.some((s) => s.kind === "run");
+          const other = !run && sessions.some((s) => s.kind === "cardio");
           return (
             <span
               key={dayKey(day)}
@@ -48,7 +50,9 @@ function MonthDots({ from, to, items }: { from: Date; to: Date; items: ActivityI
                     ? "bg-foreground/80 text-background"
                     : run
                       ? "bg-lime-500 text-zinc-950"
-                      : "bg-muted/60 text-muted-foreground",
+                      : other
+                        ? "bg-sky-500 text-white"
+                        : "bg-muted/60 text-muted-foreground",
                 isToday(day) && "ring-2 ring-inset ring-lime-500"
               )}
             >
@@ -58,36 +62,34 @@ function MonthDots({ from, to, items }: { from: Date; to: Date; items: ActivityI
           );
         })}
       </div>
-      <ActivityLegend className="mt-3 justify-center" />
+      <ActivityLegend className="mt-3 justify-center" other={items.some((i) => i.kind === "cardio")} />
     </div>
   );
+}
+
+function KindGlyph({ kind }: { kind: ActivityItem["kind"] }) {
+  const Icon = KIND_STYLE[kind].icon;
+  return <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />;
 }
 
 function SessionRow({ item }: { item: ActivityItem }) {
   return (
     <li>
       <Link href={activityHref(item)} className="flex items-center gap-3 rounded-2xl bg-muted/50 p-3 active:bg-muted">
-        <span
-          className={cn(
-            "flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-xl leading-none",
-            item.kind === "run" ? "bg-lime-500/15 text-lime-700 dark:text-lime-400" : "bg-foreground/10"
-          )}
-        >
+        <span className={cn("flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-xl leading-none", KIND_STYLE[item.kind].tile)}>
           <span className="font-display text-base font-bold tabular-nums">{format(item.startedAt, "d")}</span>
           <span className="text-[9px] font-semibold uppercase">{format(item.startedAt, "EEE", { locale: it })}</span>
         </span>
         <div className="min-w-0 flex-1">
           <p className="flex items-center gap-1.5 truncate text-sm font-semibold">
-            {item.kind === "run" ? <Footprints className="h-3.5 w-3.5 shrink-0" aria-hidden /> : <Dumbbell className="h-3.5 w-3.5 shrink-0" aria-hidden />}
+            <KindGlyph kind={item.kind} />
             <span className="truncate">{item.title}</span>
           </p>
           <p className="text-xs text-muted-foreground">
             {format(item.startedAt, "HH:mm")} · {formatHours(item.duration)}
           </p>
         </div>
-        <p className="shrink-0 font-display text-lg font-bold tabular-nums">
-          {item.kind === "run" ? `${formatKm(item.distance)} km` : formatVolume(item.volume)}
-        </p>
+        <p className="shrink-0 font-display text-lg font-bold tabular-nums">{activityMetric(item)}</p>
       </Link>
     </li>
   );

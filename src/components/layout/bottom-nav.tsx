@@ -27,7 +27,8 @@ export function BottomNav() {
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden">
       <div className="bg-background border-t border-border/50">
-        <div className="flex items-center justify-around px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
+        {/* Cinque colonne uguali: ogni voce è centrata nella sua, qualunque sia la lunghezza dell'etichetta */}
+        <div className="grid grid-cols-5 items-center px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
           {navItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
 
@@ -39,7 +40,7 @@ export function BottomNav() {
                   onClick={() =>
                     activeSession ? router.push("/workout/active") : setShowPicker(true)
                   }
-                  className="relative -mt-6 flex h-14 w-14 items-center justify-center rounded-full bg-primary shadow-lg shadow-primary/30 active:scale-95 transition-transform"
+                  className="relative -mt-6 flex h-14 w-14 items-center justify-center justify-self-center rounded-full bg-primary shadow-lg shadow-primary/30 active:scale-95 transition-transform"
                 >
                   {activeSession && (
                     <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-green-500 animate-pulse-slow" />
@@ -54,18 +55,18 @@ export function BottomNav() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-colors min-w-[44px]",
+                  "relative flex min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg py-1 transition-colors",
                   isActive ? "text-primary" : "text-muted-foreground"
                 )}
               >
                 {isActive && (
                   <motion.div
                     layoutId="nav-indicator"
-                    className="absolute h-0.5 w-8 bg-primary rounded-full -top-0.5"
+                    className="absolute -top-2 left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full bg-primary"
                   />
                 )}
                 <item.icon className="h-5 w-5" />
-                <span className="text-[10px] font-medium">{item.label}</span>
+                <span className="max-w-full truncate text-[10px] font-medium">{item.label}</span>
               </Link>
             );
           })}

@@ -65,10 +65,13 @@ function PeriodHero({ items, now, selection }: { items: ActivityItem[]; now: Dat
   const cells = [
     { label: "Palestra", value: current.gym, unit: current.gym === 1 ? "seduta" : "sedute" },
     { label: "Corsa", value: current.runs, unit: current.runs === 1 ? "uscita" : "uscite" },
+    // Bici e altre attività dall'orologio, se ce ne sono; altrimenti le serie
+    current.other > 0
+      ? { label: "Bici e altro", value: current.other, unit: current.other === 1 ? "attività" : "attività" }
+      : { label: "Serie", value: current.sets.toLocaleString("it-IT") },
     { label: "Tempo", value: formatHours(current.duration) },
     { label: "Volume", value: formatVolume(current.volume) },
-    { label: "Serie", value: current.sets.toLocaleString("it-IT") },
-    { label: "Km", value: formatKm(current.distance) },
+    { label: "Km corsa", value: formatKm(current.distance) },
   ];
 
   const step = (delta: number) => {
@@ -214,13 +217,14 @@ function WeeklyActivity({ items, now }: { items: ActivityItem[]; now: Date }) {
     key: w.start.toISOString(),
     label: format(w.start, "d/M"),
     primary: metric === "sessions" ? w.gym : w.gymDuration,
-    secondary: metric === "sessions" ? w.runs : w.duration - w.gymDuration,
+    secondary: metric === "sessions" ? w.runs : w.runDuration,
+    tertiary: metric === "sessions" ? w.other : w.otherDuration,
     caption: metric === "sessions" ? String(w.sessions) : formatDecimal(w.duration / 3600),
     // La settimana in corso in evidenza
     highlight: i === weeks.length - 1,
   }));
   return (
-    <Section title="Ultime 12 settimane" hint={<ActivityLegend className="mt-1" />}>
+    <Section title="Ultime 12 settimane" hint={<ActivityLegend className="mt-1" other={weeks.some((w) => w.other > 0)} />}>
       <Segmented value={metric} options={WEEK_METRICS} onChange={setMetric} size="sm" className="mb-4" />
       <StackedBars data={data} labelEvery={3} />
     </Section>
@@ -289,7 +293,7 @@ function Months({ items, now, selection }: { items: ActivityItem[]; now: Date; s
       title="Ultimi 12 mesi"
       hint={
         <span className="flex flex-wrap items-center gap-x-3">
-          <ActivityLegend className="mt-1" />
+          <ActivityLegend className="mt-1" other={months.some((m) => m.other > 0)} />
           <span className="mt-1">Tocca un mese per il dettaglio</span>
         </span>
       }
@@ -302,6 +306,7 @@ function Months({ items, now, selection }: { items: ActivityItem[]; now: Date; s
           label: format(m.start, "MMM", { locale: it }),
           primary: m.gym,
           secondary: m.runs,
+          tertiary: m.other,
           caption: String(m.sessions),
           highlight: format(m.start, "yyyy-MM") === selectedKey,
         }))}

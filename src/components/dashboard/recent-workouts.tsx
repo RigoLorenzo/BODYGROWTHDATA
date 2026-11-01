@@ -14,6 +14,11 @@ interface WorkoutListItem {
   startedAt: string | Date;
   totalVolume: number;
   totalSets: number;
+  /** attività importate dall'orologio (bici, palestra…) */
+  title?: string | null;
+  sportType?: string | null;
+  distance?: number | null;
+  duration?: number | null;
   programDayName?: string | null;
   exercises?: { id: string; exercise?: { name: string } }[];
   run?: { id: string; name: string; distance: number; movingTime: number } | null;
@@ -26,6 +31,7 @@ interface Props {
 
 const workoutTitle = (w: WorkoutListItem) =>
   w.run?.name ??
+  w.title ??
   w.programDayName ??
   (w.workoutType === "CUSTOM" ? w.exercises?.[0]?.exercise?.name ?? "Allenamento" : w.workoutType);
 
@@ -45,7 +51,7 @@ export function RecentWorkouts({ initialData }: Props) {
     <section>
       <div className="mb-2 flex items-baseline justify-between px-1">
         <h2 className="font-display text-xl font-bold uppercase tracking-wide">Ultimi allenamenti</h2>
-        <Link href="/analytics?tab=calendario" className="-mr-2 flex h-10 items-center px-2 text-xs text-muted-foreground active:text-foreground">
+        <Link href="/analytics?tab=storico" className="-mr-2 flex h-10 items-center px-2 text-xs text-muted-foreground active:text-foreground">
           Storico <ChevronRight className="h-3.5 w-3.5" />
         </Link>
       </div>
@@ -59,6 +65,8 @@ export function RecentWorkouts({ initialData }: Props) {
           {workouts.slice(0, 5).map((workout) => {
             const date = new Date(workout.startedAt);
             const prs = workout._count?.personalRecords ?? 0;
+            // Bici, camminate… importate dall'orologio
+            const cardio = workout.workoutType === "CARDIO" && !!workout.sportType && !workout.run;
             return (
               <li key={workout.id} className="border-b border-border/50 last:border-0">
                 <Link
@@ -85,11 +93,19 @@ export function RecentWorkouts({ initialData }: Props) {
                       <span className="capitalize">{format(date, "EEEE", { locale: it })}</span> ·{" "}
                       {workout.run
                         ? `Corsa · ${formatPace(paceSecondsPerKm(workout.run.distance, workout.run.movingTime))}/km`
-                        : `${workout.exercises?.length ?? 0} esercizi · ${workout.totalSets} serie`}
+                        : cardio
+                          ? `Attività · ${Math.round((workout.duration ?? 0) / 60)} min`
+                          : `${workout.exercises?.length ?? 0} esercizi · ${workout.totalSets} serie`}
                     </p>
                   </div>
                   <p className="shrink-0 font-display text-lg font-semibold tabular-nums">
-                    {workout.run ? `${formatKm(workout.run.distance)} km` : formatVolume(workout.totalVolume)}
+                    {workout.run
+                      ? `${formatKm(workout.run.distance)} km`
+                      : cardio
+                        ? workout.distance
+                          ? `${formatKm(workout.distance)} km`
+                          : `${Math.round((workout.duration ?? 0) / 60)} min`
+                        : formatVolume(workout.totalVolume)}
                   </p>
                 </Link>
               </li>

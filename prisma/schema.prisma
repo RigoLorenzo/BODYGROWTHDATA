@@ -307,24 +307,24 @@ model Exercise {
 // ─── Workout Session ──────────────────────────────────────────────────────────
 
 model WorkoutSession {
-  id                   String        @id @default(cuid())
+  id                   String          @id @default(cuid())
   userId               String
-  startedAt            DateTime      @default(now())
+  startedAt            DateTime        @default(now())
   endedAt              DateTime?
   duration             Int?
-  status               SessionStatus @default(ACTIVE)
-  totalVolume          Float         @default(0)
-  totalSets            Int           @default(0)
-  totalReps            Int           @default(0)
-  restSeconds          Int           @default(0)
+  status               SessionStatus   @default(ACTIVE)
+  totalVolume          Float           @default(0)
+  totalSets            Int             @default(0)
+  totalReps            Int             @default(0)
+  restSeconds          Int             @default(0)
   activeSeconds        Int?
   estimatedCalories    Int?
   rating               Int?
   rpe                  Float?
-  notes                String?       @db.Text
+  notes                String?         @db.Text
   mood                 Int?
   energyLevel          Int?
-  workoutType          WorkoutType   @default(CUSTOM)
+  workoutType          WorkoutType     @default(CUSTOM)
   muscleGroupsTargeted MuscleGroup[]
   location             String?
   latitude             Float?
@@ -334,8 +334,20 @@ model WorkoutSession {
   /// Stato dell'allenamento in corso (esercizi e serie, anche non spuntate),
   /// salvato mentre ti alleni: si riprende anche se il telefono perde i dati.
   draft                Json?
-  createdAt            DateTime      @default(now())
-  updatedAt            DateTime      @updatedAt
+  /// Seduta importata da uno smartwatch (palestra, bici…); null se registrata nell'app
+  source               ActivitySource?
+  /// Id dell'attività sulla fonte: la stessa attività non si importa due volte
+  externalId           String?
+  /// Nome dell'attività sulla fonte (es. "Giro in bici")
+  title                String?
+  /// Tipo di attività importata: Strength, Ride, Walk, Swim…
+  sportType            String?
+  /// metri, attività con distanza (bici, camminata, nuoto…)
+  distance             Float?
+  avgHeartRate         Float?
+  maxHeartRate         Float?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
 
   user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   exercises       WorkoutExercise[]
@@ -344,6 +356,7 @@ model WorkoutSession {
   /// Se la seduta è una corsa, qui ci sono i dettagli
   run             RunActivity?
 
+  @@unique([userId, source, externalId])
   @@index([userId, startedAt])
   @@index([userId, status])
 }

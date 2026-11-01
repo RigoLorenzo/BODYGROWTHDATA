@@ -1,3 +1,4 @@
+import type { ExternalWorkoutInput } from "@/lib/activities/repository";
 import type { RunInput } from "@/lib/run/repository";
 import { hourlyHeartRate, type HeartSample, type HourOf } from "@/lib/wellness/heart";
 import type { DaySummary, SleepInput, SleepSegment, SleepStage } from "@/lib/wellness/types";
@@ -82,6 +83,71 @@ export function mapActivity(activity: GarminActivity): RunInput | null {
     calories: positive(activity.calories),
     // Senza GPS (tapis roulant, indoor) non c'è percorso da scaricare
     detailed: sportType === "Treadmill" || activity.hasPolyline === false,
+  };
+}
+
+// ─── Altre attività: palestra, bici, camminate… ──────────────────────────────
+
+/** Tipi Garmin (typeKey) → tipo dell'app e nome italiano di riserva */
+const OTHER_TYPES: [RegExp, { sportType: string; label: string }][] = [
+  [/indoor_cycling|virtual_ride/, { sportType: "IndoorRide", label: "Bici indoor" }],
+  [/cycling|biking|bmx|gravel|e_bike|ride/, { sportType: "Ride", label: "Giro in bici" }],
+  [/walking/, { sportType: "Walk", label: "Camminata" }],
+  [/hiking|mountaineering/, { sportType: "Hike", label: "Escursione" }],
+  [/swimming/, { sportType: "Swim", label: "Nuoto" }],
+  [/rowing/, { sportType: "Row", label: "Vogatore" }],
+  [/elliptical/, { sportType: "Elliptical", label: "Ellittica" }],
+  [/stair/, { sportType: "StairStepper", label: "Scale" }],
+  [/yoga/, { sportType: "Yoga", label: "Yoga" }],
+  [/pilates/, { sportType: "Pilates", label: "Pilates" }],
+  [/hiit|cardio|boxing|crossfit/, { sportType: "Workout", label: "Allenamento cardio" }],
+];
+
+export const isStrength = (type: GarminActivity["activityType"]) => /strength/i.test(type?.typeKey ?? "");
+
+function otherType(typeKey: string) {
+  for (const [pattern, type] of OTHER_TYPES) if (pattern.test(typeKey)) return type;
+  const label = typeKey ? typeKey.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase()) : "Attività";
+  return { sportType: "Workout", label };
+}
+
+/** Palestra (con gli esercizi registrati) o altra attività; null per le corse e i dati incompleti */
+export function mapOtherActivity(activity: GarminActivity): ExternalWorkoutInput | null {
+  if (isRun(activity.activityType)) return null;
+  const startMs = garminTime(activity.startTimeGMT);
+  const duration = positive(activity.elapsedDuration) ?? positive(activity.duration);
+  if (activity.activityId == null || startMs == null || !duration) return null;
+
+  const typeKey = activity.activityType?.typeKey ?? "";
+  const strength = isStrength(activity.activityType);
+  const type = strength ? { sportType: "Strength", label: "Allenamento di forza" } : otherType(typeKey);
+  const exercises = strength
+    ? (activity.summarizedExerciseSets ?? [])
+        .filter((e) => (num(e.sets) ?? 0) > 0)
+        .map((e) => ({
+          category: e.category ?? null,
+          subCategory: e.subCategory ?? null,
+          sets: Math.round(num(e.sets) ?? 0),
+          reps: Math.round(num(e.reps) ?? 0),
+          // Garmin dà grammi
+          volumeKg: (num(e.volume) ?? 0) / 1000,
+          maxWeightKg: positive(e.maxWeight) != null ? positive(e.maxWeight)! / 1000 : null,
+        }))
+    : undefined;
+
+  return {
+    source: "GARMIN",
+    externalId: String(activity.activityId),
+    kind: strength ? "strength" : "cardio",
+    title: activity.activityName?.trim() || type.label,
+    sportType: type.sportType,
+    startedAt: new Date(startMs),
+    duration: Math.round(duration),
+    distance: positive(activity.distance),
+    avgHeartRate: positive(activity.averageHR),
+    maxHeartRate: positive(activity.maxHR),
+    calories: positive(activity.calories),
+    exercises,
   };
 }
 

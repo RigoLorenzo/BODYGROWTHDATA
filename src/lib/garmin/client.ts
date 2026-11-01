@@ -129,6 +129,15 @@ export interface GarminActivity {
   averageRunningCadenceInStepsPerMinute?: number;
   calories?: number;
   hasPolyline?: boolean;
+  /** Allenamenti di forza: esercizi con serie, ripetizioni, volume (g) e carico massimo (g) */
+  summarizedExerciseSets?: {
+    category?: string;
+    subCategory?: string;
+    reps?: number;
+    sets?: number;
+    volume?: number;
+    maxWeight?: number;
+  }[];
 }
 
 interface MovementValue {

@@ -8,7 +8,8 @@ import { withProgramDayNames } from "@/lib/program-day-names";
 const LIMIT = 3000;
 
 /**
- * Tutte le sedute completate in forma compatta (palestra e corsa): le
+ * Tutte le sedute completate in forma compatta (palestra, corsa, bici e
+ * altre attività importate): le
  * statistiche si calcolano nel browser, nel fuso orario di chi guarda.
  */
 export async function GET() {
@@ -27,6 +28,10 @@ export async function GET() {
       totalVolume: true,
       totalSets: true,
       programDayId: true,
+      workoutType: true,
+      title: true,
+      sportType: true,
+      distance: true,
       run: { select: { id: true, name: true, distance: true, elapsedTime: true } },
       exercises: { take: 1, orderBy: { orderIndex: "asc" }, select: { exercise: { select: { name: true } } } },
     },
@@ -38,12 +43,13 @@ export async function GET() {
     return {
       id: s.id,
       startedAt: s.startedAt.toISOString(),
-      kind: s.run ? "run" : "gym",
+      // Bici e altre attività importate dall'orologio sono una terza categoria
+      kind: s.run ? "run" : s.workoutType === "CARDIO" && s.sportType ? "cardio" : "gym",
       duration: s.run?.elapsedTime ?? s.duration ?? wall,
       volume: Math.round(s.totalVolume),
       sets: s.totalSets,
-      distance: s.run?.distance ?? 0,
-      title: s.run?.name ?? s.programDayName ?? s.exercises[0]?.exercise.name ?? "Allenamento",
+      distance: s.run?.distance ?? s.distance ?? 0,
+      title: s.run?.name ?? s.title ?? s.programDayName ?? s.exercises[0]?.exercise.name ?? "Allenamento",
       runId: s.run?.id ?? null,
     };
   });

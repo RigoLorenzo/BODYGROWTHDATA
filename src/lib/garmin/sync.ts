@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { decryptSecret, encryptSecret } from "@/lib/crypto";
 import { adoptWellnessSource, releaseWellnessSource } from "@/lib/devices/source";
+import { saveExternalWorkout } from "@/lib/activities/repository";
 import { saveRun } from "@/lib/run/repository";
 import { analyzeTrack } from "@/lib/run/track";
 import { updateUserStreak } from "@/lib/streak-calculator";
@@ -16,13 +17,14 @@ import {
   type GarminToken,
 } from "./client";
 import { isFit, parseFitRecords } from "./fit";
-import { mapActivity } from "./mapping";
+import { mapActivity, mapOtherActivity } from "./mapping";
 import { syncGarminWellness } from "./wellness-sync";
 import { extractEntry, isZip } from "./zip";
 
 /**
  * Garmin Connect con la Personal API: stessi passi di Mi Fitness. Prima le
- * corse dall'ultima sincronizzazione, poi il benessere, infine le tracce GPS
+ * attività dall'ultima sincronizzazione (corse, palestra, bici…), poi il
+ * benessere, infine le tracce GPS delle corse
  * (file .fit) se resta tempo; una traccia si scarica anche aprendo la corsa.
  */
 
@@ -156,8 +158,12 @@ export async function importGarminTrack(userId: string, runId: string) {
   });
 }
 
-/** Corse dal giorno `since` (locale) a domani, dal più recente */
-async function importRuns(userId: string, client: GarminClient, since: number) {
+/**
+ * Attività dal giorno `since` (locale) a domani, dal più recente: le corse
+ * nella sezione Corsa, palestra (con gli esercizi), bici e il resto come
+ * sedute. Restituisce quante sono state importate o aggiornate.
+ */
+async function importActivities(userId: string, client: GarminClient, since: number) {
   let imported = 0;
   const endDate = isoDate(Date.now() + DAY_MS);
   for (let page = 0; page < MAX_PAGES; page++) {
@@ -168,10 +174,14 @@ async function importRuns(userId: string, client: GarminClient, since: number) {
       limit: PAGE_SIZE,
     });
     for (const activity of activities) {
-      const input = mapActivity(activity);
-      if (!input) continue;
-      await saveRun(userId, input, { updateStreak: false });
-      imported++;
+      const run = mapActivity(activity);
+      if (run) {
+        await saveRun(userId, run, { updateStreak: false });
+        imported++;
+        continue;
+      }
+      const other = mapOtherActivity(activity);
+      if (other && (await saveExternalWorkout(userId, other)) !== "duplicate") imported++;
     }
     if (activities.length < PAGE_SIZE) break;
   }
@@ -199,7 +209,7 @@ export async function syncGarmin(userId: string, opts: { full?: boolean; wellnes
   const { client, conn } = await openGarmin(userId);
   try {
     const since = conn.lastSyncAt && !opts.full ? conn.lastSyncAt.getTime() - 3 * DAY_MS : started - 365 * DAY_MS;
-    const imported = await importRuns(userId, client, since);
+    const imported = await importActivities(userId, client, since);
 
     // Il benessere non deve far fallire l'import delle corse (salvo chiave scaduta)
     let wellness = 0;

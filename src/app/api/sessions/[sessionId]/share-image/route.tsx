@@ -70,7 +70,7 @@ export async function GET(req: Request, { params }: Params) {
   if (!workout) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const { dateLabel, timeLabel, hour } = zonedDateParts(workout.startedAt, timeZone);
-  const [fonts, title] = await Promise.all([loadShareFonts(), workoutTitle(workout.programDayId, hour)]);
+  const [fonts, title] = await Promise.all([loadShareFonts(), workout.programDayId || !workout.title ? workoutTitle(workout.programDayId, hour) : Promise.resolve(workout.title)]);
 
   const stats = buildWorkoutShareStats(workout);
   const image =

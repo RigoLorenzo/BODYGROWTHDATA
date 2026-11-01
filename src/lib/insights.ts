@@ -22,7 +22,8 @@ import { it } from "date-fns/locale";
 export interface ActivityItem {
   id: string;
   startedAt: Date;
-  kind: "gym" | "run";
+  /** palestra, corsa, oppure bici e altre attività importate dall'orologio */
+  kind: "gym" | "run" | "cardio";
   /** secondi */
   duration: number;
   volume: number;
@@ -39,28 +40,42 @@ export interface Totals {
   gym: number;
   runs: number;
   duration: number;
-  /** secondi in palestra (il resto è corsa) */
+  /** bici, camminate, nuoto… */
+  other: number;
+  /** secondi per tipo */
   gymDuration: number;
+  runDuration: number;
+  otherDuration: number;
   volume: number;
   sets: number;
+  /** metri di corsa (bici e altro a parte) */
   distance: number;
+  otherDistance: number;
   activeDays: number;
 }
 
 const WEEK = { weekStartsOn: 1 } as const;
 const dayKey = (d: Date) => format(d, "yyyy-MM-dd");
 
+const sum = (list: ActivityItem[], value: (i: ActivityItem) => number) => list.reduce((s, i) => s + value(i), 0);
+
 export function totals(items: ActivityItem[]): Totals {
   const gym = items.filter((i) => i.kind === "gym");
+  const runs = items.filter((i) => i.kind === "run");
+  const other = items.filter((i) => i.kind === "cardio");
   return {
     sessions: items.length,
     gym: gym.length,
-    runs: items.length - gym.length,
-    duration: items.reduce((s, i) => s + i.duration, 0),
-    gymDuration: gym.reduce((s, i) => s + i.duration, 0),
-    volume: Math.round(gym.reduce((s, i) => s + i.volume, 0)),
-    sets: gym.reduce((s, i) => s + i.sets, 0),
-    distance: items.reduce((s, i) => s + i.distance, 0),
+    runs: runs.length,
+    other: other.length,
+    duration: sum(items, (i) => i.duration),
+    gymDuration: sum(gym, (i) => i.duration),
+    runDuration: sum(runs, (i) => i.duration),
+    otherDuration: sum(other, (i) => i.duration),
+    volume: Math.round(sum(gym, (i) => i.volume)),
+    sets: sum(gym, (i) => i.sets),
+    distance: sum(runs, (i) => i.distance),
+    otherDistance: sum(other, (i) => i.distance),
     activeDays: new Set(items.map((i) => dayKey(i.startedAt))).size,
   };
 }
@@ -141,11 +156,11 @@ export const WEEKDAYS = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Vener
 
 /** Per giorno della settimana (0 = lunedì): sedute, tempo totale e medio */
 export function weekdayStats(items: ActivityItem[]) {
-  const days = WEEKDAYS.map((name) => ({ name, sessions: 0, gym: 0, runs: 0, duration: 0, avgDuration: 0 }));
+  const days = WEEKDAYS.map((name) => ({ name, sessions: 0, gym: 0, runs: 0, other: 0, duration: 0, avgDuration: 0 }));
   for (const i of items) {
     const d = days[(getDay(i.startedAt) + 6) % 7];
     d.sessions++;
-    d[i.kind === "gym" ? "gym" : "runs"]++;
+    d[i.kind === "gym" ? "gym" : i.kind === "run" ? "runs" : "other"]++;
     d.duration += i.duration;
   }
   for (const d of days) d.avgDuration = d.sessions ? Math.round(d.duration / d.sessions) : 0;

@@ -7,6 +7,8 @@ export interface BarDatum {
   primary: number;
   /** corsa, impilata sopra */
   secondary?: number;
+  /** bici e altre attività, in cima */
+  tertiary?: number;
   /** testo sopra la barra */
   caption?: string;
   highlight?: boolean;
@@ -64,13 +66,13 @@ export function StackedBars({
   /** Barre toccabili: riceve la chiave della barra scelta */
   onSelect?: (key: string) => void;
 }) {
-  const max = Math.max(1, ...data.map((d) => d.primary + (d.secondary ?? 0)));
+  const max = Math.max(1, ...data.map((d) => d.primary + (d.secondary ?? 0) + (d.tertiary ?? 0)));
   const last = data.length - 1;
   return (
     <div className={className}>
       <div className="flex items-end gap-1.5" style={{ height }}>
         {data.map((d) => {
-          const total = d.primary + (d.secondary ?? 0);
+          const total = d.primary + (d.secondary ?? 0) + (d.tertiary ?? 0);
           return (
             <Column
               key={d.key}
@@ -84,6 +86,7 @@ export function StackedBars({
                 </span>
               )}
               <div className="flex w-full flex-col justify-end overflow-hidden rounded-t-md" style={{ height: `${(total / max) * 100}%` }}>
+                {!!d.tertiary && <div className="w-full bg-sky-500" style={{ flexGrow: d.tertiary }} />}
                 {!!d.secondary && <div className="w-full bg-lime-500" style={{ flexGrow: d.secondary }} />}
                 {!!d.primary && <div className={cn("w-full", d.highlight ? "bg-foreground" : "bg-foreground/60")} style={{ flexGrow: d.primary }} />}
               </div>
