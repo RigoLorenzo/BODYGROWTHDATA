@@ -11,6 +11,7 @@ import { cn, getMuscleColor, getMuscleLabel } from "@/lib/utils";
 import { formatNumberIt } from "@/lib/workout-share";
 import { ChevronLeft, Trash2, Share2 } from "lucide-react";
 import { WorkoutSummaryCard } from "./workout-summary-card";
+import { ImportedActivityCard, SOURCE_NAME } from "./imported-activity-card";
 import { ShareWorkoutDialog } from "./share/share-workout-dialog";
 import Link from "next/link";
 import { toast } from "@/hooks/use-toast";
@@ -87,6 +88,8 @@ const setTypeLabel: Record<string, string> = {
 };
 
 export function SessionDetail({ workout, dayName = null }: Props) {
+  // Bici, camminate… importate dall'orologio: niente serie né tonnellaggio
+  const importedCardio = workout.workoutType === "CARDIO" && !!workout.sportType;
   const router = useRouter();
   const queryClient = useQueryClient();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -119,14 +122,16 @@ export function SessionDetail({ workout, dayName = null }: Props) {
           <ChevronLeft className="h-5 w-5" />
         </Link>
         <h1 className="min-w-0 flex-1 truncate font-display text-3xl font-bold uppercase tracking-wide">Allenamento</h1>
-        <button
-          type="button"
-          aria-label="Condividi allenamento"
-          onClick={() => setShareOpen(true)}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-muted active:scale-95"
-        >
-          <Share2 className="h-4 w-4" />
-        </button>
+        {!importedCardio && (
+          <button
+            type="button"
+            aria-label="Condividi allenamento"
+            onClick={() => setShareOpen(true)}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-muted active:scale-95"
+          >
+            <Share2 className="h-4 w-4" />
+          </button>
+        )}
         <button
           type="button"
           aria-label="Elimina allenamento"
@@ -138,15 +143,28 @@ export function SessionDetail({ workout, dayName = null }: Props) {
       </header>
       <ShareWorkoutDialog sessionId={workout.id} open={shareOpen} onOpenChange={setShareOpen} />
 
-      <WorkoutSummaryCard workout={workout} dayName={dayName} />
+      {importedCardio ? (
+        <ImportedActivityCard activity={workout} />
+      ) : (
+        <WorkoutSummaryCard workout={workout} dayName={dayName} />
+      )}
 
-      <Section title="Serie" hint="Tutte le serie, riscaldamento compreso">
-        <div className="space-y-5">
-          {workout.exercises.map((ex) => (
-            <ExerciseSets key={ex.id} exercise={ex} />
-          ))}
-        </div>
-      </Section>
+      {workout.exercises.length > 0 && (
+        <Section
+          title="Serie"
+          hint={
+            workout.source
+              ? `Dai totali registrati da ${SOURCE_NAME[workout.source] ?? "smartwatch"}: ripetizioni e carico medio per serie`
+              : "Tutte le serie, riscaldamento compreso"
+          }
+        >
+          <div className="space-y-5">
+            {workout.exercises.map((ex) => (
+              <ExerciseSets key={ex.id} exercise={ex} />
+            ))}
+          </div>
+        </Section>
+      )}
 
       {/* Delete confirm */}
       <AnimatePresence>

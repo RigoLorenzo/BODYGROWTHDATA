@@ -1,3 +1,4 @@
+import type { ExternalWorkoutInput } from "@/lib/activities/repository";
 import type { RunInput } from "@/lib/run/repository";
 import type { FdsContext, SportRecord } from "./client";
 
@@ -95,5 +96,62 @@ export function mapSportRecord(record: SportRecord): RunInput | null {
     calories: num(report.calories) ?? num(report.total_cal),
     // Il tapis roulant non ha GPS: niente da scaricare dopo
     detailed: sportType === "Treadmill",
+  };
+}
+
+/**
+ * Codici Mi Fitness verificati sull'app (progetto mifit, MIT): 1 corsa,
+ * 6 bici, 300 macchina per le scale, 308 allenamento di forza. Per gli altri
+ * si usa il nome del record (key/category, es. "strength_training").
+ */
+const OTHER_TYPES: Record<number, { kind: "strength" | "cardio"; sportType: string; label: string }> = {
+  6: { kind: "cardio", sportType: "Ride", label: "Giro in bici" },
+  300: { kind: "cardio", sportType: "StairStepper", label: "Scale" },
+  308: { kind: "strength", sportType: "Strength", label: "Allenamento di forza" },
+};
+
+function typeFromKey(text: string): { kind: "strength" | "cardio"; sportType: string; label: string } {
+  if (/strength|gym|weight/.test(text)) return OTHER_TYPES[308];
+  if (/cycl|bik|rid/.test(text)) return OTHER_TYPES[6];
+  if (/walk/.test(text)) return { kind: "cardio", sportType: "Walk", label: "Camminata" };
+  if (/hik|climb/.test(text)) return { kind: "cardio", sportType: "Hike", label: "Escursione" };
+  if (/swim/.test(text)) return { kind: "cardio", sportType: "Swim", label: "Nuoto" };
+  if (/row/.test(text)) return { kind: "cardio", sportType: "Row", label: "Vogatore" };
+  if (/ellip/.test(text)) return { kind: "cardio", sportType: "Elliptical", label: "Ellittica" };
+  if (/yoga/.test(text)) return { kind: "cardio", sportType: "Yoga", label: "Yoga" };
+  return { kind: "cardio", sportType: "Workout", label: "Allenamento" };
+}
+
+/** Allenamento Mi Fitness che non è una corsa → seduta (palestra, bici, altro) */
+export function mapOtherSportRecord(record: SportRecord): ExternalWorkoutInput | null {
+  const report = parseReport(record);
+  const code = num(report.sport_type);
+  if (code != null && RUN_TYPES[code]) return null;
+  const start = num(report.start_time) ?? num(record.time);
+  const end = num(report.end_time);
+  const duration = num(report.duration) ?? (start && end ? end - start : null);
+  if (!start || !duration || duration <= 0 || !record.sid) return null;
+
+  const type = (code != null && OTHER_TYPES[code]) || typeFromKey(`${record.key ?? ""} ${record.category ?? ""}`.toLowerCase());
+  const timezone = num(report.timezone);
+  const distance = num(report.distance);
+  return {
+    source: "MI_FITNESS",
+    externalId: externalIdFor({
+      sid: record.sid,
+      timestamp: num(report.time) ?? start,
+      protoType: num(report.proto_type) ?? code ?? 0,
+      timezone: timezone ?? 0,
+    }),
+    kind: type.kind,
+    // L'orologio non dà un nome: quello del tipo di attività
+    title: type.label,
+    sportType: type.sportType,
+    startedAt: new Date(start * 1000),
+    duration: Math.round(duration),
+    distance: distance && distance > 0 ? Math.round(distance) : null,
+    avgHeartRate: num(report.avg_hrm) || null,
+    maxHeartRate: num(report.max_hrm) || null,
+    calories: num(report.calories) ?? num(report.total_cal),
   };
 }

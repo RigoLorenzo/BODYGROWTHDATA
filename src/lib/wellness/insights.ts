@@ -60,7 +60,9 @@ export function trainingByDay(activity: ActivityItem[]): Map<string, TrainingDay
   for (const a of activity) {
     const key = dayKey(a.startedAt);
     const day = days.get(key) ?? { kind: "rest" as DayKind, minutes: 0, lastHour: 0 };
-    const kind: DayKind = day.kind === "rest" || day.kind === a.kind ? a.kind : "both";
+    // Bici e altre attività di resistenza pesano sul sonno come la corsa
+    const activity: DayKind = a.kind === "gym" ? "gym" : "run";
+    const kind: DayKind = day.kind === "rest" || day.kind === activity ? activity : "both";
     days.set(key, {
       kind,
       minutes: day.minutes + a.duration / 60,

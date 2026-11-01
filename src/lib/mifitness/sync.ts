@@ -1,12 +1,13 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { decryptSecret, encryptSecret } from "@/lib/crypto";
+import { deleteExternalWorkout, saveExternalWorkout } from "@/lib/activities/repository";
 import { deleteRun, saveRun } from "@/lib/run/repository";
 import { analyzeTrack } from "@/lib/run/track";
 import { updateUserStreak } from "@/lib/streak-calculator";
 import { adoptWellnessSource, releaseWellnessSource } from "@/lib/devices/source";
 import { MiFitnessError, discoverRegion, downloadGpsTrack, listSportRecords, login, type XiaomiSession } from "./client";
-import { mapSportRecord, parseExternalId } from "./mapping";
+import { mapOtherSportRecord, mapSportRecord, parseExternalId } from "./mapping";
 import { syncWellness } from "./wellness-sync";
 
 /** Sessione dal collegamento salvato; il passToken ruotato viene risalvato */
@@ -161,7 +162,14 @@ export async function syncMiFitness(
     const result = await listSportRecords(session, conn.region, { startTime: since, endTime: now + DAY, nextKey });
     for (const record of result.records) {
       const input = mapSportRecord(record);
-      if (!input) continue;
+      if (!input) {
+        // Palestra, bici e il resto diventano sedute
+        const other = mapOtherSportRecord(record);
+        if (!other) continue;
+        if (record.deleted) await deleteExternalWorkout(userId, "MI_FITNESS", other.externalId);
+        else if ((await saveExternalWorkout(userId, other)) !== "duplicate") imported++;
+        continue;
+      }
       if (record.deleted) {
         const existing = await prisma.runActivity.findFirst({
           where: { userId, source: "MI_FITNESS", externalId: input.externalId },

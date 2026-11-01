@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import { jwtExpiry } from "../client";
 import { offsetHour, zoneHour } from "@/lib/wellness/heart";
-import { dayOffset, garminTime, isRun, mapActivity, mapDailyHeartRate, mapDailySummary, mapSleep } from "../mapping";
+import { dayOffset, garminTime, isRun, mapActivity, mapDailyHeartRate, mapDailySummary, mapOtherActivity, mapSleep } from "../mapping";
 
 describe("istanti Garmin", () => {
   it("millisecondi, testi numerici, ISO senza fuso (UTC) e { date }", () => {
@@ -227,5 +227,42 @@ describe("sonno: fasi e orologi senza REM", () => {
     const [night] = mapSleep(base);
     expect(night.stages).toEqual([]);
     expect(night).toMatchObject({ deep: 100, light: 350, awake: 30 });
+  });
+});
+
+describe("attività che non sono corse", () => {
+  const base = { activityId: 555, startTimeGMT: "2026-10-30 17:00:00", duration: 3600, elapsedDuration: 3700, averageHR: 118, calories: 420 };
+
+  it("palestra: esercizi con serie, ripetizioni e volume dai grammi", () => {
+    const gym = mapOtherActivity({
+      ...base,
+      activityName: "Forza",
+      activityType: { typeId: 13, typeKey: "strength_training", parentTypeId: 29 },
+      summarizedExerciseSets: [
+        { category: "BENCH_PRESS", subCategory: "BARBELL_BENCH_PRESS", sets: 4, reps: 32, volume: 2_560_000, maxWeight: 85_000 },
+        { category: "UNKNOWN", sets: 0, reps: 0 },
+      ],
+    });
+    expect(gym).toMatchObject({
+      source: "GARMIN",
+      externalId: "555",
+      kind: "strength",
+      sportType: "Strength",
+      title: "Forza",
+      duration: 3700,
+      exercises: [{ category: "BENCH_PRESS", subCategory: "BARBELL_BENCH_PRESS", sets: 4, reps: 32, volumeKg: 2560, maxWeightKg: 85 }],
+    });
+  });
+
+  it("bici, bici indoor e camminata con il loro tipo", () => {
+    const ride = mapOtherActivity({ ...base, distance: 32_400, activityType: { typeId: 2, typeKey: "road_biking", parentTypeId: 2 } });
+    expect(ride).toMatchObject({ kind: "cardio", sportType: "Ride", title: "Giro in bici", distance: 32_400 });
+    expect(mapOtherActivity({ ...base, activityType: { typeKey: "indoor_cycling" } })?.sportType).toBe("IndoorRide");
+    expect(mapOtherActivity({ ...base, activityType: { typeKey: "walking" } })?.title).toBe("Camminata");
+    expect(mapOtherActivity({ ...base, activityType: { typeKey: "tennis" } })).toMatchObject({ sportType: "Workout", title: "Tennis" });
+  });
+
+  it("le corse restano nella sezione Corsa", () => {
+    expect(mapOtherActivity({ ...base, distance: 5000, activityType: { typeId: 1, typeKey: "running" } })).toBeNull();
   });
 });

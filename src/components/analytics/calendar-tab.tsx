@@ -17,17 +17,26 @@ import {
   subWeeks,
 } from "date-fns";
 import { it } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Dumbbell, Footprints } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { WorkoutHistoryList } from "@/components/calendar/workout-history-list";
 import { byDay, totals, type ActivityItem } from "@/lib/insights";
-import { formatKm } from "@/lib/run/format";
-import { cn, formatVolume } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { formatHours } from "./format";
+import { KIND_STYLE, activityMetric } from "./activity-kind";
 import { ActivityLegend, Section } from "./ui";
 import { activityHref, useActivity } from "./use-activity";
 
 const dayKey = (d: Date) => format(d, "yyyy-MM-dd");
+
+function KindIcon({ kind }: { kind: ActivityItem["kind"] }) {
+  const { icon: Icon, tile } = KIND_STYLE[kind];
+  return (
+    <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", tile)}>
+      <Icon className="h-4 w-4" />
+    </span>
+  );
+}
 
 /** Le sedute di un giorno, con link al dettaglio */
 function DayDetail({ day, items }: { day: Date; items: ActivityItem[] }) {
@@ -41,23 +50,14 @@ function DayDetail({ day, items }: { day: Date; items: ActivityItem[] }) {
           {items.map((i) => (
             <li key={i.id}>
               <Link href={activityHref(i)} className="flex items-center gap-3 rounded-2xl bg-muted/60 p-3 active:bg-muted">
-                <span
-                  className={cn(
-                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
-                    i.kind === "run" ? "bg-lime-500/15 text-lime-700 dark:text-lime-400" : "bg-foreground/10"
-                  )}
-                >
-                  {i.kind === "run" ? <Footprints className="h-4 w-4" /> : <Dumbbell className="h-4 w-4" />}
-                </span>
+                <KindIcon kind={i.kind} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold">{i.title}</p>
                   <p className="text-xs text-muted-foreground">
                     {format(i.startedAt, "HH:mm")} · {formatHours(i.duration)}
                   </p>
                 </div>
-                <p className="shrink-0 font-display text-lg font-bold tabular-nums">
-                  {i.kind === "run" ? `${formatKm(i.distance)} km` : formatVolume(i.volume)}
-                </p>
+                <p className="shrink-0 font-display text-lg font-bold tabular-nums">{activityMetric(i)}</p>
               </Link>
             </li>
           ))}
@@ -92,7 +92,7 @@ function MonthCalendar({ items }: { items: ActivityItem[] }) {
         <div className="text-center">
           <h2 className="font-display text-xl font-bold uppercase tracking-wide">{format(month, "MMMM yyyy", { locale: it })}</h2>
           <p className="text-xs text-muted-foreground">
-            {t.gym} palestra · {t.runs} corse · {formatHours(t.duration)}
+            {t.gym} palestra · {t.runs} corse{t.other > 0 ? ` · ${t.other} bici e altro` : ""} · {formatHours(t.duration)}
           </p>
         </div>
         <button onClick={() => go(1)} aria-label="Mese successivo" className="-mr-2 flex h-11 w-11 items-center justify-center rounded-full active:bg-muted">
@@ -113,6 +113,7 @@ function MonthCalendar({ items }: { items: ActivityItem[] }) {
           const list = days.get(dayKey(day)) ?? [];
           const gym = list.some((i) => i.kind === "gym");
           const run = list.some((i) => i.kind === "run");
+          const other = list.some((i) => i.kind === "cardio");
           const isSelected = isSameDay(day, selected);
           return (
             <button
@@ -130,12 +131,13 @@ function MonthCalendar({ items }: { items: ActivityItem[] }) {
               <span className="flex h-1.5 gap-0.5">
                 {gym && <span className={cn("h-1.5 w-1.5 rounded-full", isSelected ? "bg-background" : "bg-foreground")} />}
                 {run && <span className="h-1.5 w-1.5 rounded-full bg-lime-500" />}
+                {other && <span className="h-1.5 w-1.5 rounded-full bg-sky-500" />}
               </span>
             </button>
           );
         })}
       </div>
-      <ActivityLegend className="mt-3 justify-center" />
+      <ActivityLegend className="mt-3 justify-center" other={items.some((i) => i.kind === "cardio")} />
       <DayDetail day={selected} items={days.get(dayKey(selected)) ?? []} />
     </section>
   );
@@ -178,13 +180,22 @@ function Heatmap({ items }: { items: ActivityItem[] }) {
             const list = days.get(dayKey(day)) ?? [];
             const seconds = list.reduce((s, i) => s + i.duration, 0);
             const onlyRun = list.length > 0 && list.every((i) => i.kind === "run");
+            const onlyOther = list.length > 0 && list.every((i) => i.kind === "cardio");
             return (
               <span
                 key={dayKey(day)}
                 title={`${format(day, "d MMM", { locale: it })}${list.length ? ` · ${formatHours(seconds)}` : ""}`}
                 className={cn(
                   "aspect-square rounded-[3px]",
-                  day > today ? "bg-transparent" : !list.length ? "bg-muted" : onlyRun ? "bg-lime-500" : shade(seconds)
+                  day > today
+                    ? "bg-transparent"
+                    : !list.length
+                      ? "bg-muted"
+                      : onlyRun
+                        ? "bg-lime-500"
+                        : onlyOther
+                          ? "bg-sky-500"
+                          : shade(seconds)
                 )}
                 style={{ gridRow: d + 2 }}
               />
@@ -200,8 +211,15 @@ function Heatmap({ items }: { items: ActivityItem[] }) {
           ))}
           Più tempo
         </span>
-        <span className="flex items-center gap-1">
-          <span className="h-2.5 w-2.5 rounded-[3px] bg-lime-500" /> Solo corsa
+        <span className="flex items-center gap-3">
+          <span className="flex items-center gap-1">
+            <span className="h-2.5 w-2.5 rounded-[3px] bg-lime-500" /> Solo corsa
+          </span>
+          {items.some((i) => i.kind === "cardio") && (
+            <span className="flex items-center gap-1">
+              <span className="h-2.5 w-2.5 rounded-[3px] bg-sky-500" /> Bici e altro
+            </span>
+          )}
         </span>
       </div>
     </Section>

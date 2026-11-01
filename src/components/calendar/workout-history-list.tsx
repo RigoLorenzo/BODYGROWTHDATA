@@ -12,8 +12,13 @@ import { it } from "date-fns/locale";
 import Link from "next/link";
 import { formatKm, formatPace, paceSecondsPerKm } from "@/lib/run/format";
 
+/** Bici, camminate… importate dall'orologio: distanza e tempo invece di volume e serie */
+const isImportedCardio = (w: WorkoutItem) => w.workoutType === "CARDIO" && !!w.sportType && !w.run;
+const formatMinutes = (seconds?: number | null) => (seconds ? `${Math.round(seconds / 60)} min` : "—");
+
 const workoutTitle = (w: WorkoutItem) =>
   w.run?.name ??
+  w.title ??
   w.programDayName ??
   (w.workoutType === "CUSTOM" ? w.exercises?.[0]?.exercise?.name ?? "Allenamento" : w.workoutType);
 
@@ -43,6 +48,11 @@ interface WorkoutItem {
   endedAt?: string | null;
   totalVolume: number;
   totalSets: number;
+  /** attività importate dall'orologio (bici, palestra…) */
+  title?: string | null;
+  sportType?: string | null;
+  distance?: number | null;
+  duration?: number | null;
   programDayId?: string | null;
   programDayName?: string | null;
   notes?: string | null;
@@ -212,6 +222,13 @@ export function WorkoutHistoryList() {
                               <p className="text-xs text-muted-foreground">
                                 {formatPace(paceSecondsPerKm(workout.run.distance, workout.run.movingTime))}/km
                               </p>
+                            </div>
+                          ) : isImportedCardio(workout) ? (
+                            <div className="text-right shrink-0">
+                              <p className="text-sm font-semibold tabular-nums">
+                                {workout.distance ? `${formatKm(workout.distance)} km` : formatMinutes(workout.duration)}
+                              </p>
+                              <p className="text-xs text-muted-foreground">{workout.distance ? formatMinutes(workout.duration) : "attività"}</p>
                             </div>
                           ) : (
                             <div className="text-right shrink-0">

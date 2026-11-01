@@ -89,16 +89,21 @@ export function Segmented<T extends string>({
   );
 }
 
-/** Legenda palestra/corsa usata da grafici e calendario */
-export function ActivityLegend({ className }: { className?: string }) {
+/** Legenda palestra/corsa (e bici e altro, se ci sono) usata da grafici e calendario */
+export function ActivityLegend({ className, other = false }: { className?: string; other?: boolean }) {
   return (
-    <div className={cn("flex items-center gap-4 text-xs text-muted-foreground", className)}>
+    <div className={cn("flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground", className)}>
       <span className="flex items-center gap-1.5">
         <span className="h-2.5 w-2.5 rounded-sm bg-foreground/80" /> Palestra
       </span>
       <span className="flex items-center gap-1.5">
         <span className="h-2.5 w-2.5 rounded-sm bg-lime-500" /> Corsa
       </span>
+      {other && (
+        <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-sm bg-sky-500" /> Bici e altro
+        </span>
+      )}
     </div>
   );
 }

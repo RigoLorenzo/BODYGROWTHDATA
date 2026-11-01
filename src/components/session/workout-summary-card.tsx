@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion, useReducedMotion, type Variants } from "framer-motion";
-import { CalendarDays, ChevronDown, Share2, Trophy, X } from "lucide-react";
+import { CalendarDays, ChevronDown, Share2, Trophy, Watch, X } from "lucide-react";
 import type { Prisma } from "@prisma/client";
 import { cn } from "@/lib/utils";
 import { splitDayName } from "@/lib/plan-format";
@@ -18,6 +18,7 @@ import {
 } from "@/lib/workout-share";
 import { heroMetric, hiddenExercisesText, recordCountText } from "./share/share-image-kit";
 import { ShareWorkoutDialog } from "./share/share-workout-dialog";
+import { SOURCE_NAME } from "./imported-activity-card";
 
 type WorkoutDetail = Prisma.WorkoutSessionGetPayload<{
   include: {
@@ -212,7 +213,7 @@ export function WorkoutSummaryCard({ workout, dayName, celebrate = false, onClos
 
   const started = new Date(workout.startedAt);
   const day = dayName ? splitDayName(dayName, 0) : null;
-  const title = day?.title ?? timeOfDayTitle(started.getHours());
+  const title = day?.title ?? workout.title ?? timeOfDayTitle(started.getHours());
   const dateLabel = started.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" });
   const timeLabel = started.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
   const animate = celebrate && !reduce;
@@ -239,6 +240,11 @@ export function WorkoutSummaryCard({ workout, dayName, celebrate = false, onClos
             <span className="truncate">{dateLabel}</span>
             <span className="text-zinc-500">· {timeLabel}</span>
           </p>
+          {workout.source && (
+            <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-zinc-300">
+              <Watch className="h-3.5 w-3.5" aria-hidden /> da {SOURCE_NAME[workout.source] ?? "smartwatch"}
+            </p>
+          )}
           <h2 className="mt-2 flex items-end gap-2.5 font-display font-extrabold uppercase leading-[0.9]">
             {day?.code && <span className="text-5xl text-[#d4ff3a]">{day.code}</span>}
             <span suppressHydrationWarning className={cn("min-w-0 break-words", title.length > 18 ? "text-3xl" : "text-4xl")}>

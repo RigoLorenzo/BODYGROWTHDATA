@@ -14,3 +14,15 @@ BEGIN
     CREATE UNIQUE INDEX IF NOT EXISTS "WellnessDay_userId_source_date_key" ON "WellnessDay" ("userId", "source", "date");
   END IF;
 END $$;
+
+-- Sedute importate dagli smartwatch: colonne nuove (tutte vuote) e vincolo
+-- unico sull'attività di origine. Con valori NULL non ci sono duplicati.
+DO $$
+BEGIN
+  IF to_regclass('"WorkoutSession"') IS NOT NULL THEN
+    ALTER TABLE "WorkoutSession" ADD COLUMN IF NOT EXISTS "source" "ActivitySource";
+    ALTER TABLE "WorkoutSession" ADD COLUMN IF NOT EXISTS "externalId" TEXT;
+    CREATE UNIQUE INDEX IF NOT EXISTS "WorkoutSession_userId_source_externalId_key"
+      ON "WorkoutSession" ("userId", "source", "externalId");
+  END IF;
+END $$;
