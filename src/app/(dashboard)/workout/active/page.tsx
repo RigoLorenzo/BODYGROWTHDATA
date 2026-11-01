@@ -23,6 +23,8 @@ export default function ActiveWorkoutPage() {
   // Il riepilogo vive qui: la sessione locale viene chiusa al salvataggio,
   // ma il resoconto (durata, volume, serie) deve restare a schermo.
   const [completedWorkout, setCompletedWorkout] = useState<CompletedWorkout | null>(null);
+  // Il nome del giorno del piano va letto prima che la sessione locale si chiuda
+  const [completedDayName, setCompletedDayName] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -50,12 +52,16 @@ export default function ActiveWorkoutPage() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="fixed inset-0 z-50 bg-black/80 overflow-y-auto p-4 flex flex-col justify-center"
+          className="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-sm"
         >
-          <WorkoutSummaryCard
-            workout={completedWorkout}
-            onClose={() => router.replace("/dashboard")}
-          />
+          <div className="mx-auto flex min-h-full max-w-xl flex-col justify-center px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-[calc(1rem+env(safe-area-inset-top))]">
+            <WorkoutSummaryCard
+              workout={completedWorkout}
+              dayName={completedDayName}
+              celebrate
+              onClose={() => router.replace("/dashboard")}
+            />
+          </div>
         </motion.div>
       </AnimatePresence>
     );
@@ -67,6 +73,7 @@ export default function ActiveWorkoutPage() {
     <ActiveWorkoutView
       session={activeSession}
       onCompleted={(workout) => {
+        setCompletedDayName(activeSession.programDayName ?? null);
         setCompletedWorkout(workout);
         endSession();
       }}

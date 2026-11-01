@@ -5,12 +5,11 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Prisma } from "@prisma/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { formatDate, getMuscleColor, getMuscleLabel } from "@/lib/utils";
-import { ChevronLeft, Trash2, Star, Share2 } from "lucide-react";
+import { Section } from "@/components/analytics/ui";
+import { cn, getMuscleColor, getMuscleLabel } from "@/lib/utils";
+import { formatNumberIt } from "@/lib/workout-share";
+import { ChevronLeft, Trash2, Share2 } from "lucide-react";
 import { WorkoutSummaryCard } from "./workout-summary-card";
 import { ShareWorkoutDialog } from "./share/share-workout-dialog";
 import Link from "next/link";
@@ -25,6 +24,58 @@ type WorkoutDetail = Prisma.WorkoutSessionGetPayload<{
 
 interface Props {
   workout: WorkoutDetail;
+  dayName?: string | null;
+}
+
+type ExerciseDetail = WorkoutDetail["exercises"][number];
+
+/** Le serie di un esercizio: carico × ripetizioni e volume, riscaldamento attenuato */
+function ExerciseSets({ exercise }: { exercise: ExerciseDetail }) {
+  const muscle = exercise.exercise?.primaryMuscle ?? "FULL_BODY";
+  return (
+    <div>
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 h-9 w-1 shrink-0 rounded-full" style={{ background: getMuscleColor(muscle) }} aria-hidden />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold">{exercise.exercise?.name}</p>
+          <p className="truncate text-xs text-muted-foreground">
+            {[exercise.exercise?.nameIt, getMuscleLabel(muscle)].filter(Boolean).join(" · ")}
+          </p>
+        </div>
+      </div>
+      <table className="mt-2 w-full text-sm">
+        <thead>
+          <tr className="text-left text-[10px] uppercase tracking-wider text-muted-foreground">
+            <th className="w-10 pb-1 font-medium">#</th>
+            <th className="pb-1 font-medium">Serie</th>
+            <th className="pb-1 text-right font-medium">Volume</th>
+          </tr>
+        </thead>
+        <tbody>
+          {exercise.sets.map((set) => {
+            const warmup = set.type === "WARMUP";
+            const load = set.weight ? `${formatNumberIt(set.weight, 1)} kg × ${set.reps ?? 0}` : set.reps ? `${set.reps} rip.` : "—";
+            return (
+              <tr key={set.id} className={cn("border-t border-border/60", warmup && "text-muted-foreground")}>
+                <td className="py-2 tabular-nums">{set.setNumber}</td>
+                <td className="py-2">
+                  <span className="font-display text-base font-semibold tabular-nums">{load}</span>
+                  {set.type !== "WORKING" && (
+                    <span className="ml-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                      {setTypeLabel[set.type] ?? set.type}
+                    </span>
+                  )}
+                </td>
+                <td className="py-2 text-right tabular-nums text-muted-foreground">
+                  {(set.volume ?? 0) > 0 ? `${formatNumberIt(set.volume!)} kg` : "—"}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 const setTypeLabel: Record<string, string> = {
@@ -35,10 +86,9 @@ const setTypeLabel: Record<string, string> = {
   MYOREP: "Myo-rep",
 };
 
-export function SessionDetail({ workout }: Props) {
+export function SessionDetail({ workout, dayName = null }: Props) {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const prs = workout.personalRecords ?? [];
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
 
@@ -59,111 +109,44 @@ export function SessionDetail({ workout }: Props) {
   });
 
   return (
-    <div className="container max-w-2xl mx-auto p-4 space-y-4">
-      <div className="flex items-center justify-between pt-2">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon-sm" className="shrink-0" asChild>
-            <Link href="/dashboard" aria-label="Indietro"><ChevronLeft className="h-5 w-5" /></Link>
-          </Button>
-          <div>
-            <h1 className="text-xl font-bold">Dettaglio Allenamento</h1>
-            <p className="text-sm text-muted-foreground">{formatDate(workout.startedAt)}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon-sm" aria-label="Condividi allenamento" onClick={() => setShareOpen(true)}>
-            <Share2 className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Elimina allenamento"
-            className="text-destructive hover:text-destructive"
-            onClick={() => setShowDeleteConfirm(true)}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
+    <div className="container mx-auto max-w-xl space-y-5 px-4 pb-6 pt-3">
+      <header className="flex items-center gap-1">
+        <Link
+          href="/dashboard"
+          aria-label="Indietro"
+          className="-ml-3 flex h-11 w-11 shrink-0 items-center justify-center rounded-full active:bg-muted"
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </Link>
+        <h1 className="min-w-0 flex-1 truncate font-display text-3xl font-bold uppercase tracking-wide">Allenamento</h1>
+        <button
+          type="button"
+          aria-label="Condividi allenamento"
+          onClick={() => setShareOpen(true)}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-muted active:scale-95"
+        >
+          <Share2 className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          aria-label="Elimina allenamento"
+          onClick={() => setShowDeleteConfirm(true)}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-destructive active:bg-destructive/10"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </header>
       <ShareWorkoutDialog sessionId={workout.id} open={shareOpen} onOpenChange={setShareOpen} />
 
-      {/* Summary card */}
-      <WorkoutSummaryCard workout={workout} />
+      <WorkoutSummaryCard workout={workout} dayName={dayName} />
 
-      {/* PRs */}
-      {prs.length > 0 && (
-        <Card className="border-green-600/30 bg-green-600/10">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Star className="h-4 w-4 text-yellow-700 dark:text-yellow-400" />
-              <p className="font-semibold text-sm">Nuovi Personal Records! 🎉</p>
-            </div>
-            <div className="space-y-1">
-              {prs.map((pr) => (
-                <div key={pr.id} className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">{pr.exercise?.name}</span>
-                  <Badge variant="success">{pr.recordType}: {pr.value.toFixed(1)}</Badge>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Exercises */}
-      <div className="space-y-3">
-        {workout.exercises.map((ex) => (
-          <Card key={ex.id} className="border-border/50">
-            <CardHeader className="pb-2 pt-4 px-4">
-              <div className="flex items-center justify-between">
-                <div className="min-w-0">
-                  <CardTitle className="text-sm">{ex.exercise?.name}</CardTitle>
-                  {ex.exercise?.nameIt && (
-                    <p className="text-xs text-muted-foreground">{ex.exercise.nameIt}</p>
-                  )}
-                </div>
-                {ex.exercise?.primaryMuscle && (
-                  <Badge
-                    style={{
-                      background: `${getMuscleColor(ex.exercise.primaryMuscle)}20`,
-                      color: getMuscleColor(ex.exercise.primaryMuscle),
-                      borderColor: `${getMuscleColor(ex.exercise.primaryMuscle)}40`,
-                    }}
-                    className="border text-[10px]"
-                  >
-                    {getMuscleLabel(ex.exercise.primaryMuscle)}
-                  </Badge>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent className="px-4 pb-4">
-              <div className="space-y-1.5">
-                <div className="grid grid-cols-5 gap-2 text-[10px] text-muted-foreground font-medium">
-                  <span>Serie</span>
-                  <span>Tipo</span>
-                  <span className="text-right">Peso</span>
-                  <span className="text-right">Reps</span>
-                  <span className="text-right">Volume</span>
-                </div>
-                <Separator />
-                {ex.sets.map((set) => (
-                  <div key={set.id} className="grid grid-cols-5 gap-2 text-xs">
-                    <span className="tabular-nums">{set.setNumber}</span>
-                    <span className="text-muted-foreground text-[10px]">
-                      {setTypeLabel[set.type] ?? set.type}
-                    </span>
-                    <span className="text-right tabular-nums">{set.weight ? `${set.weight}kg` : "-"}</span>
-                    <span className="text-right tabular-nums">{set.reps ?? "-"}</span>
-                    <span className="text-right tabular-nums text-muted-foreground">
-                      {(set.volume ?? 0) > 0 ? `${set.volume!.toFixed(0)}kg` : "-"}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <Section title="Serie" hint="Tutte le serie, riscaldamento compreso">
+        <div className="space-y-5">
+          {workout.exercises.map((ex) => (
+            <ExerciseSets key={ex.id} exercise={ex} />
+          ))}
+        </div>
+      </Section>
 
       {/* Delete confirm */}
       <AnimatePresence>
@@ -179,10 +162,10 @@ export function SessionDetail({ workout }: Props) {
               initial={{ y: 50 }}
               animate={{ y: 0 }}
               exit={{ y: 50 }}
-              className="bg-card border border-border rounded-2xl p-6 w-full max-w-sm"
+              className="w-full max-w-sm rounded-3xl border border-border/60 bg-card p-6"
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 className="font-bold text-lg mb-2">Eliminare l&apos;allenamento?</h3>
+              <h3 className="mb-2 font-display text-2xl font-bold uppercase tracking-wide">Eliminare l&apos;allenamento?</h3>
               <p className="text-sm text-muted-foreground mb-4">
                 Questa azione non può essere annullata.
               </p>

@@ -34,6 +34,46 @@ interface Measurement {
   waist?: number | null;
 }
 
+/** Fasce del BMI (OMS) sulla scala 15-35 */
+const BMI_MIN = 15;
+const BMI_MAX = 35;
+const BMI_BANDS = [
+  { to: 18.5, label: "Sotto", className: "bg-sky-400" },
+  { to: 25, label: "Normo", className: "bg-lime-400" },
+  { to: 30, label: "Sovrappeso", className: "bg-amber-400" },
+  { to: BMI_MAX, label: "Obesità", className: "bg-red-400" },
+];
+const bmiPosition = (bmi: number) => ((Math.min(BMI_MAX, Math.max(BMI_MIN, bmi)) - BMI_MIN) / (BMI_MAX - BMI_MIN)) * 100;
+
+/** Dove cade il BMI tra le fasce: più leggibile del solo numero */
+function BmiScale({ bmi }: { bmi: number }) {
+  let from = BMI_MIN;
+  return (
+    <div aria-hidden>
+      <div className="relative pt-3">
+        <span
+          className="absolute top-0 h-0 w-0 -translate-x-1/2 border-x-[6px] border-t-[8px] border-x-transparent border-t-foreground"
+          style={{ left: `${bmiPosition(bmi)}%` }}
+        />
+        <div className="flex h-2 gap-[3px] overflow-hidden rounded-full">
+          {BMI_BANDS.map((band) => {
+            const width = ((band.to - from) / (BMI_MAX - BMI_MIN)) * 100;
+            from = band.to;
+            return <span key={band.label} className={cn("h-full opacity-80", band.className)} style={{ width: `${width}%` }} />;
+          })}
+        </div>
+      </div>
+      <div className="mt-1.5 flex justify-between text-[10px] font-medium tabular-nums text-muted-foreground">
+        <span>{BMI_MIN}</span>
+        <span>18,5</span>
+        <span>25</span>
+        <span>30</span>
+        <span>{BMI_MAX}</span>
+      </div>
+    </div>
+  );
+}
+
 export function BodyStatsCard() {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
@@ -139,7 +179,7 @@ export function BodyStatsCard() {
               {bmi != null && (
                 <Stat
                   label="BMI"
-                  value={<span className={bmiCategory?.color}>{formatDecimal(bmi)}</span>}
+                  value={formatDecimal(bmi)}
                   detail={bmiCategory?.label}
                 />
               )}
@@ -159,6 +199,8 @@ export function BodyStatsCard() {
                 />
               )}
             </div>
+
+            {bmi != null && <BmiScale bmi={bmi} />}
 
             {/* Lettura del BMI: il valore standard non cambia mai */}
             {analysis.reading && analysis.reading.key !== "STANDARD" && (
