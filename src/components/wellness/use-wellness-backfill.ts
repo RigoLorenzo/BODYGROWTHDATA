@@ -38,6 +38,10 @@ export function useWellnessBackfill(data: WellnessResponse | undefined) {
   const [active, setActive] = useState(false);
   const shown = progress ?? data?.progress ?? null;
   const needed = !!data?.connected && !data.needsReconnect && !!data.progress && !data.progress.complete;
+  const source = data?.source ?? null;
+
+  // Cambiata la fonte: l'avanzamento è quello del nuovo orologio
+  useEffect(() => setProgress(null), [source]);
 
   useEffect(() => {
     if (!needed) return;
@@ -73,7 +77,7 @@ export function useWellnessBackfill(data: WellnessResponse | undefined) {
     return () => {
       if (alive()) generation++;
     };
-  }, [needed, qc]);
+  }, [needed, source, qc]);
 
   return { progress: shown, active };
 }

@@ -182,8 +182,8 @@ function GpxForm() {
       />
       <p className="text-xs text-muted-foreground">
         Percorso, parziali al km, migliori tempi, dislivello, frequenza cardiaca e cadenza vengono calcolati dal file.
-        Lo stesso file caricato due volte non crea doppioni. Esporta il GPX da Strava (⋯ → Esporta GPX), da Mi Fitness o
-        da app come HealthFit per Apple Salute.
+        Lo stesso file caricato due volte non crea doppioni. Esporta il GPX da Strava (⋯ → Esporta GPX), da Mi Fitness, da
+        Garmin Connect o da app come HealthFit per Apple Salute.
       </p>
     </div>
   );

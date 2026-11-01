@@ -4,6 +4,7 @@ import type { HistoryTrack, WellnessProgress } from "@/lib/wellness/types";
 /**
  * Quali giorni scaricare e in che ordine (funzioni pure, senza rete né DB):
  * prima i recenti, poi lo storico a ritroso, a blocchi di giorni locali.
+ * Vale per ogni orologio: cambiano solo le dimensioni dei blocchi.
  */
 
 const DAY = 86_400;
@@ -21,6 +22,13 @@ export interface Track {
  */
 export const LIGHT_TRACK: Track = { unitDays: 10, historyDays: WELLNESS_HISTORY_DAYS, refreshDays: 7 };
 export const HEART_TRACK: Track = { unitDays: 1, historyDays: HEART_HISTORY_DAYS, refreshDays: 1 };
+
+/**
+ * Garmin: i riepiloghi arrivano a intervalli fino a 28-31 giorni con due sole
+ * richieste, quindi blocchi grandi; i battiti restano un giorno per richiesta.
+ */
+export const GARMIN_LIGHT_TRACK: Track = { unitDays: 28, historyDays: WELLNESS_HISTORY_DAYS, refreshDays: 7 };
+export const GARMIN_HEART_TRACK: Track = HEART_TRACK;
 
 /** Giorni locali già scaricati: [from, until), come mezzanotti UTC delle date */
 export interface Coverage {
@@ -75,12 +83,13 @@ export function coverageDays(cov: Coverage, track: Track, today: number, floor: 
  */
 export function wellnessProgress(
   conn: { wellnessSyncedFrom: Date | null; wellnessHrFrom: Date | null },
-  firstDataDay: string | null
+  firstDataDay: string | null,
+  tracks: { light: Track; heart: Track } = { light: LIGHT_TRACK, heart: HEART_TRACK }
 ): WellnessProgress {
   const today = utcMidnight(Date.now() / 1000);
-  const light = coverageDays({ from: toEpoch(conn.wellnessSyncedFrom), until: null }, LIGHT_TRACK, today);
+  const light = coverageDays({ from: toEpoch(conn.wellnessSyncedFrom), until: null }, tracks.light, today);
   const floor = light.complete ? heartFloor(firstDataDay) : null;
-  const heart = coverageDays({ from: toEpoch(conn.wellnessHrFrom), until: null }, HEART_TRACK, today, floor);
+  const heart = coverageDays({ from: toEpoch(conn.wellnessHrFrom), until: null }, tracks.heart, today, floor);
   // Finito lo storico, "dal" è il primo giorno con dati, non il limite dei 3 anni
   if (light.complete && firstDataDay) light.since = firstDataDay;
   return { light, heart, complete: light.complete && heart.complete };

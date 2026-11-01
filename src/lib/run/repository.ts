@@ -1,5 +1,6 @@
 import type { ActivitySource, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { shownWellnessSource } from "@/lib/devices/source";
 import { updateUserStreak } from "@/lib/streak-calculator";
 import { DEFAULT_MAX_HR, DEFAULT_RESTING_HR, trimp } from "./load";
 import type { BestEffort, RunSplit } from "./track";
@@ -31,7 +32,7 @@ export interface RunInput {
 /** FC a riposo misurata dallo smartwatch: mediana degli ultimi 30 giorni */
 async function measuredRestingHr(userId: string): Promise<number | null> {
   const days = await prisma.wellnessDay.findMany({
-    where: { userId, restingHr: { not: null } },
+    where: { userId, source: await shownWellnessSource(userId), restingHr: { not: null } },
     orderBy: { date: "desc" },
     take: 30,
     select: { restingHr: true },
@@ -53,7 +54,7 @@ async function heartRateProfile(userId: string) {
 }
 
 const DUPLICATE_WINDOW_MS = 2 * 60_000;
-const SYNCED_SOURCES = new Set<ActivitySource>(["STRAVA", "MI_FITNESS"]);
+const SYNCED_SOURCES = new Set<ActivitySource>(["STRAVA", "MI_FITNESS", "GARMIN"]);
 
 /**
  * Nuovo arrivo della stessa corsa dalla stessa fonte: un riepilogo non

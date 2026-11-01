@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { MiFitnessStatus, RunDetail, RunListItem, RunStats, StravaStatus } from "./types";
+import type { DevicesStatus, GarminStatus, MiFitnessStatus, RunDetail, RunListItem, RunStats, StravaStatus } from "./types";
 
 async function getJson<T>(url: string): Promise<T> {
   const res = await fetch(url);
@@ -30,6 +30,25 @@ export const useStravaStatus = () =>
 export const useMiFitnessStatus = () =>
   useQuery<MiFitnessStatus>({ queryKey: ["mifitness"], queryFn: () => getJson("/api/integrations/mifitness") });
 
+export const useGarminStatus = () =>
+  useQuery<GarminStatus>({ queryKey: ["garmin"], queryFn: () => getJson("/api/integrations/garmin") });
+
+export const devicesQuery = {
+  queryKey: ["devices"],
+  queryFn: () => getJson<DevicesStatus>("/api/integrations/devices"),
+  staleTime: 30_000,
+};
+
+/** Dispositivi collegati e fonte del benessere */
+export const useDevices = () => useQuery<DevicesStatus>(devicesQuery);
+
+/** Stato dei collegamenti dopo collegamento, scollegamento o sincronizzazione */
+export function useInvalidateDevices() {
+  const qc = useQueryClient();
+  return () =>
+    Promise.all([["devices"], ["mifitness"], ["garmin"], ["wellness"]].map((queryKey) => qc.invalidateQueries({ queryKey })));
+}
+
 /**
  * Dopo ogni modifica alle corse: sezione corsa, home, calendario, streak e benessere.
  * `removedId`: corsa appena eliminata, il cui dettaglio non va ricaricato.
@@ -39,7 +58,7 @@ export function useInvalidateRuns() {
   return (removedId?: string) => {
     if (removedId) qc.removeQueries({ queryKey: ["runs", "detail", removedId], exact: true });
     return Promise.all(
-      [["runs"], ["strava"], ["mifitness"], ["sessions"], ["analytics"], ["wellness"]].map((queryKey) =>
+      [["runs"], ["strava"], ["mifitness"], ["garmin"], ["devices"], ["sessions"], ["analytics"], ["wellness"]].map((queryKey) =>
         qc.invalidateQueries({
           queryKey,
           predicate: (q) => !(removedId && q.queryKey[1] === "detail" && q.queryKey[2] === removedId),

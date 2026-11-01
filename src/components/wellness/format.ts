@@ -5,5 +5,5 @@ export function heartDetail(delta: number | null): string | undefined {
   return `${delta > 0 ? "+" : "−"}${Math.round(Math.abs(delta))} bpm sulla norma`;
 }
 
-/** Scala dello stress Xiaomi (1-100) */
+/** Scala dello stress (1-100, simile per Xiaomi e Garmin) */
 export const stressLabel = (v: number) => (v < 30 ? "rilassato" : v < 60 ? "normale" : v < 80 ? "medio-alto" : "alto");

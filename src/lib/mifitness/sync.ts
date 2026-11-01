@@ -4,6 +4,7 @@ import { decryptSecret, encryptSecret } from "@/lib/crypto";
 import { deleteRun, saveRun } from "@/lib/run/repository";
 import { analyzeTrack } from "@/lib/run/track";
 import { updateUserStreak } from "@/lib/streak-calculator";
+import { adoptWellnessSource, releaseWellnessSource } from "@/lib/devices/source";
 import { MiFitnessError, discoverRegion, downloadGpsTrack, listSportRecords, login, type XiaomiSession } from "./client";
 import { mapSportRecord, parseExternalId } from "./mapping";
 import { syncWellness } from "./wellness-sync";
@@ -38,11 +39,14 @@ export async function connectMiFitness(userId: string, xiaomiId: string, passTok
   };
   // Lo stesso account Xiaomi collegato a un altro utente passa a questo
   await prisma.miFitnessConnection.deleteMany({ where: { xiaomiId: data.xiaomiId, NOT: { userId } } });
-  return prisma.miFitnessConnection.upsert({ where: { userId }, update: data, create: { ...data, userId } });
+  const conn = await prisma.miFitnessConnection.upsert({ where: { userId }, update: data, create: { ...data, userId } });
+  await adoptWellnessSource(userId, "MI_FITNESS");
+  return conn;
 }
 
 export async function disconnectMiFitness(userId: string) {
   await prisma.miFitnessConnection.deleteMany({ where: { userId } });
+  await releaseWellnessSource(userId, "MI_FITNESS");
 }
 
 /** Percorso, parziali e migliori tempi dalla traccia GPS */
@@ -118,8 +122,12 @@ const TRACK_RESERVE_MS = 20_000;
 /** Riga di log per capire cosa è arrivato: solo conteggi e date */
 async function logSync(userId: string, summary: Record<string, unknown>) {
   const [sleep, resting, conn] = await Promise.all([
-    prisma.sleepSession.findFirst({ where: { userId, isNap: false }, orderBy: { date: "desc" }, select: { date: true } }),
-    prisma.wellnessDay.findFirst({ where: { userId, restingHr: { not: null } }, orderBy: { date: "desc" }, select: { date: true } }),
+    prisma.sleepSession.findFirst({ where: { userId, source: "MI_FITNESS", isNap: false }, orderBy: { date: "desc" }, select: { date: true } }),
+    prisma.wellnessDay.findFirst({
+      where: { userId, source: "MI_FITNESS", restingHr: { not: null } },
+      orderBy: { date: "desc" },
+      select: { date: true },
+    }),
     prisma.miFitnessConnection.findUnique({ where: { userId }, select: { wellnessError: true } }),
   ]);
   console.info(
