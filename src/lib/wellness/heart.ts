@@ -18,6 +18,35 @@ export function heartRateBetween(samples: HeartSample[], from: number, to: numbe
   return { avgHr: Math.round(avg(values)), minHr: min(values) };
 }
 
+/** Sotto questa copertura della notte i battiti sono parziali (es. solo dopo mezzanotte) */
+const FULL_NIGHT_COVERAGE = 0.8;
+
+export interface NightHeartRate {
+  avgHr: number;
+  minHr: number;
+  maxHr: number;
+  /** la notte è coperta quasi tutta dai campioni */
+  complete: boolean;
+}
+
+/**
+ * FC media, minima e massima tra due istanti (secondi) e quanto della notte
+ * coprono i campioni (passo tipico tra campioni × numero, sulla durata).
+ */
+export function nightHeartRate(samples: HeartSample[], from: number, to: number): NightHeartRate | null {
+  const inside = samples.filter((s) => s.time >= from && s.time <= to).sort((a, b) => a.time - b.time);
+  if (inside.length < 10 || to <= from) return null;
+  const steps = inside.slice(1).map((s, i) => s.time - inside[i].time).sort((a, b) => a - b);
+  const step = steps[steps.length >> 1] || 60;
+  const values = inside.map((s) => s.value);
+  return {
+    avgHr: Math.round(avg(values)),
+    minHr: min(values),
+    maxHr: Math.max(...values),
+    complete: Math.min(1, (inside.length * step) / (to - from)) >= FULL_NIGHT_COVERAGE,
+  };
+}
+
 /** Ora locale (0-23) di un istante in secondi */
 export type HourOf = (time: number) => number;
 

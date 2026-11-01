@@ -1,6 +1,6 @@
 import type { DeviceProvider, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { heartRateBetween, type HeartSample } from "./heart";
+import { heartRateBetween, nightHeartRate, type HeartSample } from "./heart";
 import type { DaySummary, SleepInput } from "./types";
 
 /**
@@ -104,6 +104,33 @@ export async function fillSleepHeartRate(
       where: { id: night.id },
       data: { avgHr: night.avgHr ?? hr.avgHr, minHr: night.minHr ?? hr.minHr },
     });
+  }
+}
+
+/**
+ * FC minima e massima (e media se manca) delle notti coperte dai campioni.
+ * Con la notte quasi tutta coperta i valori si sovrascrivono (prima
+ * potevano venire solo da una parte della notte); con copertura parziale
+ * riempiono solo i campi vuoti.
+ */
+export async function applySleepHeartRate(userId: string, source: DeviceProvider, samples: HeartSample[]) {
+  if (!samples.length) return;
+  const first = Math.min(...samples.map((s) => s.time));
+  const last = Math.max(...samples.map((s) => s.time));
+  const nights = await prisma.sleepSession.findMany({
+    where: { userId, source, startAt: { lte: new Date(last * 1000) }, endAt: { gte: new Date(first * 1000) } },
+    select: { id: true, startAt: true, endAt: true, avgHr: true, minHr: true, maxHr: true },
+  });
+  for (const night of nights) {
+    const hr = nightHeartRate(samples, night.startAt.getTime() / 1000, night.endAt.getTime() / 1000);
+    if (!hr) continue;
+    const data = {
+      avgHr: night.avgHr ?? hr.avgHr,
+      minHr: hr.complete ? hr.minHr : (night.minHr ?? hr.minHr),
+      maxHr: hr.complete ? hr.maxHr : (night.maxHr ?? hr.maxHr),
+    };
+    if (data.avgHr === night.avgHr && data.minHr === night.minHr && data.maxHr === night.maxHr) continue;
+    await prisma.sleepSession.update({ where: { id: night.id }, data });
   }
 }
 

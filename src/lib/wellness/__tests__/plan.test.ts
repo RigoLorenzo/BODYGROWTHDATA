@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@jest/globals";
 import { HEART_TRACK, LIGHT_TRACK, backwardUnits, coverageDays, forwardUnits } from "../plan";
-import { heartRateBetween } from "../heart";
+import { heartRateBetween, nightHeartRate } from "../heart";
 
 const DAY = 86_400;
 const TODAY = Date.UTC(2026, 9, 19) / 1000;
@@ -50,5 +50,27 @@ describe("blocchi del benessere", () => {
     const samples = Array.from({ length: 12 }, (_, i) => ({ time: 1000 + i * 60, value: 50 + i, offset: 0 }));
     expect(heartRateBetween(samples, 1000, 2000)).toEqual({ avgHr: 56, minHr: 50 });
     expect(heartRateBetween(samples, 1000, 1200)).toBeNull();
+  });
+});
+
+describe("FC della notte dai battiti al minuto", () => {
+  // Notte 22:00 → 06:00, un campione ogni 2 minuti
+  const from = 0;
+  const to = 8 * 3600;
+  const every2min = (a: number, b: number) =>
+    Array.from({ length: Math.floor((b - a) / 120) + 1 }, (_, i) => ({ time: a + i * 120, value: 70 - Math.min(20, i % 60) }));
+
+  it("notte intera: media, minima, massima e copertura completa", () => {
+    const hr = nightHeartRate(every2min(from, to), from, to);
+    expect(hr).toMatchObject({ minHr: 50, maxHr: 70, complete: true });
+  });
+
+  it("copertura: 7 ore su 8 è la notte intera, 2 ore su 8 (solo dopo mezzanotte) è parziale", () => {
+    expect(nightHeartRate(every2min(to - 7 * 3600, to), from, to)?.complete).toBe(true);
+    expect(nightHeartRate(every2min(to - 2 * 3600, to), from, to)?.complete).toBe(false);
+  });
+
+  it("troppo pochi campioni: nessun valore", () => {
+    expect(nightHeartRate(every2min(from, from + 600), from, to)).toBeNull();
   });
 });

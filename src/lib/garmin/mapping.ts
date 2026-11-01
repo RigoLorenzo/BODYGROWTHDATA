@@ -1,6 +1,6 @@
 import type { RunInput } from "@/lib/run/repository";
 import { hourlyHeartRate, type HeartSample, type HourOf } from "@/lib/wellness/heart";
-import type { DaySummary, SleepInput } from "@/lib/wellness/types";
+import type { DaySummary, SleepInput, SleepSegment, SleepStage } from "@/lib/wellness/types";
 import type { GarminActivity, GarminDailyHeartRate, GarminDailySummary, GarminSleep, GarminTime } from "./client";
 
 /** Dati della Garmin Personal API → modelli dell'app. Funzioni pure. */
@@ -116,6 +116,22 @@ const minutes = (seconds: unknown) => {
   return n != null && n >= 0 ? Math.round(n / 60) : null;
 };
 
+const LEVEL_STAGE: Record<number, SleepStage> = { 0: "deep", 1: "light", 2: "rem", 3: "awake" };
+
+/** Ipnogramma dalle fasi minuto per minuto, se Garmin le invia */
+export function sleepStages(sleep: GarminSleep): SleepSegment[] {
+  const stages: SleepSegment[] = [];
+  for (const level of sleep.sleepLevels ?? []) {
+    const start = garminTime(level?.startGMT);
+    const end = garminTime(level?.endGMT);
+    const stage = LEVEL_STAGE[Math.round(num(level?.activityLevel) ?? -1)];
+    if (start == null || end == null || end <= start || !stage) continue;
+    if (stage === "rem" && sleep.deviceRemCapable === false) continue;
+    stages.push({ stage, start: Math.round(start / 1000), end: Math.round(end / 1000) });
+  }
+  return stages.sort((a, b) => a.start - b.start);
+}
+
 function mainSleep(sleep: GarminSleep): SleepInput | null {
   const start = garminTime(sleep.sleepStartTimestampGMT);
   const end = garminTime(sleep.sleepEndTimestampGMT);
@@ -131,7 +147,8 @@ function mainSleep(sleep: GarminSleep): SleepInput | null {
     asleep,
     deep: minutes(sleep.deepSleepSeconds),
     light: minutes(sleep.lightSleepSeconds),
-    rem: minutes(sleep.remSleepSeconds),
+    // Senza rilevamento REM lo 0 non è una misura: il punteggio non deve penalizzarlo
+    rem: sleep.deviceRemCapable === false ? null : minutes(sleep.remSleepSeconds),
     awake: minutes(sleep.awakeSleepSeconds),
     score: inRange(sleep.sleepScores?.overall?.value, [1, 100]) ?? null,
     isNap: false,
@@ -140,8 +157,8 @@ function mainSleep(sleep: GarminSleep): SleepInput | null {
     maxHr: null,
     respRate: respRate != null && respRate >= 5 && respRate <= 40 ? Math.round(respRate * 10) / 10 : null,
     awakeCount: inRange(sleep.awakeCount, [0, 200]) ?? null,
-    // La Personal API non dà le fasi minuto per minuto: niente ipnogramma
-    stages: [],
+    // La Personal API documenta solo i totali per fase: l'ipnogramma c'è solo se Garmin lo invia
+    stages: sleepStages(sleep),
   };
 }
 

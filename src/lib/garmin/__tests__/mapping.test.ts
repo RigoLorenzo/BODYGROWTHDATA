@@ -187,3 +187,45 @@ describe("battiti al minuto", () => {
     expect(zoneHour("Non/Esiste")).toBeNull();
   });
 });
+
+describe("sonno: fasi e orologi senza REM", () => {
+  const start = Date.UTC(2026, 9, 30, 22, 0);
+  const end = Date.UTC(2026, 9, 31, 6, 0);
+  const base = {
+    id: 5,
+    calendarDate: "2026-10-31",
+    sleepTimeSeconds: 27_000,
+    sleepStartTimestampGMT: start,
+    sleepEndTimestampGMT: end,
+    deepSleepSeconds: 6_000,
+    lightSleepSeconds: 21_000,
+    remSleepSeconds: 0,
+    awakeSleepSeconds: 1_800,
+  };
+
+  it("REM a 0 su un orologio che non lo misura: dato assente, non zero", () => {
+    expect(mapSleep({ ...base, deviceRemCapable: false })[0].rem).toBeNull();
+    expect(mapSleep({ ...base, deviceRemCapable: true })[0].rem).toBe(0);
+  });
+
+  it("fasi minuto per minuto, se Garmin le invia, diventano l'ipnogramma", () => {
+    const [night] = mapSleep({
+      ...base,
+      sleepLevels: [
+        { startGMT: "2026-10-30T23:00:00.0", endGMT: "2026-10-31T00:30:00.0", activityLevel: 1 },
+        { startGMT: "2026-10-30T22:00:00.0", endGMT: "2026-10-30T23:00:00.0", activityLevel: 0 },
+        { startGMT: "2026-10-31T00:30:00.0", endGMT: "2026-10-31T01:00:00.0", activityLevel: 2 },
+        { startGMT: "2026-10-31T01:00:00.0", endGMT: "2026-10-31T01:05:00.0", activityLevel: 3 },
+        { startGMT: "2026-10-31T01:05:00.0", endGMT: "2026-10-31T01:00:00.0", activityLevel: 1 },
+      ],
+    });
+    expect(night.stages.map((s) => s.stage)).toEqual(["deep", "light", "rem", "awake"]);
+    expect(night.stages[0]).toEqual({ stage: "deep", start: start / 1000, end: start / 1000 + 3600 });
+  });
+
+  it("senza fasi minuto per minuto restano i totali", () => {
+    const [night] = mapSleep(base);
+    expect(night.stages).toEqual([]);
+    expect(night).toMatchObject({ deep: 100, light: 350, awake: 30 });
+  });
+});

@@ -167,11 +167,19 @@ export interface GarminSleep {
   lightSleepSeconds?: number;
   remSleepSeconds?: number;
   awakeSleepSeconds?: number;
+  /** false sugli orologi che non distinguono il REM: il valore 0 non è una misura */
+  deviceRemCapable?: boolean;
   awakeCount?: number;
   avgHeartRate?: number;
   averageRespirationValue?: number;
   sleepScores?: Record<string, { value?: number } | undefined>;
   dailyNapDTOS?: GarminNap[];
+  /**
+   * Fasi minuto per minuto nel formato di Garmin Connect (0 profondo,
+   * 1 leggero, 2 REM, 3 sveglio). Non è nella specifica della Personal API:
+   * si legge solo se Garmin la invia.
+   */
+  sleepLevels?: { startGMT?: GarminTime; endGMT?: GarminTime; activityLevel?: number }[];
 }
 
 export interface GarminDailyHeartRate {
