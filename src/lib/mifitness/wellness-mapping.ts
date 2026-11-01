@@ -1,4 +1,5 @@
 import type { DaySummary, HourlyHr, SleepInput, SleepSegment, SleepStage } from "@/lib/wellness/types";
+import { heartRateBetween } from "@/lib/wellness/heart";
 import type { DailyReportRecord, FitnessKey, FitnessRecord } from "./client";
 
 /**
@@ -302,13 +303,6 @@ export function dailySleeps(records: DailyReportRecord[]): SleepInput[] {
     }
   }
   return sleeps;
-}
-
-/** FC media e minima tra due istanti (secondi), se ci sono abbastanza campioni */
-export function heartRateBetween(samples: Sample[], from: number, to: number): { avgHr: number; minHr: number } | null {
-  const values = samples.filter((s) => s.time >= from && s.time <= to).map((s) => s.value);
-  if (values.length < 10) return null;
-  return { avgHr: Math.round(avg(values)), minHr: min(values) };
 }
 
 /** FC media e minima durante il sonno, dai campioni al minuto se il riepilogo non le ha */

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
+import { MONITORING_TIP } from "@/components/devices/labels";
 import { EmptyState, Section, Stat } from "@/components/analytics/ui";
 import { formatDecimal } from "@/components/analytics/format";
 import { lastDays } from "@/lib/wellness/insights";
@@ -14,6 +15,7 @@ const average = (values: number[]) => (values.length ? values.reduce((s, v) => s
 
 export function VitalsTab({ data }: { data: WellnessResponse }) {
   const index = useDayIndex(data.days);
+  const tip = MONITORING_TIP[data.source ?? "MI_FITNESS"];
   const month = useMemo(() => lastDays(30).map((d) => ({ date: d, day: index.get(d) })), [index]);
   const spo2Of = useCallback((d: string) => index.get(d)?.spo2Avg ?? null, [index]);
   const stress = month.map((m) => m.day?.stressAvg).filter((v): v is number => v != null);
@@ -24,8 +26,7 @@ export function VitalsTab({ data }: { data: WellnessResponse }) {
   if (!stress.length && !spo2.length) {
     return (
       <EmptyState>
-        Nessun dato di stress o ossigeno negli ultimi 30 giorni. Nell&apos;app Mi Fitness, alla pagina del dispositivo,
-        attiva il monitoraggio continuo dello stress e la SpO₂ durante il sonno: senza, l&apos;orologio misura solo a mano.
+        Nessun dato di stress o ossigeno negli ultimi 30 giorni. {tip}: senza, l&apos;orologio misura solo a mano.
       </EmptyState>
     );
   }
@@ -39,8 +40,8 @@ export function VitalsTab({ data }: { data: WellnessResponse }) {
     <div className="space-y-5">
       {sparse && (
         <p className="rounded-2xl bg-muted/60 p-4 text-xs text-muted-foreground">
-          Dati misurati in pochi giorni (stress {stress.length}, SpO₂ {spo2.length} su 30). Per averli ogni giorno attiva in
-          Mi Fitness il monitoraggio continuo dello stress e la SpO₂ durante il sonno.
+          Dati misurati in pochi giorni (stress {stress.length}, SpO₂ {spo2.length} su 30). Per averli ogni giorno:{" "}
+          {tip.charAt(0).toLowerCase() + tip.slice(1)}.
         </p>
       )}
       {stressAvg != null && (

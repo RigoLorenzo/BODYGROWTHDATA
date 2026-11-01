@@ -240,11 +240,11 @@ async function summarizeDb(userId: string) {
       },
     }),
     prisma.wellnessDay.findMany({
-      where: { userId },
+      where: { userId, source: "MI_FITNESS" },
       select: { date: true, steps: true, restingHr: true, avgHr: true, stressAvg: true, spo2Avg: true },
       orderBy: { date: "asc" },
     }),
-    prisma.sleepSession.findMany({ where: { userId }, select: { date: true, isNap: true }, orderBy: { date: "asc" } }),
+    prisma.sleepSession.findMany({ where: { userId, source: "MI_FITNESS" }, select: { date: true, isNap: true }, orderBy: { date: "asc" } }),
   ]);
   const span = (dates: string[]) => ({ count: dates.length, first: dates[0] ?? null, last: dates.at(-1) ?? null });
   const daysWith = (field: keyof (typeof days)[number]) => span(days.filter((d) => d[field] != null).map((d) => d.date));

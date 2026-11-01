@@ -3,6 +3,7 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/analytics/ui";
 import { TabStrip, useUrlTab } from "@/components/analytics/tab-strip";
+import { WellnessSourcePicker } from "@/components/devices/wellness-source-picker";
 import type { WellnessResponse } from "@/lib/wellness/types";
 import { ActivityTab } from "./activity-tab";
 import { HeartTab } from "./heart-tab";
@@ -52,9 +53,10 @@ export function WellnessTabs() {
         <EmptyState>Dati non disponibili: riprova tra poco.</EmptyState>
       ) : (
         <>
+          <WellnessSourcePicker connected={data.sources} value={data.source} />
           <HistoryProgress data={data} progress={backfill.progress} active={backfill.active} />
           {!data.days.length && !data.sleeps.length ? (
-            <WellnessEmpty connected={data.connected} />
+            <WellnessEmpty connected={data.connected} source={data.source} />
           ) : (
             <TabContent tab={tab} data={data} />
           )}

@@ -26,6 +26,15 @@ if (rawDirectUrl && isPostgresUrl(rawDirectUrl)) {
   console.log(`⚠️  DIRECT_URL not set or not a postgres URL — Prisma will use DATABASE_URL`);
 }
 
+// Passi SQL idempotenti che db push rifiuterebbe senza --accept-data-loss
+console.log("🧩 Running pre-push SQL...");
+try {
+  execSync("npx prisma db execute --file prisma/pre-push.sql --schema prisma/schema.prisma", { stdio: "inherit" });
+} catch (error) {
+  console.error("❌ Pre-push SQL failed:", error.message);
+  process.exit(1);
+}
+
 console.log("🔄 Running prisma db push...");
 
 try {

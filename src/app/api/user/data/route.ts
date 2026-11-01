@@ -26,6 +26,10 @@ export async function DELETE() {
       where: { userId },
       data: { wellnessSyncedUntil: null, wellnessSyncedFrom: null, wellnessHrFrom: null, wellnessHrUntil: null },
     }),
+    prisma.garminConnection.updateMany({
+      where: { userId },
+      data: { wellnessSyncedUntil: null, wellnessSyncedFrom: null, wellnessHrFrom: null, wellnessHrUntil: null },
+    }),
   ]);
 
   return NextResponse.json({ success: true });

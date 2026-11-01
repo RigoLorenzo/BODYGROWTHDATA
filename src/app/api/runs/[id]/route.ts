@@ -5,7 +5,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { deleteRun } from "@/lib/run/repository";
 import { importActivity } from "@/lib/strava";
-import { importMiFitnessTrack } from "@/lib/mifitness/sync";
+import { deviceForActivity } from "@/lib/devices/registry";
 
 interface Params { params: Promise<{ id: string }> }
 
@@ -26,14 +26,15 @@ export async function GET(_req: Request, { params }: Params) {
       console.warn("dettaglio Strava non disponibile", error);
     }
   }
-  // Corse Mi Fitness: la traccia GPS si scarica alla prima apertura
-  if (run.source === "MI_FITNESS" && !run.detailed) {
+  // Corse da uno smartwatch (Mi Fitness, Garmin): la traccia GPS si scarica alla prima apertura
+  const device = deviceForActivity(run.source);
+  if (device && !run.detailed) {
     try {
-      if (await importMiFitnessTrack(session.user.id, run.id)) {
+      if (await device.importTrack(session.user.id, run.id)) {
         run = await prisma.runActivity.findUniqueOrThrow({ where: { id: run.id } });
       }
     } catch (error) {
-      console.warn("traccia Mi Fitness non disponibile", error);
+      console.warn(`traccia ${device.label} non disponibile`, error);
     }
   }
   return NextResponse.json(run);

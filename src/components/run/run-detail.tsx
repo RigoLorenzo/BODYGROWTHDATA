@@ -14,9 +14,8 @@ import { formatDuration, formatKm, formatPace, formatSpeed, paceSecondsPerKm } f
 import type { RunSplit } from "@/lib/run/track";
 import { apiError, useInvalidateRuns, useRun } from "./queries";
 import { RouteMap } from "./route-map";
-import type { RunDetail as Run } from "./types";
+import { SOURCE_LABEL, SYNCED_SOURCES, type RunDetail as Run } from "./types";
 
-const SOURCE_LABEL = { STRAVA: "Strava", MI_FITNESS: "Mi Fitness", GPX: "File GPX", MANUAL: "Inserita a mano" } as const;
 
 function Stat({ label, value, unit }: { label: string; value: string | number; unit?: string }) {
   return (
@@ -221,7 +220,7 @@ export function RunDetail({ id }: { id: string }) {
 
       {run.splits && run.splits.length > 0 && <Splits splits={run.splits} />}
       {run.bestEfforts && run.bestEfforts.length > 0 && <BestEfforts efforts={run.bestEfforts} />}
-      {(run.source === "STRAVA" || run.source === "MI_FITNESS") && !run.detailed && (
+      {SYNCED_SOURCES.includes(run.source) && !run.detailed && (
         <p className="text-xs text-muted-foreground">
           Percorso e parziali non ancora disponibili da {SOURCE_LABEL[run.source]}: riapri più tardi.
         </p>

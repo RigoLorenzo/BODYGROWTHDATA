@@ -181,6 +181,9 @@ model User {
 
   subscriptionTier SubscriptionTier @default(FREE)
 
+  /// Smartwatch da cui la sezione Benessere prende i dati (null: nessuno collegato)
+  wellnessSource DeviceProvider?
+
   accounts Account[]
   sessions Session[]
 
@@ -196,6 +199,7 @@ model User {
   runActivities       RunActivity[]
   stravaConnection    StravaConnection?
   miFitnessConnection MiFitnessConnection?
+  garminConnection    GarminConnection?
   wellnessDays        WellnessDay[]
   sleepSessions       SleepSession[]
   streak              Streak?
@@ -613,8 +617,15 @@ model DataProvision {
 enum ActivitySource {
   STRAVA
   MI_FITNESS
+  GARMIN
   GPX
   MANUAL
+}
+
+/// Smartwatch collegabili: ognuno porta corse e dati benessere
+enum DeviceProvider {
+  MI_FITNESS
+  GARMIN
 }
 
 /// Una corsa. Ha sempre una WorkoutSession (CARDIO) collegata, così conta come
@@ -705,12 +716,42 @@ model MiFitnessConnection {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+/// Collegamento a Garmin Connect con la Personal API ufficiale (chiave personale, sola lettura)
+model GarminConnection {
+  id                   String    @id @default(cuid())
+  userId               String    @unique
+  /// Chiave personale cifrata (AES-256-GCM): da connect.garmin.com, scade a 30 giorni - 1 anno
+  apiKey               String    @db.Text
+  /// Token di accesso (JWT, 24 h) cifrato: si riusa finché vale
+  accessToken          String?   @db.Text
+  accessTokenExpiresAt DateTime?
+  displayName          String?
+  /// Fuso del profilo Garmin (es. Europe/Rome): ore locali della curva dei battiti
+  timeZone             String?
+  lastSyncAt           DateTime?
+  lastError            String?
+  /// Dati benessere scaricati fino a / a ritroso da questo giorno
+  wellnessSyncedUntil  DateTime?
+  wellnessSyncedFrom   DateTime?
+  /// Battiti al minuto: scaricati a parte, giorno per giorno
+  wellnessHrFrom       DateTime?
+  wellnessHrUntil      DateTime?
+  /// Ultimo errore di un tipo di dato (diagnostica, non blocca)
+  wellnessError        String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
 // ─── Benessere (smartwatch) ───────────────────────────────────────────────────
 
 /// Riepilogo di un giorno dallo smartwatch: aggregati, non i campioni al minuto
 model WellnessDay {
-  id             String   @id @default(cuid())
+  id             String         @id @default(cuid())
   userId         String
+  /// Orologio che ha misurato il giorno: si mostra quello scelto dall'utente
+  source         DeviceProvider @default(MI_FITNESS)
   /// Giorno locale dell'orologio (yyyy-MM-dd)
   date           String
   steps          Int?
@@ -727,19 +768,20 @@ model WellnessDay {
   spo2Min        Float?
   stressAvg      Int?
   stressMax      Int?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, date])
+  @@unique([userId, source, date])
 }
 
 /// Una notte (o un pisolino) registrata dall'orologio
 model SleepSession {
-  id         String   @id @default(cuid())
+  id         String         @id @default(cuid())
   userId     String
   externalId String
+  source     DeviceProvider @default(MI_FITNESS)
   /// Giorno locale del risveglio (yyyy-MM-dd)
   date       String
   startAt    DateTime
@@ -752,7 +794,7 @@ model SleepSession {
   rem        Int?
   awake      Int?
   score      Int?
-  isNap      Boolean  @default(false)
+  isNap      Boolean        @default(false)
   avgHr      Int?
   minHr      Int?
   maxHr      Int?
@@ -762,11 +804,11 @@ model SleepSession {
   awakeCount Int?
   /// [{ stage, start, end }] (secondi epoch) per l'ipnogramma
   stages     Json?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, externalId])
-  @@index([userId, date])
+  @@index([userId, source, date])
 }

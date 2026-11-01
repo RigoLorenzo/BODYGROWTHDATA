@@ -2,10 +2,10 @@
 
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useInvalidateRuns } from "./queries";
-import { syncMiFitness } from "./mifitness-sync";
+import { syncDevices, type SyncOutcome } from "@/components/devices/device-sync";
+import { devicesQuery, useInvalidateRuns } from "./queries";
 
-const STORAGE_KEY = "bg:mifitness-auto-sync";
+const STORAGE_KEY = "bg:devices-auto-sync";
 /** All'apertura non si ripete se l'ultima è più recente di così */
 const OPEN_MIN_INTERVAL_MS = 5 * 60_000;
 /** Con l'app in primo piano */
@@ -33,12 +33,22 @@ function markSuccess() {
 const backoff = (attempt: number) =>
   Math.min(INTERVAL_MS, RETRY_BASE_MS * 2 ** (attempt - 1)) * (0.8 + Math.random() * 0.4);
 
+/** Dispositivi collegati con accesso valido; senza rete nessuno */
+async function healthyDevices(qc: ReturnType<typeof useQueryClient>) {
+  try {
+    const status = await qc.fetchQuery(devicesQuery);
+    return status.devices.filter((d) => d.connection && !d.connection.lastError).map((d) => d.provider);
+  } catch {
+    return null;
+  }
+}
+
 /**
- * Scarica le corse nuove e i dati benessere da Mi Fitness (se collegato)
- * all'apertura dell'app e ogni 15 minuti finché resta in primo piano. In
- * background si ferma. Gli errori sono silenziosi: si riprova con attese
- * crescenti; se il collegamento
- * è scaduto lo stato si aggiorna e la sezione Corsa propone di ricollegare.
+ * Scarica le corse nuove e i dati benessere da ogni smartwatch collegato
+ * (Mi Fitness, Garmin) all'apertura dell'app e ogni 15 minuti finché resta
+ * in primo piano, in parallelo. In background si ferma. Gli errori sono
+ * silenziosi: si riprova con attese crescenti; se un collegamento è scaduto
+ * lo stato si aggiorna e la sezione Corsa propone di ricollegare.
  */
 export function RunAutoSync() {
   const invalidate = useInvalidateRuns();
@@ -56,25 +66,33 @@ export function RunAutoSync() {
 
     async function run() {
       if (document.visibilityState !== "visible") return; // riparte al rientro
-      const outcome = await syncMiFitness({ auto: true });
+      const providers = await healthyDevices(qc);
+      if (disposed) return;
+      if (!providers?.length) {
+        if (providers) failures = 0;
+        schedule(providers ? INTERVAL_MS : backoff(++failures));
+        return;
+      }
+      const outcomes = (await syncDevices(providers, { auto: true })).map((r) => r.outcome);
       if (disposed) return;
 
-      if (outcome.ok) {
+      const succeeded = outcomes.filter((o): o is Extract<SyncOutcome, { ok: true }> => o.ok);
+      if (succeeded.some((o) => o.wellness)) void qc.invalidateQueries({ queryKey: ["wellness"] });
+      if (succeeded.some((o) => o.imported)) void invalidate();
+      else if (succeeded.some((o) => !o.skipped)) {
+        for (const queryKey of [["devices"], ["mifitness"], ["garmin"]]) void qc.invalidateQueries({ queryKey });
+      }
+      // Accesso scaduto: inutile insistere, la pagina mostra l'avviso
+      if (outcomes.some((o) => !o.ok && o.reconnect)) void invalidate();
+
+      const retryable = outcomes.some((o) => !o.ok && o.retryable);
+      if (!retryable) {
         failures = 0;
         markSuccess();
-        if (outcome.wellness) void qc.invalidateQueries({ queryKey: ["wellness"] });
-        if (outcome.imported) void invalidate();
-        else if (!outcome.skipped) void qc.invalidateQueries({ queryKey: ["mifitness"] });
         schedule(INTERVAL_MS);
         return;
       }
-      if (outcome.reconnect) {
-        // Token scaduto: inutile insistere, la pagina mostra l'avviso
-        void qc.invalidateQueries({ queryKey: ["mifitness"] });
-        schedule(INTERVAL_MS);
-        return;
-      }
-      failures = outcome.retryable ? failures + 1 : MAX_RETRIES + 1;
+      failures++;
       if (failures <= MAX_RETRIES) {
         schedule(backoff(failures));
       } else {
