@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { Flame } from "lucide-react";
@@ -9,7 +10,10 @@ import { useAnalyticsOverview } from "@/hooks/use-workout-session";
 import {
   consistency,
   monthlySeries,
+  periodStart,
   periodTotals,
+  periodWindow,
+  shiftPeriod,
   timeOfDay,
   weekdayStats,
   weeklySeries,
@@ -23,27 +27,40 @@ import { formatDecimal, formatDelta, formatHours } from "./format";
 import { ActivityLegend, EmptyState, Section, Segmented, Stat } from "./ui";
 import { HabitHighlights } from "./highlights";
 import { useActivity } from "./use-activity";
+import { PeriodActivity } from "./period-activity";
+import { BackToToday, PERIOD_OPTIONS, PeriodNavigator, PeriodPickerDialog, usePeriodSelection } from "./period-picker";
 
-const PERIODS = [
-  { value: "week", label: "Settimana" },
-  { value: "month", label: "Mese" },
-  { value: "year", label: "Anno" },
-  { value: "all", label: "Sempre" },
-] as const;
-
-const PREVIOUS_LABEL: Record<Period, string> = {
-  week: "settimana scorsa",
-  month: "mese scorso",
-  year: "anno scorso",
-  all: "",
+const PREVIOUS_LABEL: Record<Period, [current: string, past: string]> = {
+  week: ["settimana scorsa", "settimana prima"],
+  month: ["mese scorso", "mese prima"],
+  year: ["anno scorso", "anno prima"],
+  all: ["", ""],
 };
 
+/** Oltre questo spostamento orizzontale (px) lo scorrimento cambia periodo */
+const SWIPE_PX = 60;
 
-/** Il periodo scelto a colpo d'occhio, con il confronto allo stesso punto del periodo precedente */
-function PeriodHero({ items, now }: { items: ActivityItem[]; now: Date }) {
-  const [period, setPeriod] = useState<Period>("month");
-  const { current, previous } = periodTotals(items, period, now);
+interface Selection {
+  period: Period;
+  anchor: Date;
+  setPeriod: (p: Period) => void;
+  setAnchor: (d: Date) => void;
+  /** Passa al mese indicato (da qualsiasi tipo di periodo) */
+  setMonth: (d: Date) => void;
+}
+
+/**
+ * Il periodo scelto a colpo d'occhio: frecce, scorrimento o scelta del mese
+ * per guardare il passato; confronto col periodo prima.
+ */
+function PeriodHero({ items, now, selection }: { items: ActivityItem[]; now: Date; selection: Selection }) {
+  const { period, anchor, setPeriod, setAnchor } = selection;
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const reduce = useReducedMotion();
+  const { current, previous, window: span } = periodTotals(items, period, now, anchor);
   const delta = formatDelta(current.sessions, previous?.sessions);
+  const first = useMemo(() => firstActivity(items), [items]);
+  const canGoBack = period !== "all" && !!first && span.from! > periodStart(period, first);
 
   const cells = [
     { label: "Palestra", value: current.gym, unit: current.gym === 1 ? "seduta" : "sedute" },
@@ -54,46 +71,100 @@ function PeriodHero({ items, now }: { items: ActivityItem[]; now: Date }) {
     { label: "Km", value: formatKm(current.distance) },
   ];
 
+  const step = (delta: number) => {
+    if (period === "all") return;
+    if (delta < 0 && !canGoBack) return;
+    if (delta > 0 && span.isCurrent) return;
+    setAnchor(shiftPeriod(period, anchor, delta));
+  };
+
   return (
-    <section className="rounded-3xl bg-foreground p-5 text-background">
+    <section className="overflow-hidden rounded-3xl bg-foreground p-5 text-background">
       <Segmented
         value={period}
-        options={PERIODS}
+        options={PERIOD_OPTIONS}
         onChange={setPeriod}
         size="sm"
         className="bg-background/15 [&_[aria-selected=false]]:text-background/70 [&_[aria-selected=true]]:bg-background [&_[aria-selected=true]]:text-foreground"
       />
-      <div className="mt-5 flex items-end justify-between gap-3">
-        <div>
-          <p className="font-display text-6xl font-bold leading-none tabular-nums">{current.sessions}</p>
-          <p className="mt-1 text-sm opacity-70">
-            {current.sessions === 1 ? "allenamento" : "allenamenti"} · {current.activeDays}{" "}
-            {current.activeDays === 1 ? "giorno attivo" : "giorni attivi"}
-          </p>
-        </div>
-        {delta && previous && (
-          <div className="text-right">
-            <p className={cn("font-display text-2xl font-bold", delta.startsWith("−") ? "text-red-300" : "text-lime-400")}>{delta}</p>
-            <p className="text-xs opacity-70">
-              vs {PREVIOUS_LABEL[period]} ({previous.sessions})
-            </p>
+      <PeriodNavigator
+        period={period}
+        anchor={anchor}
+        now={now}
+        first={first}
+        onChange={setAnchor}
+        onOpenPicker={() => setPickerOpen(true)}
+      />
+
+      {/* Scorri a sinistra/destra sui numeri per cambiare periodo */}
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={`${period}-${span.from?.toISOString() ?? "all"}`}
+          initial={reduce ? false : { opacity: 0, x: 12 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={reduce ? undefined : { opacity: 0, x: -12 }}
+          transition={{ duration: 0.18 }}
+          drag={period === "all" ? false : "x"}
+          dragConstraints={{ left: 0, right: 0 }}
+          dragElastic={0.25}
+          dragDirectionLock
+          onDragEnd={(_, info) => {
+            if (info.offset.x < -SWIPE_PX) step(1);
+            else if (info.offset.x > SWIPE_PX) step(-1);
+          }}
+          className="touch-pan-y"
+        >
+          <div className="mt-4 flex items-end justify-between gap-3">
+            <div>
+              <p className="font-display text-6xl font-bold leading-none tabular-nums">{current.sessions}</p>
+              <p className="mt-1 text-sm opacity-70">
+                {current.sessions === 1 ? "allenamento" : "allenamenti"} · {current.activeDays}{" "}
+                {current.activeDays === 1 ? "giorno attivo" : "giorni attivi"}
+              </p>
+            </div>
+            {delta && previous && (
+              <div className="text-right">
+                <p className={cn("font-display text-2xl font-bold", delta.startsWith("−") ? "text-red-300" : "text-lime-400")}>{delta}</p>
+                <p className="text-xs opacity-70">
+                  vs {PREVIOUS_LABEL[period][span.isCurrent ? 0 : 1]} ({previous.sessions})
+                </p>
+              </div>
+            )}
           </div>
-        )}
-      </div>
-      <div className="mt-5 grid grid-cols-3 gap-x-3 gap-y-4 border-t border-background/15 pt-4">
-        {cells.map((c) => (
-          <div key={c.label} className="min-w-0">
-            <p className="text-[11px] uppercase tracking-wider opacity-60">{c.label}</p>
-            <p className="truncate font-display text-xl font-bold tabular-nums">
-              {c.value}
-              {c.unit && <span className="ml-1 text-xs font-medium opacity-60">{c.unit}</span>}
-            </p>
+          <div className="mt-5 grid grid-cols-3 gap-x-3 gap-y-4 border-t border-background/15 pt-4">
+            {cells.map((c) => (
+              <div key={c.label} className="min-w-0">
+                <p className="text-[11px] uppercase tracking-wider opacity-60">{c.label}</p>
+                <p className="truncate font-display text-xl font-bold tabular-nums">
+                  {c.value}
+                  {c.unit && <span className="ml-1 text-xs font-medium opacity-60">{c.unit}</span>}
+                </p>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </motion.div>
+      </AnimatePresence>
+
+      {!span.isCurrent && <BackToToday onClick={() => setAnchor(now)} />}
+
+      {(period === "month" || period === "year") && (
+        <PeriodPickerDialog
+          open={pickerOpen}
+          onOpenChange={setPickerOpen}
+          period={period}
+          anchor={anchor}
+          now={now}
+          first={first}
+          items={items}
+          onSelect={setAnchor}
+        />
+      )}
     </section>
   );
 }
+
+const firstActivity = (items: ActivityItem[]) =>
+  items.reduce<Date | null>((min, i) => (!min || i.startedAt < min ? i.startedAt : min), null);
 
 /** Costanza: streak, record e settimane attive */
 function Consistency({ items, now }: { items: ActivityItem[]; now: Date }) {
@@ -201,19 +272,38 @@ function TimeSlots({ items }: { items: ActivityItem[] }) {
   );
 }
 
-function Months({ items, now }: { items: ActivityItem[]; now: Date }) {
+/** Ultimi 12 mesi: tocca una barra per vederne il dettaglio in alto */
+function Months({ items, now, selection }: { items: ActivityItem[]; now: Date; selection: Selection }) {
   const months = monthlySeries(items, 12, now);
+  const selectedKey = selection.period === "month" ? format(selection.anchor, "yyyy-MM") : format(now, "yyyy-MM");
+  const select = (key: string) => {
+    const month = months.find((m) => m.start.toISOString() === key);
+    if (!month) return;
+    if (selection.period === "month") selection.setAnchor(month.start);
+    else selection.setMonth(month.start);
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" });
+  };
   return (
-    <Section title="Ultimi 12 mesi" hint={<ActivityLegend className="mt-1" />}>
+    <Section
+      title="Ultimi 12 mesi"
+      hint={
+        <span className="flex flex-wrap items-center gap-x-3">
+          <ActivityLegend className="mt-1" />
+          <span className="mt-1">Tocca un mese per il dettaglio</span>
+        </span>
+      }
+    >
       <StackedBars
         labelEvery={2}
-        data={months.map((m, i) => ({
+        onSelect={select}
+        data={months.map((m) => ({
           key: m.start.toISOString(),
           label: format(m.start, "MMM", { locale: it }),
           primary: m.gym,
           secondary: m.runs,
           caption: String(m.sessions),
-          highlight: i === months.length - 1,
+          highlight: format(m.start, "yyyy-MM") === selectedKey,
         }))}
       />
     </Section>
@@ -223,6 +313,7 @@ function Months({ items, now }: { items: ActivityItem[]; now: Date }) {
 export function SummaryTab() {
   const { data: items, isLoading } = useActivity();
   const now = useMemo(() => new Date(), []);
+  const selection = usePeriodSelection(now);
 
   if (isLoading || !items) {
     return (
@@ -239,13 +330,19 @@ export function SummaryTab() {
 
   return (
     <div className="space-y-5">
-      <PeriodHero items={items} now={now} />
+      <PeriodHero items={items} now={now} selection={selection} />
+      <PeriodActivity
+        items={items}
+        period={selection.period}
+        anchor={selection.anchor}
+        span={periodWindow(selection.period, selection.anchor, now)}
+      />
       <Consistency items={items} now={now} />
       <HabitHighlights items={items} />
       <WeeklyActivity items={items} now={now} />
       <Weekdays items={items} />
       <TimeSlots items={items} />
-      <Months items={items} now={now} />
+      <Months items={items} now={now} selection={selection} />
     </div>
   );
 }

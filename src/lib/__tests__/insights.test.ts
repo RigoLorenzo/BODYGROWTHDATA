@@ -3,7 +3,10 @@ import {
   byDay,
   consistency,
   monthlySeries,
+  periodLabel,
   periodTotals,
+  periodWindow,
+  shiftPeriod,
   records,
   timeOfDay,
   totals,
@@ -69,6 +72,35 @@ describe("insights", () => {
     // Settembre fino al 18: solo la seduta del 7
     expect(month.previous?.sessions).toBe(1);
     expect(periodTotals(items, "all", NOW).previous).toBeNull();
+  });
+
+  it("mese passato: totali del mese intero, confronto con il mese prima intero", () => {
+    const september = periodTotals(items, "month", NOW, new Date(2026, 8, 20));
+    expect(september.window.isCurrent).toBe(false);
+    expect(september.current.sessions).toBe(1);
+    expect(september.previous?.sessions).toBe(0);
+    // Ottobre visto da novembre: tutto il mese, confrontato con settembre intero
+    const october = periodTotals(items, "month", new Date(2026, 10, 3), new Date(2026, 9, 1));
+    expect(october.current.sessions).toBe(8);
+    expect(october.previous?.sessions).toBe(1);
+  });
+
+  it("settimana e anno scelti: limiti e spostamento", () => {
+    const week = periodWindow("week", new Date(2026, 9, 7), NOW);
+    expect(week.from).toEqual(new Date(2026, 9, 5));
+    expect(week.to).toEqual(new Date(2026, 9, 12));
+    expect(periodTotals(items, "week", NOW, new Date(2026, 9, 7)).current.sessions).toBe(3);
+    expect(shiftPeriod("month", new Date(2026, 0, 31), 1)).toEqual(new Date(2026, 1, 28));
+    expect(periodTotals(items, "year", NOW, new Date(2025, 5, 1)).current.sessions).toBe(0);
+  });
+
+  it("etichette del periodo in italiano", () => {
+    expect(periodLabel("month", new Date(2026, 9, 18))).toBe("ottobre 2026");
+    expect(periodLabel("year", new Date(2026, 9, 18))).toBe("2026");
+    expect(periodLabel("week", new Date(2026, 9, 18))).toBe("12 – 18 ott 2026");
+    expect(periodLabel("week", new Date(2026, 10, 1))).toBe("26 ott – 1 nov 2026");
+    expect(periodLabel("week", new Date(2026, 0, 2))).toBe("29 dic 2025 – 4 gen 2026");
+    expect(periodLabel("all", NOW)).toBe("Da sempre");
   });
 
   it("giorno della settimana: più sedute e più tempo medio", () => {
