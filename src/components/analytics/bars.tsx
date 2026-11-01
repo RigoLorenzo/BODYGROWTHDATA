@@ -16,16 +16,53 @@ export interface BarDatum {
  * Barre verticali impilate palestra + corsa, in HTML: leggere e nitide su
  * qualsiasi schermo, senza librerie di grafici.
  */
+const columnClass = "flex h-full min-w-0 flex-1 flex-col items-center justify-end";
+
+/** Colonna del grafico: pulsante quando le barre si possono scegliere */
+function Column({
+  onClick,
+  pressed,
+  title,
+  children,
+}: {
+  onClick?: () => void;
+  pressed?: boolean;
+  title: string;
+  children: React.ReactNode;
+}) {
+  if (!onClick) {
+    return (
+      <div className={columnClass} title={title}>
+        {children}
+      </div>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={pressed}
+      aria-label={title}
+      className={cn(columnClass, "rounded-md transition-transform active:scale-95")}
+    >
+      {children}
+    </button>
+  );
+}
+
 export function StackedBars({
   data,
   height = 128,
   labelEvery = 1,
   className,
+  onSelect,
 }: {
   data: BarDatum[];
   height?: number;
   labelEvery?: number;
   className?: string;
+  /** Barre toccabili: riceve la chiave della barra scelta */
+  onSelect?: (key: string) => void;
 }) {
   const max = Math.max(1, ...data.map((d) => d.primary + (d.secondary ?? 0)));
   const last = data.length - 1;
@@ -35,7 +72,12 @@ export function StackedBars({
         {data.map((d) => {
           const total = d.primary + (d.secondary ?? 0);
           return (
-            <div key={d.key} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end" title={`${d.label}: ${d.caption ?? total}`}>
+            <Column
+              key={d.key}
+              onClick={onSelect ? () => onSelect(d.key) : undefined}
+              pressed={onSelect ? !!d.highlight : undefined}
+              title={`${d.label}: ${d.caption ?? total}`}
+            >
               {d.caption && total > 0 && (
                 <span className={cn("mb-1 text-[10px] tabular-nums", d.highlight ? "font-bold text-foreground" : "text-muted-foreground")}>
                   {d.caption}
@@ -46,7 +88,7 @@ export function StackedBars({
                 {!!d.primary && <div className={cn("w-full", d.highlight ? "bg-foreground" : "bg-foreground/60")} style={{ flexGrow: d.primary }} />}
               </div>
               {total === 0 && <div className="h-1 w-full rounded-full bg-muted" />}
-            </div>
+            </Column>
           );
         })}
       </div>

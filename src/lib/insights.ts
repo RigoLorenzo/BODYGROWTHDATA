@@ -1,6 +1,8 @@
 import {
+  addDays,
   addMonths,
   addWeeks,
+  addYears,
   differenceInCalendarWeeks,
   format,
   getDay,
@@ -9,8 +11,8 @@ import {
   startOfYear,
   subMonths,
   subWeeks,
-  subYears,
 } from "date-fns";
+import { it } from "date-fns/locale";
 
 /**
  * Statistiche dell'attività (palestra + corsa) calcolate nel browser:
@@ -65,19 +67,74 @@ export function totals(items: ActivityItem[]): Totals {
 
 export type Period = "week" | "month" | "year" | "all";
 
-/** Periodo in corso e quello precedente alla stessa data (per i confronti) */
-export function periodRange(period: Period, now: Date): { from: Date | null; prevFrom: Date | null; prevTo: Date | null } {
-  if (period === "all") return { from: null, prevFrom: null, prevTo: null };
-  const from = period === "week" ? startOfWeek(now, WEEK) : period === "month" ? startOfMonth(now) : startOfYear(now);
-  const shift = period === "week" ? (d: Date) => subWeeks(d, 1) : period === "month" ? (d: Date) => subMonths(d, 1) : (d: Date) => subYears(d, 1);
-  return { from, prevFrom: shift(from), prevTo: shift(now) };
+/** Inizio del periodo (settimana, mese, anno) che contiene `date` */
+export function periodStart(period: Exclude<Period, "all">, date: Date): Date {
+  return period === "week" ? startOfWeek(date, WEEK) : period === "month" ? startOfMonth(date) : startOfYear(date);
 }
 
-export function periodTotals(items: ActivityItem[], period: Period, now: Date) {
-  const { from, prevFrom, prevTo } = periodRange(period, now);
-  const current = totals(items.filter((i) => !from || i.startedAt >= from));
-  const previous = prevFrom && prevTo ? totals(items.filter((i) => i.startedAt >= prevFrom && i.startedAt <= prevTo)) : null;
-  return { current, previous };
+/** Lo stesso giorno spostato di `delta` periodi */
+export function shiftPeriod(period: Exclude<Period, "all">, date: Date, delta: number): Date {
+  return period === "week" ? addWeeks(date, delta) : period === "month" ? addMonths(date, delta) : addYears(date, delta);
+}
+
+export interface PeriodWindow {
+  /** null per "sempre" */
+  from: Date | null;
+  /** fine esclusa */
+  to: Date | null;
+  prevFrom: Date | null;
+  /** fine esclusa del confronto */
+  prevTo: Date | null;
+  /** il periodo contiene oggi */
+  isCurrent: boolean;
+}
+
+/**
+ * Il periodo che contiene `anchor` e quello prima, per i confronti. Il
+ * periodo in corso si confronta col precedente fino allo stesso punto (il
+ * mese scorso fino al giorno di oggi); uno passato con il precedente intero.
+ */
+export function periodWindow(period: Period, anchor: Date, now: Date): PeriodWindow {
+  if (period === "all") return { from: null, to: null, prevFrom: null, prevTo: null, isCurrent: true };
+  const from = periodStart(period, anchor);
+  const to = shiftPeriod(period, from, 1);
+  const isCurrent = now >= from && now < to;
+  const prevFrom = shiftPeriod(period, from, -1);
+  // Fine esclusa: +1 ms include le sedute iniziate proprio "adesso" un periodo fa
+  const prevTo = isCurrent ? new Date(shiftPeriod(period, now, -1).getTime() + 1) : from;
+  return { from, to, prevFrom, prevTo, isCurrent };
+}
+
+/** Compatibile con prima: il periodo in corso e il precedente alla stessa data */
+export function periodRange(period: Period, now: Date): { from: Date | null; prevFrom: Date | null; prevTo: Date | null } {
+  const { from, prevFrom, prevTo } = periodWindow(period, now, now);
+  return { from, prevFrom, prevTo };
+}
+
+/** Sedute nel periodo [from, to) */
+export function itemsInPeriod(items: ActivityItem[], window: Pick<PeriodWindow, "from" | "to">) {
+  return items.filter((i) => (!window.from || i.startedAt >= window.from) && (!window.to || i.startedAt < window.to));
+}
+
+export function periodTotals(items: ActivityItem[], period: Period, now: Date, anchor: Date = now) {
+  const window = periodWindow(period, anchor, now);
+  const current = totals(itemsInPeriod(items, window));
+  const previous =
+    window.prevFrom && window.prevTo ? totals(itemsInPeriod(items, { from: window.prevFrom, to: window.prevTo })) : null;
+  return { current, previous, window };
+}
+
+/** "27 ott – 2 nov 2026", "ottobre 2026", "2026", "Da sempre" */
+export function periodLabel(period: Period, anchor: Date): string {
+  if (period === "all") return "Da sempre";
+  const from = periodStart(period, anchor);
+  if (period === "month") return format(from, "MMMM yyyy", { locale: it });
+  if (period === "year") return format(from, "yyyy");
+  const end = addDays(from, 6);
+  const sameYear = from.getFullYear() === end.getFullYear();
+  const sameMonth = sameYear && from.getMonth() === end.getMonth();
+  const start = format(from, sameMonth ? "d" : sameYear ? "d MMM" : "d MMM yyyy", { locale: it });
+  return `${start} – ${format(end, "d MMM yyyy", { locale: it })}`;
 }
 
 export const WEEKDAYS = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"];
