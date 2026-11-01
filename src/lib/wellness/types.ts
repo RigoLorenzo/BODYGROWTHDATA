@@ -108,12 +108,20 @@ export interface WellnessProgress {
   complete: boolean;
 }
 
+/** Smartwatch collegabili (come l'enum DeviceProvider del database) */
+export type WellnessSource = "MI_FITNESS" | "GARMIN";
+
 export interface WellnessResponse {
+  /** la fonte scelta è collegata */
   connected: boolean;
+  /** orologio da cui arrivano questi dati (null: nessuno collegato) */
+  source: WellnessSource | null;
+  /** orologi collegati, tra cui scegliere la fonte */
+  sources: WellnessSource[];
   lastSyncAt: string | null;
   /** storico scaricato: dati leggeri (fino a 3 anni) e battiti al minuto (1 anno) */
   progress: WellnessProgress | null;
-  /** token Xiaomi scaduto: lo storico non può avanzare */
+  /** accesso all'orologio scaduto: lo storico non può avanzare */
   needsReconnect: boolean;
   /** ultimo tipo di dato non scaricato (diagnostica) */
   syncError: string | null;

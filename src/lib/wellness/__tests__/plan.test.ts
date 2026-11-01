@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@jest/globals";
-import { HEART_TRACK, LIGHT_TRACK, backwardUnits, coverageDays, forwardUnits } from "../wellness-plan";
-import { heartRateBetween } from "../wellness-mapping";
+import { HEART_TRACK, LIGHT_TRACK, backwardUnits, coverageDays, forwardUnits } from "../plan";
+import { heartRateBetween } from "../heart";
 
 const DAY = 86_400;
 const TODAY = Date.UTC(2026, 9, 19) / 1000;

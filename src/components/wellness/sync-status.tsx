@@ -6,30 +6,40 @@ import { it } from "date-fns/locale";
 import { History, RefreshCw, Watch } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
-import { syncMiFitness, useMiFitnessSyncing } from "@/components/run/mifitness-sync";
+import { syncDevice, useDeviceSyncing } from "@/components/devices/device-sync";
+import { DEVICE_LABEL, type DeviceProvider } from "@/components/devices/labels";
 import { cn } from "@/lib/utils";
 import type { HistoryTrack, WellnessProgress, WellnessResponse } from "@/lib/wellness/types";
 import { EmptyState } from "@/components/analytics/ui";
 
-function useManualSync() {
+/** Sincronizza a mano l'orologio da cui arriva il benessere */
+function useManualSync(source: DeviceProvider | null) {
   const qc = useQueryClient();
-  const syncing = useMiFitnessSyncing();
+  const syncing = useDeviceSyncing(source ?? undefined);
   const sync = async () => {
-    const outcome = await syncMiFitness({ auto: false });
-    if (!outcome.ok) toast({ title: "Mi Fitness", description: outcome.error, variant: "destructive" });
-    await Promise.all([qc.invalidateQueries({ queryKey: ["wellness"] }), outcome.ok && outcome.imported && qc.invalidateQueries({ queryKey: ["runs"] })]);
+    if (!source) return;
+    const outcome = await syncDevice(source, { auto: false });
+    if (!outcome.ok) toast({ title: DEVICE_LABEL[source], description: outcome.error, variant: "destructive" });
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ["wellness"] }),
+      qc.invalidateQueries({ queryKey: ["devices"] }),
+      outcome.ok && outcome.imported && qc.invalidateQueries({ queryKey: ["runs"] }),
+    ]);
   };
   return { sync, syncing };
 }
 
 /** Ultimo aggiornamento, storico in arrivo e sincronizzazione a mano */
 export function SyncStatus({ data }: { data: WellnessResponse }) {
-  const { sync, syncing } = useManualSync();
+  const { sync, syncing } = useManualSync(data.source);
+  const updated = data.lastSyncAt
+    ? `aggiornato ${formatDistanceToNow(new Date(data.lastSyncAt), { addSuffix: true, locale: it })}`
+    : "mai sincronizzato";
   return (
     <div className="flex items-center justify-between gap-3 px-1 text-xs text-muted-foreground">
       <span className="min-w-0">
         <Watch className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />
-        {data.lastSyncAt ? `Aggiornato ${formatDistanceToNow(new Date(data.lastSyncAt), { addSuffix: true, locale: it })}` : "Mai sincronizzato"}
+        {data.source ? `${DEVICE_LABEL[data.source]} · ${updated}` : updated}
       </span>
       <button
         type="button"
@@ -67,7 +77,8 @@ export function HistoryProgress({ data, progress, active }: { data: WellnessResp
   if (data.needsReconnect) {
     return (
       <EmptyState>
-        Il collegamento a Mi Fitness è scaduto: lo storico non può avanzare.{" "}
+        Il collegamento a {data.source ? DEVICE_LABEL[data.source] : "lo smartwatch"} è scaduto: lo storico non può
+        avanzare.{" "}
         <Link href="/run" className="font-medium text-foreground underline underline-offset-2">
           Ricollega
         </Link>
@@ -97,14 +108,14 @@ export function HistoryProgress({ data, progress, active }: { data: WellnessResp
 }
 
 /** Senza orologio collegato o prima della prima sincronizzazione */
-export function WellnessEmpty({ connected }: { connected: boolean }) {
-  const { sync, syncing } = useManualSync();
+export function WellnessEmpty({ connected, source }: { connected: boolean; source: DeviceProvider | null }) {
+  const { sync, syncing } = useManualSync(source);
   if (!connected) {
     return (
       <EmptyState>
-        Collega il tuo smartwatch Xiaomi per vedere sonno, battiti, passi e stress.{" "}
-        <Link href="/run" className="font-medium text-foreground underline underline-offset-2">
-          Collega Mi Fitness
+        Collega il tuo smartwatch (Xiaomi o Garmin) per vedere sonno, battiti, passi e stress.{" "}
+        <Link href="/run#devices-title" className="font-medium text-foreground underline underline-offset-2">
+          Collega uno smartwatch
         </Link>
       </EmptyState>
     );

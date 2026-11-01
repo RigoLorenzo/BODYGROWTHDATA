@@ -1,6 +1,8 @@
-import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import type { DaySummary, SleepInput } from "@/lib/wellness/types";
+import type { SleepInput } from "@/lib/wellness/types";
+import { UnitTimeout, runWellnessPlan, unitDays, type WellnessDriver } from "@/lib/wellness/engine";
+import { HEART_TRACK, LIGHT_TRACK, type Unit } from "@/lib/wellness/plan";
+import { fillSleepHeartRate, saveSleepSession, saveWellnessDays } from "@/lib/wellness/store";
 import {
   MiFitnessError,
   listDailyReport,
@@ -10,41 +12,17 @@ import {
   type FitnessRecord,
   type XiaomiSession,
 } from "./client";
-import {
-  dailyRestingHr,
-  dailySleeps,
-  heartRateBetween,
-  heartRateSamples,
-  mapSleepRecord,
-  summarizeDays,
-  zoneOffsetSeconds,
-} from "./wellness-mapping";
-import { HISTORY_EMPTY_STOP_DAYS } from "@/lib/wellness/constants";
-import {
-  HEART_TRACK,
-  LIGHT_TRACK,
-  backwardUnits,
-  forwardUnits,
-  heartFloor,
-  isoDay,
-  oldestDay,
-  toEpoch,
-  utcMidnight,
-  type Coverage,
-  type Track,
-  type Unit,
-} from "./wellness-plan";
+import { dailyRestingHr, dailySleeps, heartRateSamples, mapSleepRecord, summarizeDays, zoneOffsetSeconds } from "./wellness-mapping";
 
 /**
- * Benessere dall'orologio in blocchi piccoli e indipendenti, ognuno salvato
- * appena scaricato:
+ * Benessere da Mi Fitness in blocchi piccoli e indipendenti (ordine e
+ * cursori in lib/wellness/engine):
  * - dati "leggeri" (sonno, FC a riposo, passi, calorie, SpO2, stress) a
- *   blocchi di 10 giorni, storico di 90;
- * - battiti al minuto (migliaia al giorno) un giorno alla volta, storico di 30.
- * Prima i giorni recenti, poi lo storico a ritroso; un blocco interrotto per
- * tempo si rifà alla sincronizzazione successiva senza perdere gli altri.
+ *   blocchi di 10 giorni;
+ * - battiti al minuto (migliaia al giorno) un giorno alla volta.
  */
 
+const SOURCE = "MI_FITNESS" as const;
 const DAY = 86_400;
 /** Senza fuso noto si scarica con margine per coprire i giorni locali interi */
 const ZONE_PAD = 14 * 3600;
@@ -57,8 +35,6 @@ const MAX_PAGES = 300;
 const HARD_STOP_MS = 10_000;
 
 const LIGHT_KEYS: FitnessKey[] = ["resting_heart_rate", "sleep", "steps", "calories", "spo2", "stress"];
-
-class UnitTimeout extends Error {}
 
 interface Ctx {
   userId: string;
@@ -131,78 +107,6 @@ function learnOffset(ctx: Ctx, records: FitnessRecord[]) {
   if (last) ctx.offset = zoneOffsetSeconds(last);
 }
 
-const inUnit = (unit: Unit) => {
-  const first = isoDay(unit.from);
-  const last = isoDay(unit.from + (unit.days - 1) * DAY);
-  return (date: string) => date >= first && date <= last;
-};
-
-/** Solo i campi misurati: un dato mancante non cancella quello già salvato */
-function dayData(summary: DaySummary) {
-  const { hrHourly, ...rest } = summary;
-  const data: Prisma.WellnessDayUpdateInput = Object.fromEntries(
-    Object.entries(rest).filter(([key, v]) => key !== "date" && v != null)
-  );
-  if (hrHourly?.length) data.hrHourly = hrHourly as unknown as Prisma.InputJsonValue;
-  return data;
-}
-
-async function saveDays(userId: string, summaries: Iterable<DaySummary>, keep: (date: string) => boolean) {
-  let saved = 0;
-  for (const summary of summaries) {
-    if (!keep(summary.date)) continue;
-    const update = dayData(summary);
-    if (!Object.keys(update).length) continue;
-    await prisma.wellnessDay.upsert({
-      where: { userId_date: { userId, date: summary.date } },
-      update,
-      create: { ...(update as Prisma.WellnessDayCreateWithoutUserInput), date: summary.date, user: { connect: { id: userId } } },
-    });
-    saved++;
-  }
-  return saved;
-}
-
-/** Campi della notte; i valori facoltativi assenti non cancellano quelli già salvati */
-function sleepData(sleep: SleepInput) {
-  const { date, startAt, endAt, duration, asleep, deep, light, rem, awake, score, isNap, avgHr, minHr, stages } = sleep;
-  const { maxHr, respRate, awakeCount } = sleep;
-  return {
-    date,
-    startAt,
-    endAt,
-    duration,
-    asleep,
-    deep,
-    light,
-    rem,
-    awake,
-    isNap,
-    ...(score != null ? { score } : {}),
-    ...(avgHr != null ? { avgHr } : {}),
-    ...(minHr != null ? { minHr } : {}),
-    ...(maxHr != null ? { maxHr } : {}),
-    ...(respRate != null ? { respRate } : {}),
-    ...(awakeCount != null ? { awakeCount } : {}),
-    stages: stages.length ? (stages as unknown as Prisma.InputJsonValue) : undefined,
-  };
-}
-
-/**
- * Notte salvata una volta sola: la stessa sessione può arrivare dal
- * riepilogo e dai dati grezzi con identificativi diversi, ma inizia allo
- * stesso istante.
- */
-async function saveSleep(userId: string, sleep: SleepInput) {
-  const fields = sleepData(sleep);
-  const existing = await prisma.sleepSession.findFirst({
-    where: { userId, OR: [{ externalId: sleep.externalId }, { startAt: sleep.startAt }] },
-    select: { id: true },
-  });
-  if (existing) await prisma.sleepSession.update({ where: { id: existing.id }, data: fields });
-  else await prisma.sleepSession.create({ data: { ...fields, userId, externalId: sleep.externalId } });
-}
-
 /**
  * Sonno, FC a riposo, passi, calorie, SpO2 e stress di un blocco di giorni.
  * Sonno e FC a riposo arrivano anche dai riepiloghi giornalieri, quelli
@@ -216,19 +120,19 @@ async function lightUnit(ctx: Ctx, unit: Unit) {
   const dailyHeart = await tryDaily(ctx, "heart_rate", unit);
   learnOffset(ctx, Object.values(data).flat());
 
-  const keep = inUnit(unit);
+  const keep = unitDays(unit).has;
   const summaries = summarizeDays(data);
   for (const [date, restingHr] of dailyRestingHr(dailyHeart)) {
     const day = summaries.get(date) ?? { date };
     day.restingHr ??= restingHr;
     summaries.set(date, day);
   }
-  const saved = await saveDays(ctx.userId, summaries.values(), keep);
+  const saved = await saveWellnessDays(ctx.userId, SOURCE, summaries.values(), keep);
 
   // Prima i riepiloghi, poi i dati grezzi: hanno l'ipnogramma e completano la notte
   const raw = (data.sleep ?? []).map(mapSleepRecord).filter((s): s is SleepInput => s != null);
   for (const sleep of [...dailySleeps(dailySleep), ...raw]) {
-    if (keep(sleep.date)) await saveSleep(ctx.userId, sleep);
+    if (keep(sleep.date)) await saveSleepSession(ctx.userId, SOURCE, sleep);
   }
   return saved;
 }
@@ -238,101 +142,15 @@ async function heartUnit(ctx: Ctx, unit: Unit) {
   const { start, end } = unitRange(ctx, unit, HEART_PAD);
   const records = await tryFetch(ctx, "heart_rate", start - NIGHT_LEAD, end);
   learnOffset(ctx, records);
-  const keep = inUnit(unit);
-  const saved = await saveDays(ctx.userId, summarizeDays({ heart_rate: records }).values(), keep);
-
-  const samples = heartRateSamples(records);
-  const nights = await prisma.sleepSession.findMany({
-    where: {
-      userId: ctx.userId,
-      date: { gte: isoDay(unit.from), lte: isoDay(unit.from + (unit.days - 1) * DAY) },
-      OR: [{ avgHr: null }, { minHr: null }],
-    },
-    select: { id: true, startAt: true, endAt: true, avgHr: true, minHr: true },
-  });
-  for (const night of nights) {
-    const hr = heartRateBetween(samples, night.startAt.getTime() / 1000, night.endAt.getTime() / 1000);
-    if (!hr) continue;
-    await prisma.sleepSession.update({
-      where: { id: night.id },
-      data: { avgHr: night.avgHr ?? hr.avgHr, minHr: night.minHr ?? hr.minHr },
-    });
-  }
+  const days = unitDays(unit);
+  const saved = await saveWellnessDays(ctx.userId, SOURCE, summarizeDays({ heart_rate: records }).values(), days.has);
+  await fillSleepHeartRate(ctx.userId, SOURCE, { from: days.first, to: days.last }, heartRateSamples(records));
   return saved;
-}
-
-type CoverageFields = { from: "wellnessSyncedFrom" | "wellnessHrFrom"; until: "wellnessSyncedUntil" | "wellnessHrUntil" };
-const LIGHT_FIELDS: CoverageFields = { from: "wellnessSyncedFrom", until: "wellnessSyncedUntil" };
-const HEART_FIELDS: CoverageFields = { from: "wellnessHrFrom", until: "wellnessHrUntil" };
-
-async function runForward(ctx: Ctx, cov: Coverage, track: Track, fields: CoverageFields, run: typeof lightUnit, deadline: number) {
-  const today = utcMidnight(Date.now() / 1000);
-  let saved = 0;
-  for (const unit of forwardUnits(cov, track, today)) {
-    if (Date.now() > deadline) break;
-    saved += await run(ctx, unit);
-    // Oggi è parziale: il cursore resta all'inizio di oggi
-    cov.until = Math.min(unit.from + unit.days * DAY, today);
-    cov.from ??= unit.from;
-    await prisma.miFitnessConnection.update({
-      where: { userId: ctx.userId },
-      data: { [fields.until]: new Date(cov.until * 1000), [fields.from]: new Date(cov.from * 1000) },
-    });
-  }
-  return saved;
-}
-
-/** Nessun giorno salvato nei 60 giorni da `from` in poi: prima l'orologio non c'era */
-async function historyEnded(userId: string, from: number) {
-  const found = await prisma.wellnessDay.findFirst({
-    where: { userId, date: { gte: isoDay(from), lt: isoDay(from + HISTORY_EMPTY_STOP_DAYS * DAY) } },
-    select: { id: true },
-  });
-  return !found;
-}
-
-async function runBackward(
-  ctx: Ctx,
-  cov: Coverage,
-  track: Track,
-  fields: CoverageFields,
-  run: typeof lightUnit,
-  deadline: number,
-  opts: { floor?: number | null; stopWhenEmpty?: boolean; maxUnits?: number } = {}
-) {
-  const today = utcMidnight(Date.now() / 1000);
-  let saved = 0;
-  let ran = 0;
-  for (const unit of backwardUnits(cov, track, today, opts.floor)) {
-    if (Date.now() > deadline || ran >= (opts.maxUnits ?? Infinity)) break;
-    ran++;
-    const unitSaved = await run(ctx, unit);
-    saved += unitSaved;
-    cov.from = unit.from;
-    // Storico finito prima del limite: il binario è completo
-    const ended = opts.stopWhenEmpty && !unitSaved && (await historyEnded(ctx.userId, unit.from));
-    if (ended) cov.from = oldestDay(track, today, opts.floor);
-    await prisma.miFitnessConnection.update({
-      where: { userId: ctx.userId },
-      data: { [fields.from]: new Date(cov.from * 1000) },
-    });
-    if (ended) break;
-  }
-  return { saved, ran };
-}
-
-/** Primo giorno con dati salvati (yyyy-MM-dd) */
-export async function firstWellnessDay(userId: string) {
-  const first = await prisma.wellnessDay.findFirst({ where: { userId }, orderBy: { date: "asc" }, select: { date: true } });
-  return first?.date ?? null;
 }
 
 /**
- * Recenti prima (leggeri, poi battiti), poi lo storico (leggeri, poi
- * battiti) finché c'è tempo. Restituisce i giorni salvati.
- * `recent: false` (passi dedicati allo storico) salta i giorni recenti, già
- * aggiornati dalla sincronizzazione normale: altrimenti ogni passo li
- * rifarebbe e con un cloud lento lo storico non avanzerebbe mai.
+ * Recenti prima, poi lo storico finché c'è tempo (vedi runWellnessPlan).
+ * Restituisce i giorni salvati.
  */
 export async function syncWellness(
   userId: string,
@@ -354,38 +172,19 @@ export async function syncWellness(
   if (!conn) return 0;
 
   const ctx: Ctx = { userId, session, region, hardStop: deadline + HARD_STOP_MS, offset: conn.wellnessZoneOffset, errors: [] };
-  const light: Coverage = { from: toEpoch(conn.wellnessSyncedFrom), until: toEpoch(conn.wellnessSyncedUntil) };
-  const heart: Coverage = { from: toEpoch(conn.wellnessHrFrom), until: toEpoch(conn.wellnessHrUntil) };
-
-  let saved = 0;
+  const driver: WellnessDriver = {
+    userId,
+    source: SOURCE,
+    light: { track: LIGHT_TRACK, run: (unit) => lightUnit(ctx, unit) },
+    heart: { track: HEART_TRACK, run: (unit) => heartUnit(ctx, unit) },
+    saveCoverage: (data) => prisma.miFitnessConnection.update({ where: { userId }, data }),
+  };
   try {
-    const recent = opts.recent ?? true;
-    // Senza punto di partenza lo storico non sa da dove andare a ritroso
-    if (recent || light.from == null) saved += await runForward(ctx, light, LIGHT_TRACK, LIGHT_FIELDS, lightUnit, deadline);
-    if (recent || heart.from == null) saved += await runForward(ctx, heart, HEART_TRACK, HEART_FIELDS, heartUnit, deadline);
-    // Storico a turni: 10 giorni leggeri e 3 di battiti per giro, così i
-    // battiti non aspettano anni di dati leggeri prima di partire
-    const today = utcMidnight(Date.now() / 1000);
-    while (Date.now() < deadline) {
-      const lightTurn = await runBackward(ctx, light, LIGHT_TRACK, LIGHT_FIELDS, lightUnit, deadline, {
-        stopWhenEmpty: true,
-        maxUnits: 1,
-      });
-      // Con lo storico leggero completo i battiti si fermano al primo giorno con dati
-      const lightDone = light.from != null && light.from <= oldestDay(LIGHT_TRACK, today);
-      const floor = lightDone ? heartFloor(await firstWellnessDay(userId)) : null;
-      const heartTurn = await runBackward(ctx, heart, HEART_TRACK, HEART_FIELDS, heartUnit, deadline, { floor, maxUnits: 3 });
-      saved += lightTurn.saved + heartTurn.saved;
-      if (!lightTurn.ran && !heartTurn.ran) break;
-    }
-  } catch (error) {
-    if (!(error instanceof UnitTimeout)) throw error;
-    console.warn("benessere Mi Fitness: blocco interrotto per tempo, riprende alla prossima sincronizzazione");
+    return await runWellnessPlan(driver, conn, deadline, opts);
   } finally {
     await prisma.miFitnessConnection.update({
       where: { userId },
       data: { wellnessZoneOffset: ctx.offset, wellnessError: ctx.errors.length ? ctx.errors.slice(0, 3).join(" · ").slice(0, 500) : null },
     });
   }
-  return saved;
 }

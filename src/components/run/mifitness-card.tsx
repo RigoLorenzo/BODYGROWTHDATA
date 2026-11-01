@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 import { apiError, useInvalidateRuns, useMiFitnessStatus } from "./queries";
-import { RECONNECT_EVENT } from "./mifitness-sync";
+import { RECONNECT_EVENT } from "@/components/devices/device-sync";
 
 interface QrLogin {
   qrImage: string;
@@ -161,7 +161,8 @@ export function MiFitnessCard() {
   const canStartRef = useRef(false);
   canStartRef.current = needsLogin && !qrLogin.qr && !qrLogin.starting;
   useEffect(() => {
-    const onReconnect = () => {
+    const onReconnect = (event: Event) => {
+      if ((event as CustomEvent).detail !== "MI_FITNESS") return;
       const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       rootRef.current?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "center" });
       if (canStartRef.current) void startRef.current();
@@ -192,7 +193,7 @@ export function MiFitnessCard() {
                 ? conn.lastSyncAt
                   ? `Sincronizzato ${formatDistanceToNow(new Date(conn.lastSyncAt), { locale: it, addSuffix: true })}`
                   : "Collegato"
-                : "Le corse del tuo Xiaomi Watch, in automatico"}
+                : "Xiaomi Watch e Smart Band: corse e benessere, in automatico"}
           </p>
         </div>
       </div>

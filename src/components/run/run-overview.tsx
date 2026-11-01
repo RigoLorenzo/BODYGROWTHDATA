@@ -10,8 +10,8 @@ import { FitnessCard } from "./fitness-card";
 import { RecordsCard } from "./records-card";
 import { RunList } from "./run-list";
 import { RunSettings } from "./run-settings";
-import { MiFitnessCard } from "./mifitness-card";
-import { MiFitnessExpiredBanner } from "./run-header";
+import { DevicesSection } from "./devices-section";
+import { DeviceExpiredBanner } from "./run-header";
 import { StravaCard } from "./strava-card";
 import { WeeklyChart } from "./weekly-chart";
 import { useRunStats, useRuns } from "./queries";
@@ -197,25 +197,22 @@ export function RunOverview() {
 
   return (
     <div className="space-y-5">
-      <MiFitnessExpiredBanner />
+      <DeviceExpiredBanner />
       {!hasRuns && (
         <p className="rounded-3xl border border-dashed border-border/60 p-5 text-sm text-muted-foreground">
-          Nessuna corsa ancora. Collega Mi Fitness per importare quelle del tuo Xiaomi Watch, carica un file GPX o
-          inseriscine una a mano. Ogni corsa conta come allenamento per la streak.
+          Nessuna corsa ancora. Collega il tuo smartwatch (Xiaomi o Garmin) per importare le corse, carica un file GPX
+          o inseriscine una a mano. Ogni corsa conta come allenamento per la streak.
         </p>
       )}
-      {!hasRuns && <MiFitnessCard />}
-      {!hasRuns && <StravaCard />}
-
       {hasRuns && (
         <>
           <RunStatsSections stats={stats} />
           <RecentRuns />
-
-          <MiFitnessCard />
-          <StravaCard />
         </>
       )}
+
+      <DevicesSection />
+      <StravaCard />
 
       <RunSettings settings={stats.settings} />
 

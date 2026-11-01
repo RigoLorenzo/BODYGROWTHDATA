@@ -2,8 +2,8 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { wellnessProgress } from "@/lib/mifitness/wellness-plan";
-import { firstWellnessDay } from "@/lib/mifitness/wellness-sync";
+import { DEVICES } from "@/lib/devices/registry";
+import { wellnessSourceState } from "@/lib/devices/source";
 import type { SleepSegment, WellnessResponse } from "@/lib/wellness/types";
 
 const MAX_DAYS = 3 * 365;
@@ -13,7 +13,7 @@ const DETAIL_DAYS = 14;
 
 const isoDay = (d: Date) => d.toISOString().slice(0, 10);
 
-/** Giorni e notti dallo smartwatch; le analisi si calcolano nel browser */
+/** Giorni e notti dello smartwatch scelto come fonte; le analisi si calcolano nel browser */
 export async function GET(req: Request) {
   const session = await auth().catch(() => null);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -23,13 +23,11 @@ export async function GET(req: Request) {
   const days = Number.isInteger(requested) && requested > 0 ? Math.min(requested, MAX_DAYS) : DEFAULT_DAYS;
   const since = isoDay(new Date(Date.now() - days * 86_400_000));
 
-  const [conn, rows, sleeps] = await Promise.all([
-    prisma.miFitnessConnection.findUnique({
-      where: { userId },
-      select: { lastSyncAt: true, lastError: true, wellnessSyncedFrom: true, wellnessHrFrom: true, wellnessError: true },
-    }),
+  const source = await wellnessSourceState(userId);
+  const [state, rows, sleeps] = await Promise.all([
+    source.active ? DEVICES[source.active].wellness(userId) : null,
     prisma.wellnessDay.findMany({
-      where: { userId, date: { gte: since } },
+      where: { userId, source: source.shown, date: { gte: since } },
       orderBy: { date: "asc" },
       select: {
         date: true,
@@ -47,7 +45,7 @@ export async function GET(req: Request) {
       },
     }),
     prisma.sleepSession.findMany({
-      where: { userId, date: { gte: since } },
+      where: { userId, source: source.shown, date: { gte: since } },
       orderBy: { startAt: "asc" },
       select: {
         id: true,
@@ -74,11 +72,13 @@ export async function GET(req: Request) {
 
   const detailSince = isoDay(new Date(Date.now() - DETAIL_DAYS * 86_400_000));
   const body: WellnessResponse = {
-    connected: !!conn,
-    lastSyncAt: conn?.lastSyncAt?.toISOString() ?? null,
-    progress: conn ? wellnessProgress(conn, await firstWellnessDay(userId)) : null,
-    needsReconnect: !!conn?.lastError,
-    syncError: conn?.wellnessError ?? null,
+    connected: !!state,
+    source: source.active,
+    sources: source.connected,
+    lastSyncAt: state?.lastSyncAt?.toISOString() ?? null,
+    progress: state?.progress ?? null,
+    needsReconnect: !!state?.lastError,
+    syncError: state?.wellnessError ?? null,
     days: rows,
     sleeps: sleeps.map((s) => ({
       ...s,
