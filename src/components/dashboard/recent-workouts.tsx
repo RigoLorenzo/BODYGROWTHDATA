@@ -51,14 +51,14 @@ export function RecentWorkouts({ initialData }: Props) {
     <section>
       <div className="mb-2 flex items-baseline justify-between px-1">
         <h2 className="font-display text-xl font-bold uppercase tracking-wide">Ultimi allenamenti</h2>
-        <Link href="/analytics?tab=storico" className="-mr-2 flex h-10 items-center px-2 text-xs text-muted-foreground active:text-foreground">
-          Storico <ChevronRight className="h-3.5 w-3.5" />
+        <Link href="/analytics?tab=andamento" className="-mr-2 flex h-10 items-center px-2 text-xs text-muted-foreground active:text-foreground">
+          Tutti <ChevronRight className="h-3.5 w-3.5" />
         </Link>
       </div>
 
       {!workouts?.length ? (
         <p className="rounded-3xl border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">
-          Ancora nessun allenamento: il primo parte dalla card qui sopra.
+          Ancora nessun allenamento.
         </p>
       ) : (
         <ul className="overflow-hidden rounded-3xl border border-border/60 bg-card">

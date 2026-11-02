@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { DEVICES_PATH } from "@/components/devices/routes";
 import { formatDistanceToNow } from "date-fns";
 import { it } from "date-fns/locale";
 import { Loader2, RefreshCw, Zap } from "lucide-react";
@@ -43,7 +44,7 @@ function useReturnStatus() {
       toast({ title: msg.title, description: msg.description, variant: msg.error ? "destructive" : "default" });
     }
     void invalidate();
-    router.replace("/run", { scroll: false });
+    router.replace(DEVICES_PATH, { scroll: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
 }
@@ -105,7 +106,7 @@ export function StravaCard() {
                     ? ` · sincronizzato ${formatDistanceToNow(new Date(conn.lastSyncAt), { locale: it, addSuffix: true })}`
                     : ""
                 }`
-              : "Importa le corse dell'orologio (Mi Fitness, Apple Salute, Garmin…)"}
+              : "Corse da qualsiasi app"}
           </p>
         </div>
       </div>
@@ -134,10 +135,7 @@ export function StravaCard() {
             {/* Navigazione completa: il redirect OAuth deve passare dal server */}
             <a href="/api/integrations/strava/connect">Collega Strava</a>
           </Button>
-          <p className="mt-3 text-xs text-muted-foreground">
-            Xiaomi Watch: in Mi Fitness apri Profilo → Account collegati → Strava. Ogni corsa dell&apos;orologio arriva
-            su Strava e da lì qui, con percorso, parziali e frequenza cardiaca.
-          </p>
+
         </>
       )}
     </section>

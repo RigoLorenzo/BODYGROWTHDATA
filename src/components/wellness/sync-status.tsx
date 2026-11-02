@@ -8,6 +8,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 import { syncDevice, useDeviceSyncing } from "@/components/devices/device-sync";
 import { DEVICE_LABEL, type DeviceProvider } from "@/components/devices/labels";
+import { DEVICES_PATH, reconnectHref } from "@/components/devices/routes";
 import { cn } from "@/lib/utils";
 import type { HistoryTrack, WellnessProgress, WellnessResponse } from "@/lib/wellness/types";
 import { EmptyState } from "@/components/analytics/ui";
@@ -77,9 +78,8 @@ export function HistoryProgress({ data, progress, active }: { data: WellnessResp
   if (data.needsReconnect) {
     return (
       <EmptyState>
-        Il collegamento a {data.source ? DEVICE_LABEL[data.source] : "lo smartwatch"} è scaduto: lo storico non può
-        avanzare.{" "}
-        <Link href="/run" className="font-medium text-foreground underline underline-offset-2">
+        Collegamento a {data.source ? DEVICE_LABEL[data.source] : "lo smartwatch"} scaduto.{" "}
+        <Link href={data.source ? reconnectHref(data.source) : DEVICES_PATH} className="font-medium text-foreground underline underline-offset-2">
           Ricollega
         </Link>
       </EmptyState>
@@ -89,20 +89,15 @@ export function HistoryProgress({ data, progress, active }: { data: WellnessResp
   return (
     <section className="space-y-3 rounded-3xl border border-border/60 bg-card p-5">
       <p className="flex items-center gap-2 text-sm font-semibold">
-        <History className={cn("h-4 w-4", active && "animate-pulse")} /> Scarico lo storico dall&apos;orologio
+        <History className={cn("h-4 w-4", active && "animate-pulse")} /> Storico in arrivo
       </p>
-      <Bar label="Sonno, passi, stress e SpO₂" track={progress.light} detail={sinceLabel(progress.light)} />
+      <Bar label="Sonno, passi, stress" track={progress.light} detail={sinceLabel(progress.light)} />
       <Bar
         label="Battiti al minuto"
         track={progress.heart}
         detail={progress.heart.complete ? "completo" : `${progress.heart.done}/${progress.heart.total} giorni`}
       />
-      <p className="text-xs text-muted-foreground">
-        {active
-          ? "Tutto lo storico dell'orologio, fino a 3 anni (battiti: 1 anno). Con questa pagina aperta va più veloce e i grafici si riempiono man mano."
-          : "Riprende alla prossima apertura e ogni notte."}
-        {data.syncError && ` Non scaricati: ${data.syncError}.`}
-      </p>
+      {data.syncError && <p className="text-xs text-muted-foreground">Non scaricati: {data.syncError}</p>}
     </section>
   );
 }
@@ -114,7 +109,7 @@ export function WellnessEmpty({ connected, source }: { connected: boolean; sourc
     return (
       <EmptyState>
         Collega il tuo smartwatch (Xiaomi o Garmin) per vedere sonno, battiti, passi e stress.{" "}
-        <Link href="/run#devices-title" className="font-medium text-foreground underline underline-offset-2">
+        <Link href={DEVICES_PATH} className="font-medium text-foreground underline underline-offset-2">
           Collega uno smartwatch
         </Link>
       </EmptyState>

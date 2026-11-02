@@ -52,6 +52,14 @@ export async function GET() {
     year: totals(since(startOfYear(now))),
     allTime: totals(runs),
     weekly: weeklyTotals(runs, 12, now),
+    // Ogni corsa in breve: settimane, mesi e anni si calcolano nel browser
+    history: runs.map((r) => ({
+      id: r.id,
+      startedAt: r.startedAt,
+      distance: r.distance,
+      movingTime: r.movingTime,
+      elevationGain: r.elevationGain,
+    })),
     // Frequenza: corse a settimana nelle ultime 4 settimane
     runsPerWeek: Math.round((lastFourWeeks.length / 4) * 10) / 10,
     records: prs,

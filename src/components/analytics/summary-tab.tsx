@@ -2,30 +2,22 @@
 
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { format } from "date-fns";
-import { it } from "date-fns/locale";
 import { Flame } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAnalyticsOverview } from "@/hooks/use-workout-session";
 import {
   consistency,
-  monthlySeries,
   periodStart,
   periodTotals,
   periodWindow,
   shiftPeriod,
-  timeOfDay,
-  weekdayStats,
-  weeklySeries,
   type ActivityItem,
   type Period,
 } from "@/lib/insights";
 import { formatKm } from "@/lib/run/format";
 import { cn, formatVolume } from "@/lib/utils";
-import { HorizontalBars, StackedBars } from "./bars";
 import { formatDecimal, formatDelta, formatHours } from "./format";
-import { ActivityLegend, EmptyState, Section, Segmented, Stat } from "./ui";
-import { HabitHighlights } from "./highlights";
+import { EmptyState, Section, Segmented, Stat } from "./ui";
 import { useActivity } from "./use-activity";
 import { PeriodActivity } from "./period-activity";
 import { BackToToday, PERIOD_OPTIONS, PeriodNavigator, PeriodPickerDialog, usePeriodSelection } from "./period-picker";
@@ -45,8 +37,6 @@ interface Selection {
   anchor: Date;
   setPeriod: (p: Period) => void;
   setAnchor: (d: Date) => void;
-  /** Passa al mese indicato (da qualsiasi tipo di periodo) */
-  setMonth: (d: Date) => void;
 }
 
 /**
@@ -187,7 +177,7 @@ function Consistency({ items, now }: { items: ActivityItem[]; now: Date }) {
           unit="giorni"
           detail={`Record: ${overview?.longestStreak ?? 0} giorni`}
         />
-        <Stat label="Media" value={formatDecimal(c.avgPerWeek)} unit="a settimana" detail="Palestra e corsa insieme" />
+        <Stat label="Media" value={formatDecimal(c.avgPerWeek)} unit="a settimana" />
         <div className="col-span-2">
           <div className="flex items-baseline justify-between">
             <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Settimane attive</p>
@@ -200,117 +190,6 @@ function Consistency({ items, now }: { items: ActivityItem[]; now: Date }) {
           </div>
         </div>
       </div>
-    </Section>
-  );
-}
-
-const WEEK_METRICS = [
-  { value: "sessions", label: "Allenamenti" },
-  { value: "duration", label: "Ore" },
-] as const;
-
-/** Ultime 12 settimane: palestra e corsa impilate */
-function WeeklyActivity({ items, now }: { items: ActivityItem[]; now: Date }) {
-  const [metric, setMetric] = useState<(typeof WEEK_METRICS)[number]["value"]>("sessions");
-  const weeks = weeklySeries(items, 12, now);
-  const data = weeks.map((w, i) => ({
-    key: w.start.toISOString(),
-    label: format(w.start, "d/M"),
-    primary: metric === "sessions" ? w.gym : w.gymDuration,
-    secondary: metric === "sessions" ? w.runs : w.runDuration,
-    tertiary: metric === "sessions" ? w.other : w.otherDuration,
-    caption: metric === "sessions" ? String(w.sessions) : formatDecimal(w.duration / 3600),
-    // La settimana in corso in evidenza
-    highlight: i === weeks.length - 1,
-  }));
-  return (
-    <Section title="Ultime 12 settimane" hint={<ActivityLegend className="mt-1" other={weeks.some((w) => w.other > 0)} />}>
-      <Segmented value={metric} options={WEEK_METRICS} onChange={setMetric} size="sm" className="mb-4" />
-      <StackedBars data={data} labelEvery={3} />
-    </Section>
-  );
-}
-
-const DAY_METRICS = [
-  { value: "sessions", label: "Allenamenti" },
-  { value: "avg", label: "Durata media" },
-  { value: "total", label: "Ore totali" },
-] as const;
-
-function Weekdays({ items }: { items: ActivityItem[] }) {
-  const [metric, setMetric] = useState<(typeof DAY_METRICS)[number]["value"]>("sessions");
-  const days = weekdayStats(items);
-  const value = (d: (typeof days)[number]) => (metric === "sessions" ? d.sessions : metric === "avg" ? d.avgDuration : d.duration);
-  const top = Math.max(...days.map(value));
-  return (
-    <Section title="Giorni della settimana" hint="Quando e quanto ti alleni">
-      <Segmented value={metric} options={DAY_METRICS} onChange={setMetric} size="sm" className="mb-4" />
-      <HorizontalBars
-        rows={days.map((d) => ({
-          key: d.name,
-          label: d.name,
-          value: value(d),
-          caption: metric === "sessions" ? `${d.sessions}` : formatHours(value(d)),
-          highlight: value(d) > 0 && value(d) === top,
-        }))}
-      />
-    </Section>
-  );
-}
-
-function TimeSlots({ items }: { items: ActivityItem[] }) {
-  const slots = timeOfDay(items);
-  const top = Math.max(...slots.map((s) => s.sessions));
-  return (
-    <Section title="Orari" hint="A che ora inizi ad allenarti">
-      <HorizontalBars
-        rows={slots.map((s) => ({
-          key: s.key,
-          label: `${s.label}`,
-          value: s.sessions,
-          caption: `${Math.round((s.sessions / Math.max(1, items.length)) * 100)}% · ${s.sessions}`,
-          highlight: s.sessions > 0 && s.sessions === top,
-        }))}
-      />
-    </Section>
-  );
-}
-
-/** Ultimi 12 mesi: tocca una barra per vederne il dettaglio in alto */
-function Months({ items, now, selection }: { items: ActivityItem[]; now: Date; selection: Selection }) {
-  const months = monthlySeries(items, 12, now);
-  const selectedKey = selection.period === "month" ? format(selection.anchor, "yyyy-MM") : format(now, "yyyy-MM");
-  const select = (key: string) => {
-    const month = months.find((m) => m.start.toISOString() === key);
-    if (!month) return;
-    if (selection.period === "month") selection.setAnchor(month.start);
-    else selection.setMonth(month.start);
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" });
-  };
-  return (
-    <Section
-      title="Ultimi 12 mesi"
-      hint={
-        <span className="flex flex-wrap items-center gap-x-3">
-          <ActivityLegend className="mt-1" other={months.some((m) => m.other > 0)} />
-          <span className="mt-1">Tocca un mese per il dettaglio</span>
-        </span>
-      }
-    >
-      <StackedBars
-        labelEvery={2}
-        onSelect={select}
-        data={months.map((m) => ({
-          key: m.start.toISOString(),
-          label: format(m.start, "MMM", { locale: it }),
-          primary: m.gym,
-          secondary: m.runs,
-          tertiary: m.other,
-          caption: String(m.sessions),
-          highlight: format(m.start, "yyyy-MM") === selectedKey,
-        }))}
-      />
     </Section>
   );
 }
@@ -330,7 +209,7 @@ export function SummaryTab() {
     );
   }
   if (!items.length) {
-    return <EmptyState>Ancora nessun allenamento: qui troverai costanza e le tue abitudini.</EmptyState>;
+    return <EmptyState>Ancora nessun allenamento.</EmptyState>;
   }
 
   return (
@@ -343,11 +222,6 @@ export function SummaryTab() {
         span={periodWindow(selection.period, selection.anchor, now)}
       />
       <Consistency items={items} now={now} />
-      <HabitHighlights items={items} />
-      <WeeklyActivity items={items} now={now} />
-      <Weekdays items={items} />
-      <TimeSlots items={items} />
-      <Months items={items} now={now} selection={selection} />
     </div>
   );
 }

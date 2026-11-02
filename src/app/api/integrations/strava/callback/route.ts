@@ -14,7 +14,7 @@ export async function GET(req: Request) {
   const base = appUrl(req);
   const url = new URL(req.url);
   const done = (status: string, extra = "") => {
-    const res = NextResponse.redirect(`${base}/run?strava=${status}${extra}`);
+    const res = NextResponse.redirect(`${base}/profile/settings/dispositivi?strava=${status}${extra}`);
     res.cookies.delete({ name: STATE_COOKIE, path: "/api/integrations/strava" });
     return res;
   };

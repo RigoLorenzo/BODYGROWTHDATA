@@ -16,9 +16,8 @@ export function RunTab() {
       <EmptyState>
         Nessuna corsa ancora.{" "}
         <Link href="/run" className="font-medium text-foreground underline underline-offset-2">
-          Collega uno smartwatch o aggiungi una corsa
+          Vai a Corsa
         </Link>
-        .
       </EmptyState>
     );
   }

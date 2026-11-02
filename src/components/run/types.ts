@@ -27,6 +27,8 @@ export interface RunStats {
   year: PeriodTotals;
   allTime: PeriodTotals;
   weekly: (PeriodTotals & { weekStart: string })[];
+  /** tutte le corse, dalla più recente: per settimane, mesi e anni a scelta */
+  history: { id: string; startedAt: string; distance: number; movingTime: number; elevationGain: number | null }[];
   runsPerWeek: number;
   records: { name: string; distance: number; seconds: number; runId: string; date: string }[];
   longest: { id: string; distance: number; startedAt: string } | null;

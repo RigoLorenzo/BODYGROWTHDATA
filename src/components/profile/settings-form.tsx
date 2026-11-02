@@ -14,8 +14,11 @@ import {
   Sun,
   Trash2,
   UserRound,
+  Watch,
   type LucideIcon,
 } from "lucide-react";
+import { DEVICES_PATH } from "@/components/devices/routes";
+import { useDevices } from "@/components/run/queries";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
@@ -33,7 +36,18 @@ interface Props {
   user: { name?: string | null; email?: string | null };
 }
 
+/** "Garmin, Mi Fitness" · "Garmin: da ricollegare" · "Nessuno collegato" */
+function useDevicesHint() {
+  const { data } = useDevices();
+  const connected = data?.devices.filter((d) => d.connection) ?? [];
+  if (!data) return undefined;
+  if (!connected.length) return "Nessuno collegato";
+  const expired = connected.find((d) => d.connection?.lastError);
+  return expired ? `${expired.label}: da ricollegare` : connected.map((d) => d.label).join(", ");
+}
+
 export function SettingsForm({ user }: Props) {
+  const devicesHint = useDevicesHint();
   const [theme, setTheme] = useState<Theme>("system");
   const [keepAwake, setKeepAwake] = useState(true);
   useEffect(() => {
@@ -100,6 +114,10 @@ export function SettingsForm({ user }: Props) {
 
   return (
     <div className="space-y-6">
+      <Group title="Dispositivi">
+        <Row href={DEVICES_PATH} icon={Watch} title="Smartwatch e app" hint={devicesHint} />
+      </Group>
+
       <Group title="Aspetto">
         <div className="space-y-2 p-4">
           <div className="grid grid-cols-3 gap-1 rounded-xl bg-muted p-1" role="radiogroup" aria-label="Tema">
@@ -120,9 +138,6 @@ export function SettingsForm({ user }: Props) {
               </button>
             ))}
           </div>
-          <p className="text-xs text-muted-foreground">
-            &ldquo;Sistema&rdquo; segue il tema del telefono. La scelta vale per questo dispositivo.
-          </p>
         </div>
       </Group>
 
@@ -131,7 +146,6 @@ export function SettingsForm({ user }: Props) {
           <RowIcon icon={Lightbulb} />
           <span className="min-w-0 flex-1">
             <span className="block text-sm font-semibold">Schermo sempre acceso</span>
-            <span className="block text-xs text-muted-foreground">Il telefono non si blocca tra una serie e l&apos;altra.</span>
           </span>
           <Switch
             checked={keepAwake}
@@ -149,7 +163,6 @@ export function SettingsForm({ user }: Props) {
           href="/profile/exercises"
           icon={Dumbbell}
           title="Libreria esercizi"
-          hint="Cerca in italiano o inglese e crea i tuoi esercizi"
         />
         <Row
           icon={RefreshCw}
@@ -157,7 +170,6 @@ export function SettingsForm({ user }: Props) {
           onClick={handleSyncExercises}
           disabled={isSyncing}
           title={isSyncing ? "Aggiornamento…" : "Aggiorna libreria"}
-          hint="Ricarica il catalogo: i tuoi esercizi non vengono toccati"
         />
       </Group>
 
@@ -167,7 +179,6 @@ export function SettingsForm({ user }: Props) {
           onClick={handleExportCSV}
           disabled={isExporting}
           title={isExporting ? "Esportazione…" : "Esporta in CSV"}
-          hint="Allenamenti, serie e misurazioni in un file"
         />
       </Group>
 
@@ -179,7 +190,7 @@ export function SettingsForm({ user }: Props) {
             <span className="block truncate text-xs text-muted-foreground">{user.email}</span>
           </span>
         </div>
-        <Row icon={LogOut} onClick={() => signOut({ callbackUrl: "/login" })} title="Esci" hint="Disconnetti questo dispositivo" />
+        <Row icon={LogOut} onClick={() => signOut({ callbackUrl: "/login" })} title="Esci" />
       </Group>
 
       <Group title="Zona pericolosa" danger>
@@ -189,7 +200,7 @@ export function SettingsForm({ user }: Props) {
           onClick={handleDeleteData}
           disabled={isDeleting}
           title={isDeleting ? "Eliminazione…" : "Elimina i dati di allenamento"}
-          hint="Allenamenti, serie, misure e record. L'account resta attivo."
+          hint="L'account resta attivo"
         />
       </Group>
     </div>

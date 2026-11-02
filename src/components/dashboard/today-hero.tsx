@@ -92,8 +92,7 @@ function OrphanWorkoutSlab() {
     <Slab className="p-5">
       <Eyebrow>Allenamento non concluso</Eyebrow>
       <p className="mt-2 text-sm text-zinc-300">
-        Iniziato alle {format(new Date(orphanSession.startedAt), "HH:mm 'del' d MMMM", { locale: it })}. Riprendilo
-        da dove eri rimasto: le serie salvate vengono ripristinate.
+        Iniziato alle {format(new Date(orphanSession.startedAt), "HH:mm 'del' d MMMM", { locale: it })}.
       </p>
       <button className={cn(ctaClass, "mt-5")} onClick={() => resume.mutate(orphanSession.id)} disabled={busy}>
         <Play className="h-5 w-5" /> {resume.isPending ? "Ripresa..." : "Riprendi qui"}

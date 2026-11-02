@@ -29,7 +29,6 @@ export function RecordsTab() {
         </span>
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-semibold">Record per esercizio</span>
-          <span className="block truncate text-xs text-muted-foreground">Carichi massimi e migliori serie di ogni esercizio</span>
         </span>
         <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
       </Link>

@@ -116,7 +116,6 @@ export function BodyMeasurements() {
     <>
       <Section
         title="Misure"
-        hint={measurements[0] ? `Ultima il ${format(new Date(measurements[0].date), "d MMMM yyyy", { locale: it })}` : undefined}
         action={
           <button
             type="button"

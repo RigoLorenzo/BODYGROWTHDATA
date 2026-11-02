@@ -67,7 +67,6 @@ export function ProfileLinks() {
         </span>
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-semibold">Libreria esercizi</span>
-          <span className="block truncate text-xs text-muted-foreground">Catalogo e i tuoi esercizi personalizzati</span>
         </span>
         <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
       </Link>

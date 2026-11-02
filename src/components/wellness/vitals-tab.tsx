@@ -26,7 +26,7 @@ export function VitalsTab({ data }: { data: WellnessResponse }) {
   if (!stress.length && !spo2.length) {
     return (
       <EmptyState>
-        Nessun dato di stress o ossigeno negli ultimi 30 giorni. {tip}: senza, l&apos;orologio misura solo a mano.
+        Nessun dato di stress o ossigeno. {tip}.
       </EmptyState>
     );
   }
@@ -40,12 +40,11 @@ export function VitalsTab({ data }: { data: WellnessResponse }) {
     <div className="space-y-5">
       {sparse && (
         <p className="rounded-2xl bg-muted/60 p-4 text-xs text-muted-foreground">
-          Dati misurati in pochi giorni (stress {stress.length}, SpO₂ {spo2.length} su 30). Per averli ogni giorno:{" "}
-          {tip.charAt(0).toLowerCase() + tip.slice(1)}.
+          Pochi giorni misurati. {tip}.
         </p>
       )}
       {stressAvg != null && (
-        <Section title="Stress" hint="Dalla variabilità del battito, scala 1-100">
+        <Section title="Stress">
           <div className="mb-4 grid grid-cols-3 gap-3">
             <Stat label="Oggi" value={month.at(-1)?.day?.stressAvg ?? "—"} detail={month.at(-1)?.day?.stressAvg != null ? stressLabel(month.at(-1)!.day!.stressAvg!) : undefined} />
             <Stat label="Media 7 gg" value={stressWeek != null ? Math.round(stressWeek) : "—"} />
@@ -62,21 +61,17 @@ export function VitalsTab({ data }: { data: WellnessResponse }) {
               highlight: (day?.stressAvg ?? 0) >= 60,
             }))}
           />
-          <p className="mt-3 text-xs text-muted-foreground">Le barre piene segnano i giorni con stress medio sopra 60. Sonno corto e allenamenti duri lo alzano.</p>
         </Section>
       )}
 
       {spo2.length > 0 && (
-        <Section title="Ossigeno nel sangue" hint="SpO₂ medio del giorno">
+        <Section title="Ossigeno nel sangue">
           <div className="mb-4 grid grid-cols-3 gap-3">
             <Stat label="Media 30 gg" value={formatDecimal(average(spo2)!)} unit="%" />
             <Stat label="Minimo" value={spo2Mins.length ? Math.min(...spo2Mins) : "—"} unit={spo2Mins.length ? "%" : undefined} />
             <Stat label="Sotto 90%" value={lowSpo2} detail="giorni" />
           </div>
           <RangeTrend value={spo2Of} unit="%" tone="sky" digits={1} />
-          <p className="mt-3 text-xs text-muted-foreground">
-            Valori tra 95% e 100% sono normali. Cali notturni ripetuti sotto il 90% meritano un confronto con il medico.
-          </p>
         </Section>
       )}
     </div>

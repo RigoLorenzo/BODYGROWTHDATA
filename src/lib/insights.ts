@@ -127,7 +127,7 @@ export function periodRange(period: Period, now: Date): { from: Date | null; pre
 }
 
 /** Sedute nel periodo [from, to) */
-export function itemsInPeriod(items: ActivityItem[], window: Pick<PeriodWindow, "from" | "to">) {
+export function itemsInPeriod<T extends { startedAt: Date }>(items: T[], window: Pick<PeriodWindow, "from" | "to">): T[] {
   return items.filter((i) => (!window.from || i.startedAt >= window.from) && (!window.to || i.startedAt < window.to));
 }
 
