@@ -54,7 +54,7 @@ function Delta({ point }: { point: Point }) {
   const Icon = Math.abs(point.delta) < 0.05 ? Minus : point.delta > 0 ? ArrowUpRight : ArrowDownRight;
   const sign = point.delta > 0 ? "+" : point.delta < 0 ? "−" : "";
   return (
-    <span className="inline-flex items-center gap-0.5 text-sm font-semibold tabular-nums">
+    <span className="inline-flex items-center gap-0.5 text-xs font-semibold tabular-nums">
       <Icon
         className={cn(
           "h-4 w-4",
@@ -69,21 +69,23 @@ function Delta({ point }: { point: Point }) {
   );
 }
 
-/** Riquadro sopra il grafico: fa da tooltip per la settimana toccata (di default quella corrente) */
+/** Riga sopra il grafico: fa da tooltip per la settimana toccata (di default quella corrente) */
 function Readout({ point, isCurrent }: { point: Point; isCurrent: boolean }) {
   return (
-    <div className="mb-3 min-h-[4.5rem]" aria-live="polite">
-      <p className="text-xs font-medium text-muted-foreground">
-        {isCurrent ? "Questa settimana" : weekRange(point.weekStart)} · {point.runs} {point.runs === 1 ? "corsa" : "corse"}
+    <div className="mb-3 min-h-[2.75rem]" aria-live="polite">
+      <p className="flex items-baseline justify-between gap-3">
+        <span className="text-xs font-medium text-muted-foreground">
+          {isCurrent ? "Questa settimana" : weekRange(point.weekStart)} · {point.runs} {point.runs === 1 ? "corsa" : "corse"}
+        </span>
+        <span className="font-display text-2xl font-bold leading-none tabular-nums">
+          {km1(point.km)}
+          <span className="ml-0.5 text-xs font-semibold text-muted-foreground">km</span>
+        </span>
       </p>
-      <p className="font-display text-3xl font-bold leading-tight tabular-nums">
-        {km1(point.km)}
-        <span className="ml-1 text-base font-semibold text-muted-foreground">km</span>
-      </p>
-      <p className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+      <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
         {point.delta != null && (
           <span className="inline-flex items-center gap-1">
-            <Delta point={point} /> vs settimana prima
+            <Delta point={point} /> vs prima
           </span>
         )}
         {point.avg != null && (

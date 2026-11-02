@@ -17,6 +17,7 @@ import { formatDuration, formatKm, formatPace } from "@/lib/run/format";
 import { monthlyRunTotals, runPeriod, type RunEntry } from "@/lib/run/period";
 import { cn } from "@/lib/utils";
 import type { RunStats } from "./types";
+import { WeeklyChart } from "./weekly-chart";
 
 const PREVIOUS: Record<Exclude<Period, "all">, [current: string, past: string]> = {
   week: ["settimana scorsa", "settimana prima"],
@@ -38,7 +39,7 @@ function Cell({ label, value, unit, detail, tone }: { label: string; value: stri
         {unit && <span className="ml-0.5 text-xs font-medium opacity-60">{unit}</span>}
       </p>
       {detail && (
-        <p className={cn("text-[11px] font-semibold tabular-nums", tone === "up" ? "text-lime-400" : tone === "down" ? "text-red-300" : "opacity-60")}>
+        <p className={cn("text-[11px] font-semibold tabular-nums", tone === "up" ? "text-lime-400 dark:text-lime-600" : tone === "down" ? "text-red-300 dark:text-red-600" : "opacity-60")}>
           {detail}
         </p>
       )}
@@ -87,7 +88,7 @@ export function RunPeriodHero({ stats, runs, now }: { stats: RunStats; runs: Run
         </p>
         {change != null && period !== "all" && (
           <div className="shrink-0 text-right">
-            <p className={cn("font-display text-2xl font-bold", change < 0 ? "text-red-300" : "text-lime-400")}>
+            <p className={cn("font-display text-2xl font-bold", change < 0 ? "text-red-300 dark:text-red-600" : "text-lime-400 dark:text-lime-600")}>
               {change === 0 ? "=" : `${change > 0 ? "+" : "−"}${Math.abs(change)}%`}
             </p>
             <p className="text-xs opacity-70">
@@ -110,7 +111,8 @@ export function RunPeriodHero({ stats, runs, now }: { stats: RunStats; runs: Run
         </div>
       )}
 
-      <div className="mt-5 grid grid-cols-3 gap-x-3 gap-y-4 border-t border-background/15 pt-4">
+      {/* Tre numeri chiave; il resto in una riga sola, solo se c'è */}
+      <div className="mt-5 grid grid-cols-3 gap-3 border-t border-background/15 pt-4">
         <Cell label="Corse" value={current.runs} />
         <Cell label="Tempo" value={current.movingTime ? formatDuration(current.movingTime) : "—"} />
         <Cell
@@ -121,10 +123,22 @@ export function RunPeriodHero({ stats, runs, now }: { stats: RunStats; runs: Run
           detail={pace ? `${pace < 0 ? "−" : "+"}${Math.abs(pace)}s/km` : undefined}
           tone={pace ? (pace < 0 ? "up" : "down") : undefined}
         />
-        <Cell label="Dislivello" value={current.elevationGain} unit="m" />
-        <Cell label="Più lunga" value={current.longest ? formatKm(current.longest) : "—"} unit={current.longest ? "km" : undefined} />
-        <Cell label="Media" value={current.runs ? formatKm(current.distance / current.runs) : "—"} unit={current.runs ? "km" : undefined} />
       </div>
+      {current.runs > 0 && (
+        <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs opacity-70">
+          <span>
+            Più lunga <span className="font-semibold tabular-nums">{formatKm(current.longest)} km</span>
+          </span>
+          <span>
+            Media <span className="font-semibold tabular-nums">{formatKm(current.distance / current.runs)} km</span>
+          </span>
+          {current.elevationGain > 0 && (
+            <span>
+              Dislivello <span className="font-semibold tabular-nums">{current.elevationGain} m</span>
+            </span>
+          )}
+        </p>
+      )}
 
       {!span.isCurrent && <BackToToday onClick={() => setAnchor(now)} />}
 
@@ -145,7 +159,7 @@ export function RunPeriodHero({ stats, runs, now }: { stats: RunStats; runs: Run
 }
 
 /** Km degli ultimi 12 mesi: tocca un mese per aprirlo in alto */
-export function MonthlyKm({ runs, now }: { runs: RunEntry[]; now: Date }) {
+function MonthlyKm({ runs, now }: { runs: RunEntry[]; now: Date }) {
   const { period, anchor, select } = usePeriodSelection(now, "week");
   const months = monthlyRunTotals(runs, 12, now);
   const selected = period === "month" ? format(anchor, "yyyy-MM") : null;
@@ -157,19 +171,42 @@ export function MonthlyKm({ runs, now }: { runs: RunEntry[]; now: Date }) {
     window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" });
   };
   return (
-    <Section title="Km al mese">
-      <StackedBars
-        labelEvery={2}
-        onSelect={open}
-        data={months.map((m) => ({
-          key: m.key,
-          label: format(m.start, "MMM", { locale: it }),
-          primary: 0,
-          secondary: Math.round(m.distance / 100) / 10,
-          caption: m.distance ? String(Math.round(m.distance / 1000)) : undefined,
-          highlight: m.key === selected,
-        }))}
-      />
+    <StackedBars
+      height={140}
+      labelEvery={2}
+      onSelect={open}
+      data={months.map((m) => ({
+        key: m.key,
+        label: format(m.start, "MMM", { locale: it }),
+        primary: 0,
+        secondary: Math.round(m.distance / 100) / 10,
+        caption: m.distance ? String(Math.round(m.distance / 1000)) : undefined,
+        highlight: m.key === selected,
+      }))}
+    />
+  );
+}
+
+const TREND_VIEWS = [
+  { value: "weeks", label: "Settimane" },
+  { value: "months", label: "Mesi" },
+] as const;
+
+/**
+ * Un solo grafico dei km: le ultime 12 settimane (con media e obiettivo) o
+ * gli ultimi 12 mesi. Parte dai mesi se stai guardando un mese o un anno.
+ */
+export function RunTrend({ stats, runs, now }: { stats: RunStats; runs: RunEntry[]; now: Date }) {
+  const { period } = usePeriodSelection(now, "week");
+  const [view, setView] = useState<(typeof TREND_VIEWS)[number]["value"]>(period === "year" || period === "all" ? "months" : "weeks");
+  return (
+    <Section title="Andamento" hint={view === "weeks" ? "Km a settimana" : "Km al mese · tocca un mese per aprirlo"}>
+      <Segmented value={view} options={TREND_VIEWS} onChange={setView} size="sm" className="mb-4" />
+      {view === "weeks" ? (
+        <WeeklyChart weekly={stats.weekly} goalKm={stats.settings.weeklyRunKmGoal} />
+      ) : (
+        <MonthlyKm runs={runs} now={now} />
+      )}
     </Section>
   );
 }

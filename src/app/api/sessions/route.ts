@@ -67,14 +67,20 @@ export async function GET(req: Request) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
-  const limit = parseInt(searchParams.get("limit") ?? "20");
-  const offset = parseInt(searchParams.get("offset") ?? "0");
+  // Limiti espliciti: niente pagine enormi né offset negativi
+  const limit = clampInt(searchParams.get("limit"), 20, 1, 100);
+  const offset = clampInt(searchParams.get("offset"), 0, 0, 100_000);
   const muscle = searchParams.get("muscle") ?? undefined;
+  // Periodo opzionale [from, to) in ISO 8601: lo storico filtrato dal Riepilogo.
+  // Il client manda gli istanti della sua mezzanotte locale, non quella del server.
+  const from = parseInstant(searchParams.get("from"));
+  const to = parseInstant(searchParams.get("to"));
 
   const workouts = await prisma.workoutSession.findMany({
     where: {
       userId: session.user.id,
       status: { not: "ABANDONED" },
+      ...(from || to ? { startedAt: { ...(from ? { gte: from } : {}), ...(to ? { lt: to } : {}) } } : {}),
       ...(muscle ? { exercises: { some: { exercise: { primaryMuscle: muscle as MuscleGroup } } } } : {}),
     },
     orderBy: { startedAt: "desc" },
@@ -93,4 +99,16 @@ export async function GET(req: Request) {
   });
 
   return NextResponse.json(await withProgramDayNames(workouts));
+}
+
+function clampInt(raw: string | null, fallback: number, min: number, max: number) {
+  const value = parseInt(raw ?? "", 10);
+  return Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback;
+}
+
+/** Istante ISO 8601 ("2026-09-30T22:00:00.000Z"); null se assente o non valido */
+function parseInstant(raw: string | null): Date | null {
+  if (!raw || !/^\d{4}-\d{2}-\d{2}T[\d:.]+(Z|[+-]\d{2}:\d{2})$/.test(raw)) return null;
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
