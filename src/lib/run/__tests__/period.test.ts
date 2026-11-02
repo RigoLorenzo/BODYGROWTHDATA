@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@jest/globals";
-import { monthlyRunTotals, runPeriod, runTotals, type RunEntry } from "../period";
+import { periodWindow } from "@/lib/insights";
+import { monthlyRunTotals, runPeriod, runTotals, weeksOnGoal, type RunEntry } from "../period";
 
 let n = 0;
 const run = (d: Date, km: number, minutes: number, elevation = 0): RunEntry => ({
@@ -48,5 +49,11 @@ describe("statistiche corsa per periodo", () => {
     const months = monthlyRunTotals(runs, 3, NOW);
     expect(months.map((m) => m.key)).toEqual(["2026-08", "2026-09", "2026-10"]);
     expect(months.map((m) => m.distance)).toEqual([0, 12_000, 23_000]);
+  });
+
+  it("settimane con l'obiettivo centrato; quella in corso conta solo se già raggiunto", () => {
+    const october = periodWindow("month", NOW, NOW);
+    expect(weeksOnGoal(runs, october, NOW, 10_000)).toEqual({ hit: 1, total: 3 });
+    expect(weeksOnGoal(runs, october, NOW, 20_000)).toEqual({ hit: 0, total: 2 });
   });
 });

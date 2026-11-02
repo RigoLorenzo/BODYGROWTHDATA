@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { withProgramDayNames } from "@/lib/program-day-names";
 import { z } from "zod";
 import type { MuscleGroup } from "@prisma/client";
+import { clampInt, parseInstant } from "@/lib/query-params";
 
 const createSessionSchema = z.object({
   workoutType: z.enum(["PUSH", "PULL", "LEGS", "UPPER", "LOWER", "FULL_BODY", "CARDIO", "CUSTOM"]).optional(),
@@ -101,14 +102,3 @@ export async function GET(req: Request) {
   return NextResponse.json(await withProgramDayNames(workouts));
 }
 
-function clampInt(raw: string | null, fallback: number, min: number, max: number) {
-  const value = parseInt(raw ?? "", 10);
-  return Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback;
-}
-
-/** Istante ISO 8601 ("2026-09-30T22:00:00.000Z"); null se assente o non valido */
-function parseInstant(raw: string | null): Date | null {
-  if (!raw || !/^\d{4}-\d{2}-\d{2}T[\d:.]+(Z|[+-]\d{2}:\d{2})$/.test(raw)) return null;
-  const date = new Date(raw);
-  return Number.isNaN(date.getTime()) ? null : date;
-}

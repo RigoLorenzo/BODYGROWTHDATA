@@ -1,8 +1,10 @@
 "use client";
 
+import { addDays, format } from "date-fns";
+import { it } from "date-fns/locale";
 import { Flame } from "lucide-react";
 import { useAnalyticsOverview } from "@/hooks/use-workout-session";
-import { periodConsistency, records, type ActivityItem, type Period } from "@/lib/insights";
+import { periodConsistency, periodStart, records, type ActivityItem, type Period } from "@/lib/insights";
 import { cn } from "@/lib/utils";
 import { formatDecimal } from "./format";
 import { Section, Stat } from "./ui";
@@ -20,9 +22,49 @@ function habitSentence(items: ActivityItem[]): string | null {
   return `Ti alleni soprattutto ${day === "domenica" ? "la" : "il"} ${day}, ${slot === "notte" ? "di notte" : `di ${slot}`}.`;
 }
 
+/** Nella settimana: i sette giorni con l'iniziale, pieni se ti sei allenato */
+function DayDots({ cells, anchor }: { cells: { start: Date; active: boolean }[]; anchor: Date }) {
+  const monday = periodStart("week", anchor);
+  return (
+    <div className="grid grid-cols-7 gap-2">
+      {Array.from({ length: 7 }, (_, i) => {
+        const day = addDays(monday, i);
+        const cell = cells[i];
+        return (
+          <div key={i} className="flex flex-col items-center gap-1.5">
+            <span
+              className={cn(
+                "h-8 w-8 rounded-full",
+                !cell ? "border border-dashed border-border" : cell.active ? "bg-lime-500" : "bg-muted"
+              )}
+              aria-label={`${format(day, "EEEE", { locale: it })}: ${!cell ? "deve ancora arrivare" : cell.active ? "allenamento" : "riposo"}`}
+            />
+            <span className="text-[10px] font-medium uppercase text-muted-foreground">{format(day, "EEEEE", { locale: it })}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Una pallina per settimana: si vede subito dove ti sei fermato */
+function WeekDots({ cells }: { cells: { start: Date; active: boolean }[] }) {
+  return (
+    <div className="flex flex-wrap gap-1.5" role="img" aria-label={`${cells.filter((c) => c.active).length} settimane attive su ${cells.length}`}>
+      {cells.map((c) => (
+        <span
+          key={c.start.toISOString()}
+          title={`Settimana del ${format(c.start, "d MMM", { locale: it })}`}
+          className={cn("h-3.5 w-3.5 rounded-full", c.active ? "bg-lime-500" : "bg-muted")}
+        />
+      ))}
+    </div>
+  );
+}
+
 /**
- * Costanza nel periodo: quante settimane (o giorni) attive, la media e la
- * streak. In fondo, l'abitudine più evidente in una frase.
+ * Costanza nel periodo: giorni (o settimane) attivi come una fila di
+ * palline, la media e la streak. In fondo, l'abitudine più evidente.
  */
 export function PeriodConsistency({
   all,
@@ -41,30 +83,23 @@ export function PeriodConsistency({
   const c = periodConsistency(all, period, anchor, now);
   const streak = overview?.streak ?? 0;
   const habit = habitSentence(inPeriod);
+  const shown = c.cells.length;
 
   return (
-    <Section title="Costanza">
-      <div className="flex items-baseline justify-between">
-        <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-          {c.unit === "days" ? "Giorni attivi" : "Settimane attive"}
+    <Section
+      title="Costanza"
+      action={
+        <p className="shrink-0 pt-1 text-sm font-semibold tabular-nums">
+          {c.active}/{c.total} <span className="font-normal text-muted-foreground">{c.unit === "days" ? "giorni" : "settimane"}</span>
         </p>
-        <p className="text-sm font-semibold tabular-nums">
-          {c.active}/{c.total}
-          <span className="ml-1 font-normal text-muted-foreground">· {c.percent}%</span>
-        </p>
-      </div>
-      <div
-        className="mt-2 h-2.5 overflow-hidden rounded-full bg-muted"
-        role="progressbar"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={c.percent}
-        aria-label={c.unit === "days" ? "Giorni attivi" : "Settimane attive"}
-      >
-        <div className="h-full rounded-full bg-lime-500" style={{ width: `${c.percent}%` }} />
-      </div>
+      }
+    >
+      {c.unit === "days" ? <DayDots cells={c.cells} anchor={anchor} /> : <WeekDots cells={c.cells} />}
+      {c.unit === "weeks" && shown < c.total && (
+        <p className="mt-2 text-[11px] text-muted-foreground">Ultime {shown} settimane</p>
+      )}
 
-      <div className="mt-5 grid grid-cols-2 gap-4">
+      <div className="mt-5 grid grid-cols-2 gap-4 border-t border-border/60 pt-4">
         {/* Nella settimana il totale è già il numero principale in alto */}
         {c.unit === "weeks" && <Stat label="Media" value={formatDecimal(c.avgPerWeek)} unit="a settimana" />}
         <Stat

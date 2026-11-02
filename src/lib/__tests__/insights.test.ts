@@ -196,6 +196,9 @@ describe("insights", () => {
     expect(periodConsistency(items, "week", NOW, NOW)).toMatchObject({ unit: "days", active: 5, total: 7, percent: 71 });
     expect(periodConsistency(items, "month", NOW, NOW)).toMatchObject({ unit: "weeks", active: 2, total: 3, avgPerWeek: 2.7 });
     expect(periodConsistency(items, "all", NOW, NOW)).toMatchObject({ unit: "weeks", active: 3, total: 6, avgPerWeek: 1.5 });
+    // Una cella per giorno trascorso o per settimana considerata
+    expect(periodConsistency(items, "week", NOW, NOW).cells.map((c) => c.active)).toEqual([true, false, true, false, true, true, true]);
+    expect(periodConsistency(items, "all", NOW, NOW).cells.map((c) => c.active)).toEqual([true, false, false, false, true, true]);
     // Settimana passata: tutti e sette i giorni
     expect(periodConsistency(items, "week", new Date(2026, 9, 7), NOW)).toMatchObject({ active: 3, total: 7 });
   });

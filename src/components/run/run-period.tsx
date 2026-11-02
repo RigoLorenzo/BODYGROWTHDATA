@@ -1,102 +1,97 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { format } from "date-fns";
-import { it } from "date-fns/locale";
-import { StackedBars } from "@/components/analytics/bars";
-import {
-  BackToToday,
-  PERIOD_OPTIONS,
-  PeriodNavigator,
-  PeriodPickerDialog,
-  usePeriodSelection,
-} from "@/components/analytics/period-picker";
-import { Section, Segmented } from "@/components/analytics/ui";
-import type { ActivityItem, Period } from "@/lib/insights";
+import { useMemo } from "react";
+import { ArrowDownRight, ArrowUpRight, Target } from "lucide-react";
+import { Delta } from "@/components/analytics/delta";
+import { formatDecimal, formatDelta } from "@/components/analytics/format";
+import { HeadlineNumber, KpiRow, PeriodCard, previousLabel, type PeriodSelection } from "@/components/analytics/period-card";
+import { PeriodChart, type ChartMetric, type DayTone } from "@/components/analytics/period-chart";
+import type { ActivityItem } from "@/lib/insights";
 import { formatDuration, formatKm, formatPace } from "@/lib/run/format";
-import { monthlyRunTotals, runPeriod, type RunEntry } from "@/lib/run/period";
+import { runPeriod, weeksOnGoal, type RunEntry } from "@/lib/run/period";
 import { cn } from "@/lib/utils";
 import type { RunStats } from "./types";
-import { WeeklyChart } from "./weekly-chart";
-
-const PREVIOUS: Record<Exclude<Period, "all">, [current: string, past: string]> = {
-  week: ["settimana scorsa", "settimana prima"],
-  month: ["mese scorso", "mese prima"],
-  year: ["anno scorso", "anno prima"],
-};
 
 /** Le corse dal server, con le date pronte */
 export function useRunHistory(stats: RunStats): RunEntry[] {
   return useMemo(() => stats.history.map((r) => ({ ...r, startedAt: new Date(r.startedAt) })), [stats.history]);
 }
 
-function Cell({ label, value, unit, detail, tone }: { label: string; value: string | number; unit?: string; detail?: string; tone?: "up" | "down" }) {
+/** Le corse come attività: le usano il grafico condiviso e il selettore dei mesi */
+export function useRunItems(runs: RunEntry[]): ActivityItem[] {
+  return useMemo(
+    () =>
+      runs.map((r) => ({
+        id: r.id,
+        startedAt: r.startedAt,
+        kind: "run" as const,
+        duration: r.movingTime,
+        volume: 0,
+        sets: 0,
+        distance: r.distance,
+        title: "",
+        runId: r.id,
+      })),
+    [runs]
+  );
+}
+
+/** Secondi al km in meno = più veloce: freccia e parole, niente segni da interpretare */
+function PaceChange({ seconds }: { seconds: number | null }) {
+  if (!seconds) return null;
+  const faster = seconds < 0;
+  const Icon = faster ? ArrowUpRight : ArrowDownRight;
   return (
-    <div className="min-w-0">
-      <p className="text-[11px] uppercase tracking-wider opacity-60">{label}</p>
-      <p className="truncate font-display text-xl font-bold tabular-nums">
-        {value}
-        {unit && <span className="ml-0.5 text-xs font-medium opacity-60">{unit}</span>}
-      </p>
-      {detail && (
-        <p className={cn("text-[11px] font-semibold tabular-nums", tone === "up" ? "text-lime-400 dark:text-lime-600" : tone === "down" ? "text-red-300 dark:text-red-600" : "opacity-60")}>
-          {detail}
-        </p>
-      )}
-    </div>
+    <span className={cn("inline-flex items-center gap-0.5 font-semibold tabular-nums", faster ? "text-lime-400 dark:text-lime-600" : "text-red-300 dark:text-red-600")}>
+      <Icon className="h-[1.1em] w-[1.1em]" aria-hidden />
+      {Math.abs(seconds)}″ {faster ? "più veloce" : "più lento"}
+    </span>
   );
 }
 
 /**
- * Il periodo scelto (settimana, mese, anno, sempre): km, ritmo e confronto
- * col periodo prima. Frecce e scelta del mese come in Analytics.
+ * Il periodo scelto (settimana, mese, anno, sempre): km in grande col
+ * confronto, l'obiettivo settimanale e tre numeri. Stessa card di Analytics.
  */
-export function RunPeriodHero({ stats, runs, now }: { stats: RunStats; runs: RunEntry[]; now: Date }) {
-  const { period, anchor, setPeriod, setAnchor } = usePeriodSelection(now, "week");
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const data = runPeriod(runs, period, anchor, now);
-  const { current, previous, window: span } = data;
+export function RunPeriodHero({
+  stats,
+  runs,
+  items,
+  now,
+  selection,
+}: {
+  stats: RunStats;
+  runs: RunEntry[];
+  items: ActivityItem[];
+  now: Date;
+  selection: PeriodSelection;
+}) {
+  const { period, anchor } = selection;
+  const { current, previous, window: span, paceChange } = runPeriod(runs, period, anchor, now);
   const first = runs.length ? runs[runs.length - 1].startedAt : null;
-  // Il selettore dei mesi colora i mesi in base alle corse
-  const pickerItems = useMemo<ActivityItem[]>(
-    () => runs.map((r) => ({ id: r.id, startedAt: r.startedAt, kind: "run", duration: r.movingTime, volume: 0, sets: 0, distance: r.distance, title: "" })),
-    [runs]
-  );
+  const compare = period === "all" ? null : previous;
 
   const goal = stats.settings.weeklyRunKmGoal ? stats.settings.weeklyRunKmGoal * 1000 : null;
-  const showGoal = period === "week" && span.isCurrent && goal;
-  const progress = showGoal ? Math.min(1, current.distance / goal) : 0;
-
-  const change = data.distanceChange;
-  const pace = data.paceChange;
+  const showGoal = period === "week" && span.isCurrent && !!goal;
+  const progress = showGoal ? Math.min(1, current.distance / goal!) : 0;
+  // Su mese, anno e sempre: in quante settimane hai centrato l'obiettivo
+  const onGoal = goal && period !== "week" ? weeksOnGoal(runs, span, now, goal) : null;
 
   return (
-    <section className="rounded-3xl bg-foreground p-5 text-background">
-      <Segmented
-        value={period}
-        options={PERIOD_OPTIONS}
-        onChange={setPeriod}
-        size="sm"
-        className="bg-background/15 [&_[aria-selected=false]]:text-background/70 [&_[aria-selected=true]]:bg-background [&_[aria-selected=true]]:text-foreground"
+    <PeriodCard selection={selection} now={now} first={first} pickerItems={items}>
+      <HeadlineNumber
+        value={formatKm(current.distance)}
+        unit="km"
+        caption={
+          showGoal
+            ? progress >= 1
+              ? `Obiettivo di ${formatKm(goal!)} km raggiunto`
+              : `su ${formatKm(goal!)} km · ne mancano ${formatKm(goal! - current.distance)}`
+            : "di corsa"
+        }
+        delta={compare && <Delta inverse value={formatDelta(current.distance, compare.distance)} />}
+        compareLabel={compare && `vs ${previousLabel(period, anchor, now)} (${formatKm(compare.distance)})`}
       />
-      <PeriodNavigator period={period} anchor={anchor} now={now} first={first} onChange={setAnchor} onOpenPicker={() => setPickerOpen(true)} />
-
-      <div className="mt-4 flex items-end justify-between gap-3">
-        <p className="font-display text-6xl font-bold leading-none tabular-nums">
-          {formatKm(current.distance)}
-          <span className="ml-1 text-xl font-semibold opacity-60">{showGoal ? `/ ${formatKm(goal)} km` : "km"}</span>
-        </p>
-        {change != null && period !== "all" && (
-          <div className="shrink-0 text-right">
-            <p className={cn("font-display text-2xl font-bold", change < 0 ? "text-red-300 dark:text-red-600" : "text-lime-400 dark:text-lime-600")}>
-              {change === 0 ? "=" : `${change > 0 ? "+" : "−"}${Math.abs(change)}%`}
-            </p>
-            <p className="text-xs opacity-70">
-              vs {PREVIOUS[period][span.isCurrent ? 0 : 1]} ({formatKm(previous!.distance)})
-            </p>
-          </div>
-        )}
-      </div>
 
       {showGoal && (
         <div
@@ -111,19 +106,18 @@ export function RunPeriodHero({ stats, runs, now }: { stats: RunStats; runs: Run
         </div>
       )}
 
-      {/* Tre numeri chiave; il resto in una riga sola, solo se c'è */}
-      <div className="mt-5 grid grid-cols-3 gap-3 border-t border-background/15 pt-4">
-        <Cell label="Corse" value={current.runs} />
-        <Cell label="Tempo" value={current.movingTime ? formatDuration(current.movingTime) : "—"} />
-        <Cell
-          label="Ritmo"
-          value={formatPace(current.avgPace)}
-          unit="/km"
-          // Meno secondi al km = più veloce
-          detail={pace ? `${pace < 0 ? "−" : "+"}${Math.abs(pace)}s/km` : undefined}
-          tone={pace ? (pace < 0 ? "up" : "down") : undefined}
-        />
-      </div>
+      <KpiRow
+        items={[
+          { label: "Corse", value: current.runs, detail: compare && <Delta inverse value={formatDelta(current.runs, compare.runs)} /> },
+          {
+            label: "Tempo",
+            value: current.movingTime ? formatDuration(current.movingTime) : "—",
+            detail: compare && <Delta inverse value={formatDelta(current.movingTime, compare.movingTime)} />,
+          },
+          { label: "Ritmo", value: formatPace(current.avgPace), unit: "/km", detail: compare && <PaceChange seconds={paceChange} /> },
+        ]}
+      />
+
       {current.runs > 0 && (
         <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs opacity-70">
           <span>
@@ -140,73 +134,55 @@ export function RunPeriodHero({ stats, runs, now }: { stats: RunStats; runs: Run
         </p>
       )}
 
-      {!span.isCurrent && <BackToToday onClick={() => setAnchor(now)} />}
-
-      {(period === "month" || period === "year") && (
-        <PeriodPickerDialog
-          open={pickerOpen}
-          onOpenChange={setPickerOpen}
-          period={period}
-          anchor={anchor}
-          now={now}
-          first={first}
-          items={pickerItems}
-          onSelect={setAnchor}
-        />
+      {onGoal && onGoal.total > 0 && (
+        <p className="mt-3 flex items-center gap-1.5 text-xs">
+          <Target className="h-3.5 w-3.5 text-lime-400 dark:text-lime-600" aria-hidden />
+          <span className="opacity-70">Obiettivo {formatKm(goal!)} km centrato in</span>
+          <span className="font-semibold tabular-nums">
+            {onGoal.hit}/{onGoal.total} settimane
+          </span>
+        </p>
       )}
-    </section>
+    </PeriodCard>
   );
 }
 
-/** Km degli ultimi 12 mesi: tocca un mese per aprirlo in alto */
-function MonthlyKm({ runs, now }: { runs: RunEntry[]; now: Date }) {
-  const { period, anchor, select } = usePeriodSelection(now, "week");
-  const months = monthlyRunTotals(runs, 12, now);
-  const selected = period === "month" ? format(anchor, "yyyy-MM") : null;
-  const open = (key: string) => {
-    const month = months.find((m) => m.key === key);
-    if (!month) return;
-    select("month", month.start);
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" });
-  };
+/** Km in verde, come la corsa in tutta l'app */
+const METRICS: ChartMetric[] = [
+  { value: "km", label: "Km", parts: (b) => ({ primary: 0, secondary: b.distance / 1000 }), format: (v) => formatDecimal(v) },
+];
+
+/** Nel calendario: più è acceso il verde, più km quel giorno */
+const runDayTone: DayTone = (sessions) => {
+  const km = sessions.reduce((s, r) => s + r.distance, 0) / 1000;
+  if (km <= 0) return { className: "bg-lime-500/30 text-foreground" };
+  if (km < 5) return { className: "bg-lime-500/45 text-foreground" };
+  if (km < 10) return { className: "bg-lime-500/75 text-zinc-950" };
+  return { className: "bg-lime-500 text-zinc-950" };
+};
+
+function CalendarLegend() {
   return (
-    <StackedBars
-      height={140}
-      labelEvery={2}
-      onSelect={open}
-      data={months.map((m) => ({
-        key: m.key,
-        label: format(m.start, "MMM", { locale: it }),
-        primary: 0,
-        secondary: Math.round(m.distance / 100) / 10,
-        caption: m.distance ? String(Math.round(m.distance / 1000)) : undefined,
-        highlight: m.key === selected,
-      }))}
+    <span className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+      Meno km
+      {["bg-lime-500/45", "bg-lime-500/75", "bg-lime-500"].map((c) => (
+        <span key={c} className={cn("h-2.5 w-2.5 rounded-sm", c)} aria-hidden />
+      ))}
+      Più km
+    </span>
+  );
+}
+
+/** Lo stesso grafico sincronizzato di Analytics: segue il periodo della card */
+export function RunPeriodChart({ items, now, selection }: { items: ActivityItem[]; now: Date; selection: PeriodSelection }) {
+  return (
+    <PeriodChart
+      items={items}
+      now={now}
+      selection={selection}
+      metrics={METRICS}
+      dayTone={runDayTone}
+      legend={selection.period === "month" ? <CalendarLegend /> : <span className="text-xs text-muted-foreground">Km di corsa</span>}
     />
-  );
-}
-
-const TREND_VIEWS = [
-  { value: "weeks", label: "Settimane" },
-  { value: "months", label: "Mesi" },
-] as const;
-
-/**
- * Un solo grafico dei km: le ultime 12 settimane (con media e obiettivo) o
- * gli ultimi 12 mesi. Parte dai mesi se stai guardando un mese o un anno.
- */
-export function RunTrend({ stats, runs, now }: { stats: RunStats; runs: RunEntry[]; now: Date }) {
-  const { period } = usePeriodSelection(now, "week");
-  const [view, setView] = useState<(typeof TREND_VIEWS)[number]["value"]>(period === "year" || period === "all" ? "months" : "weeks");
-  return (
-    <Section title="Andamento" hint={view === "weeks" ? "Km a settimana" : "Km al mese · tocca un mese per aprirlo"}>
-      <Segmented value={view} options={TREND_VIEWS} onChange={setView} size="sm" className="mb-4" />
-      {view === "weeks" ? (
-        <WeeklyChart weekly={stats.weekly} goalKm={stats.settings.weeklyRunKmGoal} />
-      ) : (
-        <MonthlyKm runs={runs} now={now} />
-      )}
-    </Section>
   );
 }

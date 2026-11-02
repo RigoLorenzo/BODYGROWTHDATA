@@ -24,3 +24,9 @@ export function formatDelta(current: number, previous: number | null | undefined
   if (pct === 0) return "=";
   return `${pct > 0 ? "+" : "−"}${Math.abs(pct)}%`;
 }
+
+/** "80,4t" → ["80,4", "t"], "500 kg" → ["500", "kg"]: l'unità si scrive più piccola */
+export function splitUnit(text: string): [string, string | undefined] {
+  const match = text.match(/^([\d.,]+)\s*([a-zA-Z]+)$/);
+  return match ? [match[1], match[2]] : [text, undefined];
+}

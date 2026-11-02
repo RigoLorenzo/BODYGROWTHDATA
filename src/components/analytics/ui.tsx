@@ -94,14 +94,14 @@ export function ActivityLegend({ className, other = false }: { className?: strin
   return (
     <div className={cn("flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground", className)}>
       <span className="flex items-center gap-1.5">
-        <span className="h-2.5 w-2.5 rounded-sm bg-foreground/80" /> Palestra
+        <span className="h-2.5 w-2.5 rounded-full bg-foreground" /> Palestra
       </span>
       <span className="flex items-center gap-1.5">
-        <span className="h-2.5 w-2.5 rounded-sm bg-lime-500" /> Corsa
+        <span className="h-2.5 w-2.5 rounded-full bg-lime-500" /> Corsa
       </span>
       {other && (
         <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-sm bg-sky-500" /> Bici e altro
+          <span className="h-2.5 w-2.5 rounded-full bg-sky-500" /> Bici e altro
         </span>
       )}
     </div>

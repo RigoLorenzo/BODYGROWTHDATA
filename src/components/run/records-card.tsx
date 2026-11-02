@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
-import { Trophy } from "lucide-react";
+import { ChevronRight, Trophy } from "lucide-react";
+import { Section } from "@/components/analytics/ui";
 import { formatDuration, formatKm, formatPace, paceSecondsPerKm } from "@/lib/run/format";
 import type { RunStats } from "./types";
 
@@ -11,9 +12,8 @@ export function RecordsCard({ stats }: { stats: RunStats }) {
   if (!records.length && !longest) return null;
 
   return (
-    <section>
-      <h2 className="mb-2 px-1 font-display text-xl font-bold uppercase tracking-wide">Record</h2>
-      <ul className="overflow-hidden rounded-3xl border border-border/60 bg-card">
+    <Section title="Record">
+      <ul className="-my-3">
         {records.map((r) => (
           <Row
             key={r.name}
@@ -40,20 +40,23 @@ export function RecordsCard({ stats }: { stats: RunStats }) {
           />
         )}
       </ul>
-    </section>
+    </Section>
   );
 }
 
 function Row({ href, label, value, hint }: { href: string; label: string; value: string; hint: string }) {
   return (
     <li className="border-b border-border/50 last:border-0">
-      <Link href={href} className="flex items-center gap-3 px-4 py-3 active:bg-muted/50">
-        <Trophy className="h-4 w-4 shrink-0 text-amber-500" />
+      <Link href={href} className="-mx-2 flex items-center gap-3 rounded-xl px-2 py-3 active:bg-muted/50">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
+          <Trophy className="h-[18px] w-[18px]" aria-hidden />
+        </span>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold">{label}</p>
-          <p className="text-xs tabular-nums text-muted-foreground">{hint}</p>
+          <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
+          <p className="truncate text-xs tabular-nums text-muted-foreground">{hint}</p>
         </div>
         <p className="shrink-0 font-display text-lg font-bold tabular-nums">{value}</p>
+        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
       </Link>
     </li>
   );

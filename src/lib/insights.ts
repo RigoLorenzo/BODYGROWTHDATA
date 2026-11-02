@@ -354,6 +354,8 @@ export interface PeriodConsistency {
   percent: number;
   /** allenamenti a settimana nel periodo trascorso */
   avgPerWeek: number;
+  /** un elemento per giorno (settimana) o per settimana, dal più vecchio; al massimo 52 */
+  cells: { start: Date; active: boolean }[];
 }
 
 /**
@@ -369,8 +371,10 @@ export function periodConsistency(items: ActivityItem[], period: Period, anchor:
 
   if (period === "week") {
     const total = Math.max(1, Math.min(7, Math.floor((end.getTime() - from.getTime()) / 86_400_000) + (window.isCurrent ? 1 : 0)));
-    const active = new Set(inside.map((i) => dayKey(i.startedAt))).size;
-    return { unit: "days", active, total, percent: Math.round((active / total) * 100), avgPerWeek: inside.length };
+    const activeDays = new Set(inside.map((i) => dayKey(i.startedAt)));
+    const active = activeDays.size;
+    const cells = Array.from({ length: total }, (_, i) => addDays(from, i)).map((d) => ({ start: d, active: activeDays.has(dayKey(d)) }));
+    return { unit: "days", active, total, percent: Math.round((active / total) * 100), avgPerWeek: inside.length, cells };
   }
 
   const weekStarts: Date[] = [];
@@ -387,5 +391,6 @@ export function periodConsistency(items: ActivityItem[], period: Period, anchor:
     total,
     percent: Math.round((active / total) * 100),
     avgPerWeek: Math.round((inside.length / total) * 10) / 10,
+    cells: considered.slice(-52).map((w) => ({ start: w, active: activeWeeks.has(dayKey(w)) })),
   };
 }

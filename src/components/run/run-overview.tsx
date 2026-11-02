@@ -5,28 +5,32 @@ import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { FitnessCard } from "./fitness-card";
 import { RecordsCard } from "./records-card";
 import { RunList } from "./run-list";
 import { RunSettings } from "./run-settings";
 import { DeviceExpiredBanner } from "./run-header";
 import { useRunStats, useRuns } from "./queries";
 import { DEVICES_PATH } from "@/components/devices/routes";
-import { RunPeriodHero, RunTrend, useRunHistory } from "./run-period";
+import { RunPeriodChart, RunPeriodHero, useRunHistory, useRunItems } from "./run-period";
+import { usePeriodSelection } from "@/components/analytics/period-picker";
 import type { RunStats } from "./types";
 
 /** Attività mostrate prima di "Mostra tutte": la pagina resta corta */
 const RECENT_RUNS = 5;
 
-/** Statistiche della corsa: periodo, andamento, forma e record */
+/**
+ * Statistiche della corsa: la card del periodo e il grafico condividono la
+ * stessa selezione, come in Analytics. Poi record e attività.
+ */
 function RunStatsSections({ stats }: { stats: RunStats }) {
   const now = useMemo(() => new Date(), []);
   const runs = useRunHistory(stats);
+  const items = useRunItems(runs);
+  const selection = usePeriodSelection(now, "week");
   return (
     <>
-      <RunPeriodHero stats={stats} runs={runs} now={now} />
-      <RunTrend stats={stats} runs={runs} now={now} />
-      <FitnessCard fitness={stats.fitness} />
+      <RunPeriodHero stats={stats} runs={runs} items={items} now={now} selection={selection} />
+      <RunPeriodChart items={items} now={now} selection={selection} />
       <RecordsCard stats={stats} />
     </>
   );

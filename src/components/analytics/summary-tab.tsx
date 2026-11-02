@@ -10,9 +10,26 @@ import { PeriodBest } from "./period-best";
 import { PeriodConsistency } from "./period-consistency";
 import { PeriodHero } from "./period-hero";
 import { usePeriodSelection } from "./period-picker";
-import { PeriodTrend } from "./period-trend";
-import { EmptyState } from "./ui";
+import { PeriodChart, type ChartMetric } from "./period-chart";
+import { formatDecimal } from "./format";
+import { ActivityLegend, EmptyState } from "./ui";
 import { useActivity } from "./use-activity";
+
+/** Allenamenti o ore, palestra / corsa / altro impilati */
+const METRICS: ChartMetric[] = [
+  {
+    value: "sessions",
+    label: "Allenamenti",
+    parts: (b) => ({ primary: b.gym, secondary: b.runs, tertiary: b.other }),
+    format: (v) => formatDecimal(v),
+  },
+  {
+    value: "duration",
+    label: "Ore",
+    parts: (b) => ({ primary: b.gymDuration / 3600, secondary: b.runDuration / 3600, tertiary: b.otherDuration / 3600 }),
+    format: (v) => `${formatDecimal(v)}h`,
+  },
+];
 
 /** Lo storico completo, filtrato sul periodo che stai guardando */
 function historyHref(period: Period, anchor: Date, now: Date) {
@@ -68,7 +85,13 @@ export function SummaryTab() {
   return (
     <div className="space-y-5">
       <PeriodHero items={items} now={now} selection={selection} />
-      <PeriodTrend items={items} now={now} selection={selection} />
+      <PeriodChart
+        items={items}
+        now={now}
+        selection={selection}
+        metrics={METRICS}
+        legend={<ActivityLegend className="mt-1" other={items.some((i) => i.kind === "cardio")} />}
+      />
       <PeriodBest items={inPeriod} period={period} />
       <PeriodConsistency all={items} inPeriod={inPeriod} period={period} anchor={anchor} now={now} />
       <HistoryLink href={historyHref(period, anchor, now)} count={inPeriod.length} />
