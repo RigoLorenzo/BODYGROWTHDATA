@@ -189,7 +189,7 @@ describe("efficienza del sonno", () => {
     expect(sleepEfficiency(night(0, { asleep: 0 }))).toBeNull();
     const good = readiness([night(0, { score: null })], [], [], NOW)!;
     const restless = readiness([night(0, { score: null, asleep: 300 })], [], [], NOW)!;
-    expect(good.factors[0].detail).toContain("efficienza 94%");
+    expect(good.factors[0].detail).toBe("7h 30m");
     expect(restless.score).toBeLessThan(good.score);
   });
 });

@@ -295,7 +295,7 @@ export function sleepScore(night: SleepJson): SleepScore {
       key: "efficiency",
       label: "Efficienza",
       score: clamp(((efficiency - 0.7) / 0.25) * 100),
-      detail: `${Math.round(efficiency * 100)}% del tempo a letto`,
+      detail: `${Math.round(efficiency * 100)}%`,
     });
   }
 
@@ -306,7 +306,7 @@ export function sleepScore(night: SleepJson): SleepScore {
       key: "stages",
       label: "Profondo e REM",
       score: (Math.min(1, deep / DEEP_TARGET) + Math.min(1, rem / REM_TARGET)) * 50,
-      detail: `profondo ${Math.round(deep * 100)}%, REM ${Math.round(rem * 100)}%`,
+      detail: `${Math.round(deep * 100)}% · ${Math.round(rem * 100)}%`,
     });
   }
 
@@ -316,7 +316,7 @@ export function sleepScore(night: SleepJson): SleepScore {
       key: "calm",
       label: "Continuità",
       score: clamp(100 - Math.max(0, night.awake - 10) * 2 - Math.max(0, wakes - 2) * 5),
-      detail: `${formatMinutes(night.awake)} sveglio${night.awakeCount != null ? `, ${wakes} risvegli` : ""}`,
+      detail: `${formatMinutes(night.awake)}${night.awakeCount != null ? ` · ${wakes} risvegli` : ""}`,
     });
   }
 
@@ -372,9 +372,7 @@ export function readiness(
   const yesterday = dayKey(subDays(now, 1));
   const lastNight = mainSleeps(sleeps).filter((s) => s.date === today || s.date === yesterday).at(-1);
   if (lastNight) {
-    const efficiency = sleepEfficiency(lastNight);
-    const detail = `${formatMinutes(lastNight.asleep)} di sonno${efficiency != null ? `, efficienza ${Math.round(efficiency * 100)}%` : ""}`;
-    factors.push({ key: "sleep", label: "Sonno", score: sleepScore(lastNight).score, detail });
+    factors.push({ key: "sleep", label: "Sonno", score: sleepScore(lastNight).score, detail: formatMinutes(lastNight.asleep) });
   }
 
   const trend = restingTrend(days);
@@ -384,7 +382,8 @@ export function readiness(
       key: "heart",
       label: "FC a riposo",
       score: clamp(100 - Math.max(0, diff) * 12),
-      detail: Math.abs(diff) < 1 ? "nella tua norma" : `${diff > 0 ? "+" : "−"}${Math.round(Math.abs(diff))} bpm sulla tua norma`,
+      // Il valore misurato: lo scostamento dalla norma pesa già nel punteggio
+      detail: `${trend.latest} bpm`,
     });
   }
 
@@ -394,7 +393,7 @@ export function readiness(
       key: "load",
       label: "Carico",
       score: clamp(ratio <= 1.1 ? 100 : 100 - (ratio - 1.1) * 120),
-      detail: ratio > 1.3 ? "settimana più intensa del solito" : ratio < 0.6 ? "settimana leggera" : "nella tua media",
+      detail: ratio > 1.3 ? "intensa" : ratio < 0.6 ? "leggera" : "nella media",
     });
   }
 

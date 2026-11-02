@@ -183,7 +183,6 @@ export function SleepTab({ data }: { data: WellnessResponse }) {
         icon={Moon}
         title={isToday ? "Punteggio sonno" : `Punteggio sonno · ${dayLabel(night.date)}`}
         value={sleepScore(night)}
-        note="0 è non aver dormito, 100 un riposo completo. Conta soprattutto la durata (piena da 8 ore), poi efficienza, profondo e REM, continuità."
       />
 
       <Section title={isLast ? "Ultima notte" : "Notte"} hint={longDayLabel(night.date)}>
@@ -212,7 +211,7 @@ export function SleepTab({ data }: { data: WellnessResponse }) {
         )}
       </Section>
 
-      <Section title="Ultimi 30 giorni" hint={`Linea: ${formatMinutes(SLEEP_NEED_MIN)} consigliate`}>
+      <Section title="Ultimi 30 giorni">
         <div className="mb-4 grid grid-cols-3 gap-3">
           <Stat label="Media" value={avgAsleep != null ? formatMinutes(avgAsleep) : "—"} />
           <Stat label="Profondo" value={avgDeep != null ? `${Math.round(avgDeep)}%` : "—"} detail="ideale 15-25%" />
@@ -224,42 +223,37 @@ export function SleepTab({ data }: { data: WellnessResponse }) {
         </div>
       </Section>
 
-      <Section title="Andamento" hint="Ore di sonno per notte">
+      <Section title="Andamento">
         <RangeTrend value={asleepOf} unit="min" tone="indigo" format={formatMinutes} reference={SLEEP_NEED_MIN} referenceLabel="consigliate" />
       </Section>
 
       {nights.some((n) => n.respRate != null) && (
-        <Section title="Respirazione nel sonno" hint="Atti al minuto: di solito 12-20, stabili notte dopo notte">
+        <Section title="Respirazione nel sonno">
           <RangeTrend value={respOf} unit="/min" tone="sky" digits={1} />
-          <p className="mt-3 text-xs text-muted-foreground">
-            Un aumento di 1-2 atti sopra la tua media per più notti può anticipare stanchezza, malanni o un recupero incompleto.
-          </p>
         </Section>
       )}
 
       <Section title="Abitudini" hint="Ultime due settimane">
         <div className="grid grid-cols-3 gap-3">
-          <Stat label="A letto" value={routine.bedtime ?? "—"} detail="in media" />
-          <Stat label="Sveglia" value={routine.wake ?? "—"} detail="in media" />
-          <Stat label="Debito 7 gg" value={formatMinutes(routine.debt)} detail={routine.debt > 120 ? "da recuperare" : "sotto controllo"} />
+          <Stat label="A letto" value={routine.bedtime ?? "—"} />
+          <Stat label="Sveglia" value={routine.wake ?? "—"} />
+          <Stat label="Debito 7 gg" value={formatMinutes(routine.debt)} />
         </div>
         {routine.label && (
-          <p className="mt-3 text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">{routine.label}</span>: orari che variano di circa{" "}
-            {Math.round(routine.variation!)} minuti. Orari costanti migliorano il sonno profondo e il recupero.
+          <p className="mt-3 text-sm">
+            <span className="font-medium">{routine.label}</span>
+            <span className="text-muted-foreground"> · ±{Math.round(routine.variation!)} min</span>
           </p>
         )}
       </Section>
 
       {groups.length > 1 && (
-        <Section title="Sonno e allenamento" hint="Come dormi in base a cosa hai fatto il giorno prima">
+        <Section title="Sonno e allenamento">
           <TrainingComparison groups={groups} />
-          {findings.length > 0 ? (
+          {findings.length > 0 && (
             <div className="mt-4">
               <FindingList findings={findings} />
             </div>
-          ) : (
-            <p className="mt-3 text-xs text-muted-foreground">Servono almeno 3 notti per gruppo per un confronto affidabile.</p>
           )}
         </Section>
       )}

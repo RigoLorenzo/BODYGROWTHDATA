@@ -7,8 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Pencil, X, Info, AlertTriangle, Scale } from "lucide-react";
-import { format } from "date-fns";
-import { it } from "date-fns/locale";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "@/hooks/use-toast";
 import { analyzeBodyComposition } from "@/lib/body-composition";
@@ -153,14 +151,12 @@ export function BodyStatsCard() {
   const bmi = analysis.bmi;
   const bmiCategory = analysis.bmiCategory;
 
-  const updated = latestMeasurement?.weight ? format(new Date(latestMeasurement.date), "d MMM", { locale: it }) : null;
   const tone = analysis.reading?.tone;
 
   return (
     <>
       <Section
         title="Corpo"
-        hint={updated ? `Peso dalla misurazione del ${updated}` : "Altezza dal profilo, peso dalle misure"}
         action={
           <button
             type="button"
@@ -183,7 +179,7 @@ export function BodyStatsCard() {
                   detail={bmiCategory?.label}
                 />
               )}
-              {hp !== null && <Stat label="HP" value={`${hp > 0 ? "+" : ""}${formatDecimal(hp)}`} unit="kg" detail="su altezza − 100" />}
+              {hp !== null && <Stat label="HP" value={`${hp > 0 ? "+" : ""}${formatDecimal(hp)}`} unit="kg" />}
               {analysis.ffmiNormalized && (
                 <Stat
                   label="FFMI"
@@ -220,13 +216,7 @@ export function BodyStatsCard() {
                 </span>
                 <div className="min-w-0 space-y-1.5 text-xs leading-relaxed text-muted-foreground">
                   <p className="text-sm font-semibold leading-snug text-foreground">{analysis.reading.title}</p>
-                  <p>{analysis.reading.body}</p>
                   {analysis.trendNote && <p>{analysis.trendNote}</p>}
-                  {analysis.missingSignals.length > 0 && (
-                    <p className="text-[11px]">
-                      Per una lettura più precisa aggiungi {analysis.missingSignals.join(" o ")} nelle misure (facoltativo).
-                    </p>
-                  )}
                 </div>
               </div>
             )}

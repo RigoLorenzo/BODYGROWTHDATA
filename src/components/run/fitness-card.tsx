@@ -39,10 +39,6 @@ export function FitnessCard({ fitness }: { fitness: RunStats["fitness"] }) {
         <path d={path(series.map((p) => p.fatigue), max)} fill="none" className="stroke-fuchsia-500/70" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
         <path d={path(series.map((p) => p.fitness), max)} fill="none" className="stroke-sky-500" strokeWidth={2.5} vectorEffect="non-scaling-stroke" />
       </svg>
-      <p className="mt-2 text-xs text-muted-foreground">
-        Calcolato dal carico di ogni corsa (durata × frequenza cardiaca). Imposta FC massima e a riposo per renderlo
-        preciso.
-      </p>
     </section>
   );
 }

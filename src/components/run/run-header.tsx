@@ -7,7 +7,9 @@ import { it } from "date-fns/locale";
 import { AlertTriangle, Plus, RefreshCw } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { requestDeviceReconnect, syncDevices, useDeviceSyncing } from "@/components/devices/device-sync";
+import { useRouter } from "next/navigation";
+import { syncDevices, useDeviceSyncing } from "@/components/devices/device-sync";
+import { DEVICES_PATH, reconnectHref } from "@/components/devices/routes";
 import { useDevices, useInvalidateRuns } from "./queries";
 import type { DevicesStatus } from "./types";
 
@@ -45,12 +47,6 @@ export function useDevicesSyncState() {
   return { state, connected, expired, healthy, lastSyncAt };
 }
 
-/** Porta alla sezione Dispositivi per collegarne uno */
-export function scrollToDevices() {
-  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  document.getElementById("devices-title")?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
-}
-
 const ago = (iso: string) => formatDistanceToNowStrict(new Date(iso), { locale: it, addSuffix: true });
 const names = (devices: Device[]) => devices.map((d) => d.label).join(", ");
 
@@ -85,6 +81,7 @@ export function RunHeader() {
   const { state, healthy, expired } = devices;
   const syncing = useDeviceSyncing();
   const invalidate = useInvalidateRuns();
+  const router = useRouter();
 
   const sync = async () => {
     const results = await syncDevices(
@@ -108,8 +105,8 @@ export function RunHeader() {
       : state === "loading"
         ? null
         : state === "expired"
-          ? { label: "Ricollega", onClick: () => requestDeviceReconnect(expired[0].provider) }
-          : { label: "Collega", onClick: scrollToDevices };
+          ? { label: "Ricollega", onClick: () => router.push(reconnectHref(expired[0].provider)) }
+          : { label: "Collega", onClick: () => router.push(DEVICES_PATH) };
 
   return (
     <header className="flex items-center gap-2">
@@ -174,13 +171,12 @@ export function DeviceExpiredBanner() {
               {device.connection?.lastError ?? `Le nuove corse non arrivano finché non ricolleghi ${device.label}.`}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => requestDeviceReconnect(device.provider)}
-            className="h-10 shrink-0 rounded-full bg-foreground px-4 text-xs font-semibold text-background active:scale-95"
+          <Link
+            href={reconnectHref(device.provider)}
+            className="flex h-10 shrink-0 items-center rounded-full bg-foreground px-4 text-xs font-semibold text-background active:scale-95"
           >
             Ricollega
-          </button>
+          </Link>
         </div>
       ))}
     </>

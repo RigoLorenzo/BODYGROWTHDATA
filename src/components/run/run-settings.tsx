@@ -87,9 +87,6 @@ export function RunSettings({ settings }: { settings: RunStats["settings"] }) {
             {field("maxHeartRate", "FC massima", String(settings.defaults.maxHeartRate), "numeric")}
             {field("restingHeartRate", "FC a riposo", String(settings.defaults.restingHeartRate), "numeric")}
           </div>
-          <p className="text-xs text-muted-foreground">
-            Le frequenze servono al calcolo di carico, fitness e forma. Vuoto = valori standard.
-          </p>
           <Button type="submit" className="w-full" disabled={saving}>
             {saving && <Loader2 className="animate-spin" />}
             Salva

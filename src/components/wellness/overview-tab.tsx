@@ -9,7 +9,6 @@ import { DEVICE_APP, type DeviceProvider } from "@/components/devices/labels";
 import { useActivity } from "@/components/analytics/use-activity";
 import { Section, Stat } from "@/components/analytics/ui";
 import {
-  STEPS_GOAL,
   formatMinutes,
   mainSleeps,
   readiness,
@@ -24,7 +23,7 @@ import { StageBar, StageLegend } from "./charts";
 import { FindingList } from "./finding-list";
 import { QualityStat } from "./quality-stat";
 import { ScoreHero } from "./score-hero";
-import { heartDetail, stressLabel } from "./format";
+import { stressLabel } from "./format";
 import { dayLabel, timeLabel } from "./queries";
 
 const MISSING: Record<Readiness["missing"][number], string> = { sleep: "il sonno di stanotte", heart: "la FC a riposo di oggi" };
@@ -39,15 +38,17 @@ function ReadinessPending({
   restingDate: string | null;
   source: DeviceProvider | null;
 }) {
-  const last = [sleepDate && `sonno del ${dayLabel(sleepDate)}`, restingDate && `FC a riposo del ${dayLabel(restingDate)}`].filter(Boolean);
+  // La data dell'ultimo dato arrivato: si vede subito se l'orologio è indietro
+  const last = sleepDate ?? restingDate;
   return (
     <section className="rounded-3xl border border-border/60 bg-card p-5">
       <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
         <Gauge className="h-4 w-4" /> Prontezza di oggi
       </div>
-      <p className="mt-2 text-sm">In attesa del sonno di stanotte e della FC a riposo dall&apos;orologio.</p>
-      {last.length > 0 && <p className="mt-1 text-sm text-muted-foreground">Ultimi arrivati: {last.join(", ")}.</p>}
-      <p className="mt-1 text-xs text-muted-foreground">Apri {source ? DEVICE_APP[source] : "l'app dell'orologio"} sul telefono per sincronizzarlo, poi tocca Aggiorna.</p>
+      <p className="mt-2 text-sm">In attesa dei dati di stanotte.</p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        {last ? `Ultimi dati: ${dayLabel(last)}. ` : ""}Apri {source ? DEVICE_APP[source] : "l'app dell'orologio"} per sincronizzare.
+      </p>
     </section>
   );
 }
@@ -60,15 +61,9 @@ function nightHint(night: SleepJson, today: string) {
 
 /** Il numero del giorno: quanto sei pronto ad allenarti */
 function ReadinessHero({ value }: { value: Readiness }) {
-  const missing = value.missing.length ? ` Manca ${value.missing.map((m) => MISSING[m]).join(" e ")}: il punteggio usa solo il resto.` : "";
-  return (
-    <ScoreHero
-      icon={Gauge}
-      title="Prontezza di oggi"
-      value={value}
-      note={`Sonno della notte, FC a riposo rispetto alla tua norma e carico degli ultimi 7 giorni.${missing}`}
-    />
-  );
+  // Si dice solo cosa manca: il resto si legge dai fattori
+  const missing = value.missing.length ? `Senza ${value.missing.map((m) => MISSING[m]).join(" e ")}` : undefined;
+  return <ScoreHero icon={Gauge} title="Prontezza di oggi" value={value} note={missing} />;
 }
 
 export function OverviewTab({ data }: { data: WellnessResponse }) {
@@ -124,14 +119,10 @@ export function OverviewTab({ data }: { data: WellnessResponse }) {
 
       <div className="grid grid-cols-2 gap-3">
         <Tile icon={HeartPulse} label="FC a riposo" href="battiti">
-          <Stat label="" value={heart.latest ?? "—"} unit={heart.latest ? "bpm" : undefined} detail={heartDetail(heart.delta)} />
+          <Stat label="" value={heart.latest ?? "—"} unit={heart.latest ? "bpm" : undefined} />
         </Tile>
         <Tile icon={Footprints} label="Passi oggi" href="attivita">
-          <Stat
-            label=""
-            value={steps.today?.toLocaleString("it-IT") ?? "—"}
-            detail={steps.today != null ? `${Math.round((steps.today / STEPS_GOAL) * 100)}% dell'obiettivo` : undefined}
-          />
+          <Stat label="" value={steps.today?.toLocaleString("it-IT") ?? "—"} />
         </Tile>
         <Tile icon={Brain} label="Stress medio" href="vitali">
           <Stat label="" value={todayDay?.stressAvg ?? "—"} detail={todayDay?.stressAvg != null ? stressLabel(todayDay.stressAvg) : undefined} />
@@ -142,7 +133,7 @@ export function OverviewTab({ data }: { data: WellnessResponse }) {
       </div>
 
       {findings.length > 0 && (
-        <Section title="Sonno e allenamento" hint="Le notti dopo palestra e corsa, confrontate con quelle dopo il riposo">
+        <Section title="Sonno e allenamento">
           <FindingList findings={findings.slice(0, 4)} />
         </Section>
       )}

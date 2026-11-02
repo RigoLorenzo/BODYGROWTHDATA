@@ -13,7 +13,7 @@ export async function GET(req: Request) {
   const session = await auth().catch(() => null);
   const base = appUrl(req);
   if (!session) return NextResponse.redirect(`${base}/login`);
-  if (!stravaConfig()) return NextResponse.redirect(`${base}/run?strava=not-configured`);
+  if (!stravaConfig()) return NextResponse.redirect(`${base}/profile/settings/dispositivi?strava=not-configured`);
 
   const value = `${session.user.id}.${randomBytes(16).toString("base64url")}`;
   const state = `${value}.${sign(value)}`;

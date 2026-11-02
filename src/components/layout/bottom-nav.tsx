@@ -1,59 +1,34 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
-import { AnimatePresence } from "framer-motion";
-import { StartWorkoutSheet } from "@/components/session/start-workout-sheet";
-import { LayoutDashboard, Footprints, Plus, BarChart3, HeartPulse } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useWorkoutSession } from "@/hooks/use-workout-session";
+import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
+import { BarChart3, Footprints, HeartPulse, LayoutDashboard } from "lucide-react";
+import { cn } from "@/lib/utils";
 
+/** Quattro sezioni: l'allenamento si avvia (o si riprende) dalla home */
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Home" },
   { href: "/run", icon: Footprints, label: "Corsa" },
-  { href: "/workout/active", icon: Plus, label: "Allena", cta: true },
   { href: "/analytics", icon: BarChart3, label: "Analytics" },
   { href: "/wellness", icon: HeartPulse, label: "Benessere" },
 ];
 
 export function BottomNav() {
   const pathname = usePathname();
-  const router = useRouter();
-  const { activeSession } = useWorkoutSession();
-  const [showPicker, setShowPicker] = useState(false);
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden">
-      <div className="bg-background border-t border-border/50">
-        {/* Cinque colonne uguali: ogni voce è centrata nella sua, qualunque sia la lunghezza dell'etichetta */}
-        <div className="grid grid-cols-5 items-center px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
+      <div className="border-t border-border/50 bg-background">
+        {/* Colonne uguali: ogni voce è centrata nella sua, qualunque sia la lunghezza dell'etichetta */}
+        <div className="grid grid-cols-4 items-center px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
           {navItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
-
-            if (item.cta) {
-              return (
-                <button
-                  key={item.href}
-                  aria-label={activeSession ? "Torna all'allenamento" : "Inizia allenamento"}
-                  onClick={() =>
-                    activeSession ? router.push("/workout/active") : setShowPicker(true)
-                  }
-                  className="relative -mt-6 flex h-14 w-14 items-center justify-center justify-self-center rounded-full bg-primary shadow-lg shadow-primary/30 active:scale-95 transition-transform"
-                >
-                  {activeSession && (
-                    <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-green-500 animate-pulse-slow" />
-                  )}
-                  <item.icon className="h-6 w-6 text-primary-foreground" />
-                </button>
-              );
-            }
-
             return (
               <Link
                 key={item.href}
                 href={item.href}
+                aria-current={isActive ? "page" : undefined}
                 className={cn(
                   "relative flex min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg py-1 transition-colors",
                   isActive ? "text-primary" : "text-muted-foreground"
@@ -72,10 +47,6 @@ export function BottomNav() {
           })}
         </div>
       </div>
-
-      <AnimatePresence>
-        {showPicker && <StartWorkoutSheet onClose={() => setShowPicker(false)} />}
-      </AnimatePresence>
     </nav>
   );
 }

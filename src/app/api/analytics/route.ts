@@ -5,7 +5,6 @@ import { prisma } from "@/lib/prisma";
 import { weekOverview } from "@/lib/overview";
 import { startOfWeek, endOfWeek, subWeeks, subDays, differenceInDays, format } from "date-fns";
 import { it } from "date-fns/locale";
-import { computeProgressScore } from "@/lib/progress-score";
 import {
   accumulateMuscleSets,
   countWorkingSets,
@@ -23,13 +22,6 @@ export async function GET(req: Request) {
 
   if (type === "overview") {
     return NextResponse.json(await weekOverview(userId));
-  }
-
-  if (type === "progress") {
-    const progress = await computeProgressScore(userId);
-    return NextResponse.json(progress, {
-      headers: { "Cache-Control": "private, max-age=300" },
-    });
   }
 
   if (type === "heatmap") {

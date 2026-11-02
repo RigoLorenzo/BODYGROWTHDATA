@@ -193,7 +193,7 @@ export function MiFitnessCard() {
                 ? conn.lastSyncAt
                   ? `Sincronizzato ${formatDistanceToNow(new Date(conn.lastSyncAt), { locale: it, addSuffix: true })}`
                   : "Collegato"
-                : "Xiaomi Watch e Smart Band: corse e benessere, in automatico"}
+                : "Xiaomi Watch e Smart Band"}
           </p>
         </div>
       </div>
@@ -207,7 +207,7 @@ export function MiFitnessCard() {
 
       {conn && !conn.lastError && (
         <div className="mt-3 flex items-center justify-between gap-3">
-          <p className="text-xs text-muted-foreground">Si aggiorna da solo ogni 15 minuti con l&apos;app aperta.</p>
+          <span />
           <Button variant="outline" size="sm" className="h-10 shrink-0" onClick={disconnect} disabled={!!busy}>
             {busy === "disconnect" && <Loader2 className="animate-spin" />}
             Scollega
@@ -221,10 +221,7 @@ export function MiFitnessCard() {
             {qrLogin.starting && <Loader2 className="animate-spin" />}
             {conn ? "Ricollega account Xiaomi" : "Collega account Xiaomi"}
           </Button>
-          <p className="mt-3 text-xs text-muted-foreground">
-            Accedi con il tuo account Xiaomi sulla pagina ufficiale: BodyGrowth non vede la password e salva solo un
-            token cifrato, revocabile dal centro sicurezza Xiaomi.
-          </p>
+          <p className="mt-3 text-xs text-muted-foreground">Accesso dalla pagina ufficiale Xiaomi: la password non passa da qui.</p>
         </>
       )}
 

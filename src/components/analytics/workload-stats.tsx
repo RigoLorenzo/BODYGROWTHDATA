@@ -37,9 +37,9 @@ export function WorkloadStats() {
     <Section title="Carico" hint="Palestra, ultimi 28 giorni">
       <div className="grid grid-cols-2 gap-x-4 gap-y-5">
         <Stat label="Serie di lavoro" value={workingSets.toLocaleString("it-IT")} detail={`${Math.round(workingSets / 4)} a settimana`} />
-        <Stat label="Serie efficaci" value={formatDecimal(effectiveSets)} detail="Pesate per muscolo" />
+        <Stat label="Serie efficaci" value={formatDecimal(effectiveSets)} />
         <Stat label="Volume load" value={formatVolume(tonnage)} detail={`${formatVolume(tonnage / 4)} a settimana`} />
-        <Stat label="Sedute" value={formatDecimal(data?.trainingFrequency ?? 0)} unit="a settimana" detail="Nelle settimane attive" />
+        <Stat label="Sedute" value={formatDecimal(data?.trainingFrequency ?? 0)} unit="a settimana" />
       </div>
     </Section>
   );

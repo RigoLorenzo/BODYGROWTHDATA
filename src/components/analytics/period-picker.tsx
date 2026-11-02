@@ -16,22 +16,22 @@ const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 /**
  * Periodo del Riepilogo nell'URL (?periodo=settimana…&del=2026-10-01): aprendo
  * un allenamento e tornando indietro resta il mese che stavi guardando.
- * Senza parametri: il mese in corso.
+ * Senza parametri: il periodo predefinito (il mese, la settimana per la corsa) in corso.
  */
-export function usePeriodSelection(now: Date) {
+export function usePeriodSelection(now: Date, defaultPeriod: Period = DEFAULT_PERIOD) {
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
 
   const requested = params.get("periodo") as Period | null;
-  const period = requested && PERIODS.includes(requested) ? requested : DEFAULT_PERIOD;
+  const period = requested && PERIODS.includes(requested) ? requested : defaultPeriod;
   const parsed = params.get("del") ? parse(params.get("del")!, "yyyy-MM-dd", now) : null;
   // Mai oltre il periodo in corso
   const anchor = parsed && isValid(parsed) && parsed <= now ? parsed : now;
 
   const update = (next: Period, nextAnchor: Date) => {
     const query = new URLSearchParams(params);
-    if (next === DEFAULT_PERIOD) query.delete("periodo");
+    if (next === defaultPeriod) query.delete("periodo");
     else query.set("periodo", next);
     const current = next === "all" || periodWindow(next, nextAnchor, now).isCurrent;
     if (current) query.delete("del");
@@ -46,7 +46,8 @@ export function usePeriodSelection(now: Date) {
     // Cambiando tipo di periodo si resta sulla stessa data (ottobre → la sua settimana, il suo anno)
     setPeriod: (next: Period) => update(next, anchor),
     setAnchor: (next: Date) => update(period, next),
-    setMonth: (next: Date) => update("month", next),
+    /** Tipo di periodo e data insieme (es. tocco su un mese da un'altra vista) */
+    select: (next: Period, nextAnchor: Date) => update(next, nextAnchor),
   };
 }
 

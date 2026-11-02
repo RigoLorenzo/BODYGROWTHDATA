@@ -81,10 +81,7 @@ function ApiKeyForm({ reconnect, onConnected }: { reconnect: boolean; onConnecte
         {saving && <Loader2 className="animate-spin" />}
         {reconnect ? "Aggiorna chiave Garmin" : "Collega Garmin"}
       </Button>
-      <p className="text-xs text-muted-foreground">
-        API ufficiale Garmin, in sola lettura. La chiave è salvata cifrata e non esce mai dal server; puoi revocarla in
-        ogni momento eliminandola su Garmin Connect.
-      </p>
+      <p className="text-xs text-muted-foreground">API ufficiale Garmin, sola lettura. Chiave salvata cifrata.</p>
     </form>
   );
 }
@@ -155,7 +152,7 @@ export function GarminCard() {
                   ]
                     .filter(Boolean)
                     .join(" · ")
-                : "Forerunner, Fenix, Venu…: corse e benessere, in automatico"}
+                : "Forerunner, Fenix, Venu…"}
           </p>
         </div>
       </div>
@@ -169,7 +166,7 @@ export function GarminCard() {
 
       {conn && !conn.lastError && (
         <div className="mt-3 flex items-center justify-between gap-3">
-          <p className="text-xs text-muted-foreground">Si aggiorna da solo ogni 15 minuti con l&apos;app aperta.</p>
+          <span />
           <Button variant="outline" size="sm" className="h-10 shrink-0" onClick={disconnect} disabled={busy}>
             {busy && <Loader2 className="animate-spin" />}
             Scollega

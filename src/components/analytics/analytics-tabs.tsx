@@ -2,10 +2,9 @@
 
 import dynamic from "next/dynamic";
 import { Skeleton } from "@/components/ui/skeleton";
-import { HistoryTab } from "./history-tab";
+import { TrendsTab } from "./trends-tab";
 import { MuscleFrequencyGrid } from "./muscle-frequency-grid";
 import { MuscleStatsGrid } from "./muscle-stats-grid";
-import { ProgressScore } from "./progress-score";
 import { RecordsTab } from "./records-tab";
 import { RunTab } from "./run-tab";
 import { SummaryTab } from "./summary-tab";
@@ -14,7 +13,6 @@ import { WorkloadStats } from "./workload-stats";
 
 // I grafici recharts si scaricano solo quando apri la scheda che li usa
 const chartFallback = () => <Skeleton className="h-64 rounded-3xl" />;
-const StrengthChart = dynamic(() => import("./strength-chart").then((m) => m.StrengthChart), { ssr: false, loading: chartFallback });
 const MuscleBalanceChart = dynamic(() => import("./muscle-balance-chart").then((m) => m.MuscleBalanceChart), {
   ssr: false,
   loading: chartFallback,
@@ -30,9 +28,8 @@ const MuscleTrendChart = dynamic(() => import("./muscle-trend-chart").then((m) =
 
 const TABS = [
   { value: "riepilogo", label: "Riepilogo" },
+  { value: "andamento", label: "Andamento" },
   { value: "record", label: "Record" },
-  { value: "storico", label: "Storico" },
-  { value: "progressi", label: "Progressi" },
   { value: "volume", label: "Volume" },
   { value: "muscoli", label: "Muscoli" },
   { value: "corsa", label: "Corsa" },
@@ -41,15 +38,8 @@ type Tab = (typeof TABS)[number]["value"];
 
 function TabContent({ tab }: { tab: Tab }) {
   switch (tab) {
-    case "storico":
-      return <HistoryTab />;
-    case "progressi":
-      return (
-        <div className="space-y-5">
-          <ProgressScore />
-          <StrengthChart />
-        </div>
-      );
+    case "andamento":
+      return <TrendsTab />;
     case "volume":
       return (
         <div className="space-y-5">
@@ -77,8 +67,8 @@ function TabContent({ tab }: { tab: Tab }) {
 
 /** Schede nell'URL (?tab=): i link portano al punto giusto e "indietro" ci ritorna */
 export function AnalyticsTabs() {
-  // "calendario": nome precedente della scheda Storico
-  const [tab, select] = useUrlTab(TABS, { calendario: "storico" });
+  // Vecchi nomi: Calendario e Storico ora sono in Andamento, Progressi non c'è più
+  const [tab, select] = useUrlTab(TABS, { calendario: "andamento", storico: "andamento", progressi: "riepilogo" });
   return (
     <div className="space-y-5">
       <TabStrip tabs={TABS} value={tab} onChange={select} label="Sezioni di Analytics" />
