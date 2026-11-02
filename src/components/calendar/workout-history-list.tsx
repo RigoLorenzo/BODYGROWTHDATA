@@ -2,11 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatRelative, formatVolume, formatWorkoutDuration, getMuscleColor, getMuscleLabel } from "@/lib/utils";
-import { Star, Dumbbell, CalendarDays, AlertTriangle } from "lucide-react";
+import { KIND_STYLE } from "@/components/analytics/activity-kind";
+import { cn, formatVolume, formatWorkoutDuration, getMuscleColor, getMuscleLabel } from "@/lib/utils";
+import { ChevronRight, Star } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import Link from "next/link";
@@ -77,25 +76,85 @@ function groupByMonth(items: WorkoutItem[]) {
   return groups;
 }
 
-export function WorkoutHistoryList() {
+/** Palestra, corsa o altro: lo stesso colore usato nel resto delle statistiche */
+const kindOf = (w: WorkoutItem) => (w.run ? "run" : isImportedCardio(w) ? "cardio" : "gym") as keyof typeof KIND_STYLE;
+
+/** Il dato principale a destra e una riga di contesto sotto il titolo */
+function summary(w: WorkoutItem) {
+  if (w.run) {
+    return { value: `${formatKm(w.run.distance)} km`, meta: `${formatPace(paceSecondsPerKm(w.run.distance, w.run.movingTime))}/km` };
+  }
+  if (isImportedCardio(w)) {
+    return { value: w.distance ? `${formatKm(w.distance)} km` : formatMinutes(w.duration), meta: w.distance ? formatMinutes(w.duration) : "Attività" };
+  }
+  const duration = w.endedAt ? formatWorkoutDuration(new Date(w.startedAt), new Date(w.endedAt)) : null;
+  return {
+    value: formatVolume(w.totalVolume),
+    meta: [`${w.exercises?.length ?? 0} esercizi`, `${w.totalSets} serie`, duration].filter(Boolean).join(" · "),
+  };
+}
+
+function HistoryRow({ workout }: { workout: WorkoutItem }) {
+  const date = new Date(workout.startedAt);
+  const kind = kindOf(workout);
+  const Icon = KIND_STYLE[kind].icon;
+  const { value, meta } = summary(workout);
+  const prs = workout._count?.personalRecords ?? 0;
+  return (
+    <li>
+      <Link
+        href={workout.run ? `/run/${workout.run.id}` : `/workout/${workout.id}`}
+        className="flex items-center gap-3 px-4 py-3 active:bg-muted/50"
+      >
+        <span className={cn("flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-xl leading-none", KIND_STYLE[kind].tile)}>
+          <span className="font-display text-lg font-bold tabular-nums">{format(date, "d")}</span>
+          <span className="text-[9px] font-semibold uppercase">{format(date, "EEE", { locale: it })}</span>
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-1.5 text-sm font-semibold">
+            <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+            <span className="truncate">{workoutTitle(workout)}</span>
+            {prs > 0 && (
+              <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                <Star className="h-2.5 w-2.5 fill-current" aria-hidden />
+                {prs} PR
+              </span>
+            )}
+          </span>
+          <span className="block truncate text-xs text-muted-foreground">{meta}</span>
+        </span>
+        <span className="shrink-0 font-display text-lg font-bold tabular-nums">{value}</span>
+        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+      </Link>
+    </li>
+  );
+}
+
+/**
+ * Lo storico completo, a pagine, raggruppato per mese. `range` limita
+ * l'elenco a un periodo (es. il mese aperto nel Riepilogo).
+ */
+export function WorkoutHistoryList({ range }: { range?: { from: Date; to: Date } }) {
   const sentinelRef = useRef<HTMLDivElement>(null);
   const [activeMuscle, setActiveMuscle] = useState("");
+  const fromIso = range?.from.toISOString();
+  const toIso = range?.to.toISOString();
 
-  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
-    useInfiniteQuery<WorkoutItem[]>({
-      queryKey: ["sessions", "history", activeMuscle],
-      queryFn: async ({ pageParam }) => {
-        const offset = (pageParam as number) ?? 0;
-        const params = new URLSearchParams({ limit: "20", offset: String(offset) });
-        if (activeMuscle) params.set("muscle", activeMuscle);
-        const res = await fetch(`/api/sessions?${params}`);
-        if (!res.ok) throw new Error("Failed to fetch sessions");
-        return res.json();
-      },
-      initialPageParam: 0,
-      getNextPageParam: (lastPage, allPages) =>
-        lastPage.length === 20 ? allPages.length * 20 : undefined,
-    });
+  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery<WorkoutItem[]>({
+    queryKey: ["sessions", "history", activeMuscle, fromIso ?? null, toIso ?? null],
+    queryFn: async ({ pageParam }) => {
+      const offset = (pageParam as number) ?? 0;
+      const params = new URLSearchParams({ limit: "20", offset: String(offset) });
+      if (activeMuscle) params.set("muscle", activeMuscle);
+      if (fromIso) params.set("from", fromIso);
+      if (toIso) params.set("to", toIso);
+      const res = await fetch(`/api/sessions?${params}`);
+      if (!res.ok) throw new Error("Failed to fetch sessions");
+      return res.json();
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => (lastPage.length === 20 ? allPages.length * 20 : undefined),
+  });
 
   useEffect(() => {
     const el = sentinelRef.current;
@@ -114,24 +173,22 @@ export function WorkoutHistoryList() {
 
   return (
     <div className="space-y-4">
-      {/* Muscle filter chips */}
-      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+      {/* Filtro per muscolo: solo le sedute che lo allenano come principale */}
+      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none]" role="group" aria-label="Filtra per muscolo">
         {MUSCLE_FILTERS.map((f) => {
           const isActive = activeMuscle === f.value;
-          const color = f.value ? getMuscleColor(f.value) : null;
           return (
             <button
               key={f.value}
+              type="button"
               onClick={() => setActiveMuscle(f.value)}
-              className="shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-all"
-              style={
-                isActive && color
-                  ? { background: `${color}25`, color, borderWidth: 1, borderColor: `${color}50` }
-                  : isActive
-                  ? { background: "hsl(var(--foreground))", color: "hsl(var(--background))" }
-                  : { background: "hsl(var(--muted))", color: "hsl(var(--muted-foreground))" }
-              }
+              aria-pressed={isActive}
+              className={cn(
+                "flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-xs font-medium transition-colors",
+                isActive ? "bg-foreground text-background" : "bg-muted text-muted-foreground active:bg-muted/70"
+              )}
             >
+              {f.value && <span className="h-2 w-2 rounded-full" style={{ background: getMuscleColor(f.value) }} aria-hidden />}
               {f.label}
             </button>
           );
@@ -139,122 +196,34 @@ export function WorkoutHistoryList() {
       </div>
 
       {isLoading ? (
-        <div className="space-y-3">
-          {Array(5).fill(0).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
+        <div className="space-y-2">
+          {Array.from({ length: 5 }, (_, i) => (
+            <Skeleton key={i} className="h-16 rounded-2xl" />
+          ))}
         </div>
       ) : !allWorkouts.length ? (
-        <Card className="border-border/50">
-          <CardContent className="p-8 text-center">
-            <Dumbbell className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground">
-              {activeMuscle ? `Nessun allenamento per ${getMuscleLabel(activeMuscle)}.` : "Nessun allenamento ancora."}
-            </p>
-          </CardContent>
-        </Card>
+        <p className="rounded-3xl border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">
+          {activeMuscle ? `Nessun allenamento per ${getMuscleLabel(activeMuscle)}.` : "Nessun allenamento in questo periodo."}
+        </p>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-5">
           {groupByMonth(allWorkouts).map((group) => (
-            <div key={group.label}>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+            <section key={group.label}>
+              <h2 className="mb-2 flex items-baseline justify-between px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 {group.label}
-              </p>
-              <div className="space-y-2">
+                <span className="font-medium tabular-nums">{group.items.length}</span>
+              </h2>
+              <ul className="divide-y divide-border/50 overflow-hidden rounded-3xl border border-border/60 bg-card">
                 {group.items.map((workout) => (
-                  <Link key={workout.id} href={workout.run ? `/run/${workout.run.id}` : `/workout/${workout.id}`}>
-                    <Card className="rounded-3xl border-border/60 shadow-none transition-colors hover:border-border active:scale-[0.99]">
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                              <p className="font-medium text-sm truncate">
-                                {workoutTitle(workout)}
-                              </p>
-                              {(workout._count?.personalRecords ?? 0) > 0 && (
-                                <Badge variant="success" className="shrink-0">
-                                  <Star className="h-2.5 w-2.5 mr-1" />
-                                  PR
-                                </Badge>
-                              )}
-                              {workout.programDayId && (
-                                <Badge variant="outline" className="shrink-0 text-[9px] border-blue-500/40 text-blue-600 dark:text-blue-400 bg-blue-500/10">
-                                  <CalendarDays className="h-2.5 w-2.5 mr-1" />
-                                  Piano
-                                </Badge>
-                              )}
-                              {workout.notes?.includes("[DEVIAZIONE") && (
-                                <Badge variant="outline" className="shrink-0 text-[9px] border-orange-500/40 text-orange-600 dark:text-orange-400 bg-orange-500/10">
-                                  <AlertTriangle className="h-2.5 w-2.5 mr-1" />
-                                  Deviato
-                                </Badge>
-                              )}
-                            </div>
-                            <p className="text-xs text-muted-foreground mb-2">
-                              {formatRelative(workout.startedAt)}
-                              {workout.endedAt && (
-                                <span className="ml-2 text-muted-foreground/70">
-                                  · {formatWorkoutDuration(new Date(workout.startedAt), new Date(workout.endedAt))}
-                                </span>
-                              )}
-                            </p>
-                            <div className="flex flex-wrap gap-1">
-                              {workout.exercises?.slice(0, 3).map((ex) => (
-                                <span
-                                  key={ex.id}
-                                  className="text-[10px] px-1.5 py-0.5 rounded-full border"
-                                  style={{
-                                    borderColor: `${getMuscleColor(ex.exercise?.primaryMuscle ?? "")}40`,
-                                    color: getMuscleColor(ex.exercise?.primaryMuscle ?? ""),
-                                  }}
-                                >
-                                  {ex.exercise?.name}
-                                </span>
-                              ))}
-                              {(workout.exercises?.length ?? 0) > 3 && (
-                                <span className="text-[10px] text-muted-foreground">
-                                  +{(workout.exercises?.length ?? 0) - 3}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          {workout.run ? (
-                            <div className="text-right shrink-0">
-                              <p className="text-sm font-semibold tabular-nums">{formatKm(workout.run.distance)} km</p>
-                              <p className="text-xs text-muted-foreground">
-                                {formatPace(paceSecondsPerKm(workout.run.distance, workout.run.movingTime))}/km
-                              </p>
-                            </div>
-                          ) : isImportedCardio(workout) ? (
-                            <div className="text-right shrink-0">
-                              <p className="text-sm font-semibold tabular-nums">
-                                {workout.distance ? `${formatKm(workout.distance)} km` : formatMinutes(workout.duration)}
-                              </p>
-                              <p className="text-xs text-muted-foreground">{workout.distance ? formatMinutes(workout.duration) : "attività"}</p>
-                            </div>
-                          ) : (
-                            <div className="text-right shrink-0">
-                              <p className="text-sm font-semibold tabular-nums">{formatVolume(workout.totalVolume)}</p>
-                              <p className="text-xs text-muted-foreground">{workout.totalSets} serie</p>
-                            </div>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </Link>
+                  <HistoryRow key={workout.id} workout={workout} />
                 ))}
-              </div>
-            </div>
+              </ul>
+            </section>
           ))}
 
           <div ref={sentinelRef} className="py-2">
-            {isFetchingNextPage && (
-              <div className="space-y-2">
-                <Skeleton className="h-24 rounded-xl" />
-                <Skeleton className="h-24 rounded-xl" />
-              </div>
-            )}
-            {!hasNextPage && allWorkouts.length > 0 && (
-              <p className="text-center text-xs text-muted-foreground py-4">Hai visto tutto</p>
-            )}
+            {isFetchingNextPage && <Skeleton className="h-16 rounded-2xl" />}
+            {!hasNextPage && <p className="py-4 text-center text-xs text-muted-foreground">Hai visto tutto</p>}
           </div>
         </div>
       )}

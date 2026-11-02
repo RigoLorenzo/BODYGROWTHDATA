@@ -312,3 +312,80 @@ export function byDay(items: ActivityItem[]): Map<string, ActivityItem[]> {
   }
   return map;
 }
+
+export type SeriesUnit = "day" | "month" | "year";
+
+/**
+ * L'andamento dentro il periodo scelto, alla granularità giusta:
+ * settimana → 7 giorni, anno → 12 mesi, sempre → anni (o mesi, se la
+ * storia è più corta di due anni). Il mese si legge sul calendario.
+ */
+export function periodSeries(
+  items: ActivityItem[],
+  period: Exclude<Period, "month">,
+  anchor: Date,
+  now: Date
+): { unit: SeriesUnit; buckets: Bucket[] } {
+  if (period === "week") {
+    const start = periodStart("week", anchor);
+    const starts = Array.from({ length: 7 }, (_, i) => addDays(start, i));
+    return { unit: "day", buckets: bucketize(items, starts, (s) => addDays(s, 1)) };
+  }
+  if (period === "year") {
+    const start = periodStart("year", anchor);
+    const starts = Array.from({ length: 12 }, (_, i) => addMonths(start, i));
+    return { unit: "month", buckets: bucketize(items, starts, (s) => addMonths(s, 1)) };
+  }
+  const first = items.reduce<Date | null>((min, i) => (!min || i.startedAt < min ? i.startedAt : min), null) ?? now;
+  const years = now.getFullYear() - first.getFullYear() + 1;
+  if (years >= 2) {
+    const starts = Array.from({ length: years }, (_, i) => new Date(first.getFullYear() + i, 0, 1));
+    return { unit: "year", buckets: bucketize(items, starts, (s) => addYears(s, 1)) };
+  }
+  const months = Math.max(1, (now.getFullYear() - first.getFullYear()) * 12 + now.getMonth() - first.getMonth() + 1);
+  return { unit: "month", buckets: monthlySeries(items, Math.max(months, 6), now) };
+}
+
+export interface PeriodConsistency {
+  /** settimana: giorni; altrimenti settimane */
+  unit: "days" | "weeks";
+  active: number;
+  total: number;
+  percent: number;
+  /** allenamenti a settimana nel periodo trascorso */
+  avgPerWeek: number;
+}
+
+/**
+ * Costanza nel periodo scelto, contando solo il tempo già trascorso: nella
+ * settimana i giorni attivi, altrimenti le settimane con almeno un allenamento.
+ */
+export function periodConsistency(items: ActivityItem[], period: Period, anchor: Date, now: Date): PeriodConsistency {
+  const window = periodWindow(period, anchor, now);
+  const first = items.reduce<Date | null>((min, i) => (!min || i.startedAt < min ? i.startedAt : min), null);
+  const from = window.from ?? (first ? startOfWeek(first, WEEK) : startOfWeek(now, WEEK));
+  const end = window.to && window.to < now ? window.to : now;
+  const inside = itemsInPeriod(items, { from, to: window.to });
+
+  if (period === "week") {
+    const total = Math.max(1, Math.min(7, Math.floor((end.getTime() - from.getTime()) / 86_400_000) + (window.isCurrent ? 1 : 0)));
+    const active = new Set(inside.map((i) => dayKey(i.startedAt))).size;
+    return { unit: "days", active, total, percent: Math.round((active / total) * 100), avgPerWeek: inside.length };
+  }
+
+  const weekStarts: Date[] = [];
+  for (let w = startOfWeek(from, WEEK); w < end; w = addWeeks(w, 1)) weekStarts.push(w);
+  const activeWeeks = new Set(inside.map((i) => dayKey(startOfWeek(i.startedAt, WEEK))));
+  // La settimana in corso conta solo se c'è già un allenamento
+  const current = dayKey(startOfWeek(now, WEEK));
+  const considered = weekStarts.filter((w) => dayKey(w) !== current || activeWeeks.has(current));
+  const total = Math.max(1, considered.length);
+  const active = considered.filter((w) => activeWeeks.has(dayKey(w))).length;
+  return {
+    unit: "weeks",
+    active,
+    total,
+    percent: Math.round((active / total) * 100),
+    avgPerWeek: Math.round((inside.length / total) * 10) / 10,
+  };
+}

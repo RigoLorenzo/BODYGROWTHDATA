@@ -3,7 +3,9 @@ import {
   byDay,
   consistency,
   monthlySeries,
+  periodConsistency,
   periodLabel,
+  periodSeries,
   periodTotals,
   periodWindow,
   shiftPeriod,
@@ -163,5 +165,38 @@ describe("insights", () => {
     const days = byDay(items);
     expect(days.get("2026-10-17")?.[0].duration).toBe(95 * 60);
     expect(days.size).toBe(9);
+  });
+
+  it("andamento del periodo: giorni della settimana, mesi dell'anno, mesi da sempre", () => {
+    const week = periodSeries(items, "week", NOW, NOW);
+    expect(week.unit).toBe("day");
+    expect(week.buckets.map((b) => b.sessions)).toEqual([1, 0, 1, 0, 1, 1, 1]);
+
+    const year = periodSeries(items, "year", NOW, NOW);
+    expect(year.unit).toBe("month");
+    expect(year.buckets).toHaveLength(12);
+    expect(year.buckets[9].sessions).toBe(8);
+    expect(year.buckets[8].sessions).toBe(1);
+
+    // Meno di due anni di storia: mesi (almeno 6), l'ultimo è quello in corso
+    const all = periodSeries(items, "all", NOW, NOW);
+    expect(all.unit).toBe("month");
+    expect(all.buckets).toHaveLength(6);
+    expect(all.buckets.at(-1)!.sessions).toBe(8);
+  });
+
+  it("andamento da sempre: un anno per barra con almeno due anni di storia", () => {
+    const old = [...items, gym(new Date(2024, 2, 1, 18, 0), 60)];
+    const all = periodSeries(old, "all", NOW, NOW);
+    expect(all.unit).toBe("year");
+    expect(all.buckets.map((b) => b.sessions)).toEqual([1, 0, 9]);
+  });
+
+  it("costanza nel periodo: giorni nella settimana, settimane nel mese e da sempre", () => {
+    expect(periodConsistency(items, "week", NOW, NOW)).toMatchObject({ unit: "days", active: 5, total: 7, percent: 71 });
+    expect(periodConsistency(items, "month", NOW, NOW)).toMatchObject({ unit: "weeks", active: 2, total: 3, avgPerWeek: 2.7 });
+    expect(periodConsistency(items, "all", NOW, NOW)).toMatchObject({ unit: "weeks", active: 3, total: 6, avgPerWeek: 1.5 });
+    // Settimana passata: tutti e sette i giorni
+    expect(periodConsistency(items, "week", new Date(2026, 9, 7), NOW)).toMatchObject({ active: 3, total: 7 });
   });
 });

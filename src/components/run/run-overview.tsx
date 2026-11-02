@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, Plus } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { FitnessCard } from "./fitness-card";
@@ -10,27 +10,22 @@ import { RecordsCard } from "./records-card";
 import { RunList } from "./run-list";
 import { RunSettings } from "./run-settings";
 import { DeviceExpiredBanner } from "./run-header";
-import { WeeklyChart } from "./weekly-chart";
 import { useRunStats, useRuns } from "./queries";
-import { Section } from "@/components/analytics/ui";
 import { DEVICES_PATH } from "@/components/devices/routes";
-import { MonthlyKm, RunPeriodHero, useRunHistory } from "./run-period";
+import { RunPeriodHero, RunTrend, useRunHistory } from "./run-period";
 import type { RunStats } from "./types";
 
 /** Attività mostrate prima di "Mostra tutte": la pagina resta corta */
 const RECENT_RUNS = 5;
 
-/** Statistiche della corsa: usate qui e nel tab Corsa di Analytics */
-export function RunStatsSections({ stats }: { stats: RunStats }) {
+/** Statistiche della corsa: periodo, andamento, forma e record */
+function RunStatsSections({ stats }: { stats: RunStats }) {
   const now = useMemo(() => new Date(), []);
   const runs = useRunHistory(stats);
   return (
     <>
       <RunPeriodHero stats={stats} runs={runs} now={now} />
-      <MonthlyKm runs={runs} now={now} />
-      <Section title="Km a settimana">
-        <WeeklyChart weekly={stats.weekly} goalKm={stats.settings.weeklyRunKmGoal} />
-      </Section>
+      <RunTrend stats={stats} runs={runs} now={now} />
       <FitnessCard fitness={stats.fitness} />
       <RecordsCard stats={stats} />
     </>
@@ -89,7 +84,7 @@ export function RunOverview() {
           <Link href={DEVICES_PATH} className="font-medium text-foreground underline underline-offset-2">
             Collega uno smartwatch
           </Link>{" "}
-          o aggiungine una qui sotto.
+          o aggiungine una con il pulsante +.
         </p>
       )}
       {hasRuns && (
@@ -100,13 +95,6 @@ export function RunOverview() {
       )}
 
       <RunSettings settings={stats.settings} />
-
-      <Link
-        href="/run/new"
-        className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-dashed border-border text-sm font-medium text-muted-foreground active:bg-muted/50"
-      >
-        <Plus className="h-4 w-4" /> Aggiungi corsa (manuale o GPX)
-      </Link>
     </div>
   );
 }

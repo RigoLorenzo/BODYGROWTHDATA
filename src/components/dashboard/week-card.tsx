@@ -69,12 +69,16 @@ export function WeekCard({ initialOverview, initialDays }: Props) {
 
   return (
     <section className="rounded-3xl border border-border/60 bg-card p-5">
-      <div className="flex items-baseline justify-between">
-        <h2 className="font-display text-xl font-bold uppercase tracking-wide">Questa settimana</h2>
-        <p className="text-xs text-muted-foreground capitalize">
-          {format(weekStart, "d MMM", { locale: it })} – {format(days[6], "d MMM", { locale: it })}
-        </p>
-      </div>
+      {/* Il titolo apre la stessa settimana in Analytics, con confronto e dettagli */}
+      <Link href="/analytics?periodo=week" className="-m-2 flex items-center justify-between rounded-xl p-2 active:bg-muted/60">
+        <div>
+          <h2 className="font-display text-xl font-bold uppercase tracking-wide">Questa settimana</h2>
+          <p className="text-xs text-muted-foreground">
+            {format(weekStart, "d MMM", { locale: it })} – {format(days[6], "d MMM", { locale: it })}
+          </p>
+        </div>
+        <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden />
+      </Link>
 
       <div className="mt-4 grid grid-cols-7 gap-1.5">
         {days.map((day) => {

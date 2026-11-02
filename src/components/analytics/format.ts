@@ -17,7 +17,10 @@ export const formatDecimal = (value: number, digits = 1): string =>
 /** "+12%" / "−4%" / null se non confrontabile */
 export function formatDelta(current: number, previous: number | null | undefined): string | null {
   if (previous == null || previous === 0) return null;
-  const pct = Math.round(((current - previous) / previous) * 100);
+  // Oltre il triplo la percentuale non si legge più (+1700%): meglio "×18"
+  const ratio = current / previous;
+  if (ratio >= 3) return `×${ratio >= 10 ? Math.round(ratio) : formatDecimal(ratio)}`;
+  const pct = Math.round((ratio - 1) * 100);
   if (pct === 0) return "=";
   return `${pct > 0 ? "+" : "−"}${Math.abs(pct)}%`;
 }
