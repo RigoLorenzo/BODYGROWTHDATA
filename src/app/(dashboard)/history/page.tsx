@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { HistoryView } from "@/components/calendar/history-view";
+import { FITNESS_PATH } from "@/lib/routes";
 
 export const metadata = { title: "Storico" };
 
@@ -17,8 +18,8 @@ export default async function HistoryPage({
     <div className="container mx-auto max-w-xl space-y-4 px-4 pb-6 pt-3">
       <div className="flex items-center gap-1">
         <Link
-          href="/analytics"
-          aria-label="Torna ad Analytics"
+          href={FITNESS_PATH}
+          aria-label="Torna a Fitness"
           className="-ml-3 flex h-11 w-11 shrink-0 items-center justify-center rounded-full active:bg-muted"
         >
           <ChevronLeft className="h-5 w-5" />

@@ -20,13 +20,13 @@ import type { RunStats } from "./types";
 const RECENT_RUNS = 5;
 
 /**
- * La corsa per periodo (stessa struttura di Analytics), poi i record di
+ * La corsa per periodo (stessa struttura del Riepilogo), poi i record di
  * sempre e le attività.
  */
 function RunStatsSections({ stats }: { stats: RunStats }) {
   const now = useMemo(() => new Date(), []);
   const runs = useRunHistory(stats);
-  const selection = usePeriodSelection(now, "week");
+  const selection = usePeriodSelection(now);
   return (
     <>
       <RunProgress stats={stats} runs={runs} now={now} selection={selection} />

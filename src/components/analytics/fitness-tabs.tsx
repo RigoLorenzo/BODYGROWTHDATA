@@ -1,18 +1,21 @@
 "use client";
 
+import { RunHeader } from "@/components/run/run-header";
+import { RunOverview } from "@/components/run/run-overview";
 import { cn } from "@/lib/utils";
 import { StrengthTab } from "./strength-tab";
 import { SummaryTab } from "./summary-tab";
 import { useUrlTab } from "./tab-strip";
 
 /**
- * Due viste, nessun doppione: il Riepilogo per periodo (tutte le attività) e
- * il dettaglio della Palestra (carico e muscoli). Le statistiche della corsa
- * vivono nella sezione Corsa, lo storico completo in /history.
+ * Fitness: tutte le attività nel Riepilogo, poi Palestra e Corsa nel
+ * dettaglio. Il periodo scelto resta lo stesso passando da una scheda
+ * all'altra (sta nell'URL); lo storico completo è in /history.
  */
 const TABS = [
   { value: "riepilogo", label: "Riepilogo" },
   { value: "palestra", label: "Palestra" },
+  { value: "corsa", label: "Corsa" },
 ] as const;
 
 /** Vecchi nomi delle schede: i link salvati continuano a funzionare */
@@ -24,12 +27,21 @@ const ALIASES = {
   muscoli: "palestra",
 } as const;
 
-export function AnalyticsTabs() {
+function RunTab() {
+  return (
+    <div className="space-y-5">
+      <RunHeader />
+      <RunOverview />
+    </div>
+  );
+}
+
+export function FitnessTabs() {
   const [tab, select] = useUrlTab(TABS, ALIASES);
   return (
     <div className="space-y-3">
       {/* Tab di testo: navigano tra viste; il selettore a pillole sotto filtra il periodo */}
-      <div role="tablist" aria-label="Viste di Analytics" className="flex gap-6 border-b border-border/60">
+      <div role="tablist" aria-label="Viste di Fitness" className="flex gap-6 border-b border-border/60">
         {TABS.map((t) => (
           <button
             key={t.value}
@@ -45,7 +57,7 @@ export function AnalyticsTabs() {
           </button>
         ))}
       </div>
-      {tab === "palestra" ? <StrengthTab /> : <SummaryTab />}
+      {tab === "palestra" ? <StrengthTab /> : tab === "corsa" ? <RunTab /> : <SummaryTab />}
     </div>
   );
 }

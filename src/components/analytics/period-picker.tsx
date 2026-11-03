@@ -15,7 +15,7 @@ const DEFAULT_PERIOD: Period = "month";
 /**
  * Periodo del Riepilogo nell'URL (?periodo=settimana…&del=2026-10-01): aprendo
  * un allenamento e tornando indietro resta il mese che stavi guardando.
- * Senza parametri: il periodo predefinito (il mese, la settimana per la corsa) in corso.
+ * Senza parametri: il mese in corso, uguale in tutte le schede di Fitness.
  */
 export function usePeriodSelection(now: Date, defaultPeriod: Period = DEFAULT_PERIOD) {
   const params = useSearchParams();
