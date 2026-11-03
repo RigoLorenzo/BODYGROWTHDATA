@@ -10,6 +10,7 @@ import { useHeatmapData } from "@/hooks/use-workout-session";
 import { useActiveProgram } from "@/hooks/use-active-program";
 import { cn, formatVolume } from "@/lib/utils";
 import type { AnalyticsOverview } from "@/types";
+import { FITNESS_PATH, RUN_HOME } from "@/lib/routes";
 
 interface Props {
   initialOverview?: AnalyticsOverview;
@@ -69,8 +70,8 @@ export function WeekCard({ initialOverview, initialDays }: Props) {
 
   return (
     <section className="rounded-3xl border border-border/60 bg-card p-5">
-      {/* Il titolo apre la stessa settimana in Analytics, con confronto e dettagli */}
-      <Link href="/analytics?periodo=week" className="-m-2 flex items-center justify-between rounded-xl p-2 active:bg-muted/60">
+      {/* Il titolo apre la stessa settimana in Fitness, con confronto e dettagli */}
+      <Link href={`${FITNESS_PATH}?periodo=week`} className="-m-2 flex items-center justify-between rounded-xl p-2 active:bg-muted/60">
         <div>
           <h2 className="font-display text-xl font-bold uppercase tracking-wide">Questa settimana</h2>
           <p className="text-xs text-muted-foreground">
@@ -128,7 +129,7 @@ export function WeekCard({ initialOverview, initialDays }: Props) {
       </div>
 
       <Link
-        href="/run"
+        href={RUN_HOME}
         className="-mx-2 mt-4 flex items-center gap-2 rounded-xl px-2 py-2 text-sm active:bg-muted/60"
       >
         <span className="h-2 w-2 shrink-0 rounded-full bg-lime-500" aria-hidden />

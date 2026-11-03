@@ -104,7 +104,7 @@ function GoalBar({ distance, goal, active }: { distance: number; goal: number; a
 }
 
 /**
- * La corsa per periodo, con la stessa struttura di Analytics: barra del
+ * La corsa per periodo, con la stessa struttura del Riepilogo: barra del
  * periodo, riquadri (quello scelto guida il grafico), poi la costanza.
  */
 export function RunProgress({ stats, runs, now, selection }: { stats: RunStats; runs: RunEntry[]; now: Date; selection: PeriodSelection }) {

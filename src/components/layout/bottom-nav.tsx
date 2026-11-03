@@ -3,14 +3,19 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { BarChart3, Footprints, HeartPulse, LayoutDashboard } from "lucide-react";
+import { BarChart3, ClipboardList, HeartPulse, LayoutDashboard } from "lucide-react";
+import { FITNESS_PATH, PLAN_PATH } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
-/** Quattro sezioni: l'allenamento si avvia (o si riprende) dalla home */
+/**
+ * Quattro sezioni: Home (si avvia l'allenamento), Fitness (palestra, corsa e
+ * riepilogo), Piano (il programma completo) e Benessere. `also`: pagine
+ * interne che appartengono alla sezione.
+ */
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Home" },
-  { href: "/run", icon: Footprints, label: "Corsa" },
-  { href: "/analytics", icon: BarChart3, label: "Analytics", also: ["/history", "/records"] },
+  { href: FITNESS_PATH, icon: BarChart3, label: "Fitness", also: ["/history", "/records", "/run"] },
+  { href: PLAN_PATH, icon: ClipboardList, label: "Piano", also: ["/programs"] },
   { href: "/wellness", icon: HeartPulse, label: "Benessere" },
 ];
 

@@ -6,6 +6,7 @@ import { Section } from "@/components/analytics/ui";
 import { useRunStats } from "@/components/run/queries";
 import type { FormTone, RunStats } from "@/components/run/types";
 import { cn } from "@/lib/utils";
+import { RUN_HOME } from "@/lib/routes";
 
 /**
  * Forma di allenamento (fitness, fatica e forma dal carico delle corse):
@@ -115,7 +116,7 @@ export function TrainingFormCard() {
       title="Forma"
       hint="Dal carico delle tue corse"
       action={
-        <Link href="/run" className="-mr-2 flex h-9 shrink-0 items-center gap-0.5 px-2 text-xs font-medium text-muted-foreground active:text-foreground">
+        <Link href={RUN_HOME} className="-mr-2 flex h-9 shrink-0 items-center gap-0.5 px-2 text-xs font-medium text-muted-foreground active:text-foreground">
           Corsa <ChevronRight className="h-3.5 w-3.5" aria-hidden />
         </Link>
       }

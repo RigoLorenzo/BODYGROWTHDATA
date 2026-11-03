@@ -75,7 +75,7 @@ function SyncStatusLine({ sync, syncing }: { sync: ReturnType<typeof useDevicesS
   );
 }
 
-/** Titolo della pagina Corsa con la sincronizzazione dei dispositivi sempre a portata */
+/** In cima alla scheda Corsa: stato dello smartwatch, sincronizza e aggiungi una corsa */
 export function RunHeader() {
   const devices = useDevicesSyncState();
   const { state, healthy, expired } = devices;
@@ -109,12 +109,9 @@ export function RunHeader() {
           : { label: "Collega", onClick: () => router.push(DEVICES_PATH) };
 
   return (
-    <header className="flex items-center gap-2">
+    <div className="flex items-center gap-2">
       <div className="min-w-0 flex-1">
-        <h1 className="font-display text-3xl font-bold uppercase leading-none tracking-wide">Corsa</h1>
-        <div className="mt-1.5">
-          <SyncStatusLine sync={devices} syncing={syncing} />
-        </div>
+        <SyncStatusLine sync={devices} syncing={syncing} />
       </div>
 
       {action && (
@@ -147,7 +144,7 @@ export function RunHeader() {
       >
         <Plus className="h-5 w-5" aria-hidden />
       </Link>
-    </header>
+    </div>
   );
 }
 

@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn, getMuscleColor, getMuscleLabel } from "@/lib/utils";
 import { repsLabel, setsByMuscle, splitDayName } from "@/lib/plan-format";
 import type { ActiveProgramResponse } from "@/types";
+import { PLAN_PATH } from "@/lib/routes";
 
 /* ─── Superficie "lavagna": scura in entrambi i temi, il punto focale della home ─── */
 
@@ -119,7 +120,7 @@ function NoPlanSlab() {
         <Play className="h-5 w-5" /> {isLoading ? "Avvio..." : "Inizia"}
       </button>
       <Link
-        href="/programs"
+        href={PLAN_PATH}
         className="mt-2 flex h-11 items-center justify-center gap-1 text-sm text-zinc-400 active:text-zinc-200"
       >
         Crea o attiva un piano <ChevronRight className="h-4 w-4" />

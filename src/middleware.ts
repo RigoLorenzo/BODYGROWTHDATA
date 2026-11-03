@@ -6,6 +6,8 @@ export const config = {
     "/calendar/:path*",
     "/history/:path*",
     "/analytics/:path*",
+    "/fitness/:path*",
+    "/plan/:path*",
     "/profile/:path*",
     "/workout/:path*",
     "/run/:path*",

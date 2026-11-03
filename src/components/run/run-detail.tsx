@@ -15,6 +15,7 @@ import type { RunSplit } from "@/lib/run/track";
 import { apiError, useInvalidateRuns, useRun } from "./queries";
 import { RouteMap } from "./route-map";
 import { SOURCE_LABEL, SYNCED_SOURCES, type RunDetail as Run } from "./types";
+import { RUN_HOME } from "@/lib/routes";
 
 
 function Stat({ label, value, unit }: { label: string; value: string | number; unit?: string }) {
@@ -180,7 +181,7 @@ export function RunDetail({ id }: { id: string }) {
       setDeleting(false);
       return toast({ title: "Non eliminata", description: await apiError(res), variant: "destructive" });
     }
-    router.replace("/run");
+    router.replace(RUN_HOME);
     await invalidate(run.id);
   };
 

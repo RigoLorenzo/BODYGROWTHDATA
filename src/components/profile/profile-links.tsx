@@ -4,6 +4,7 @@ import Link from "next/link";
 import { CalendarDays, ChevronRight, Dumbbell, Trophy, type LucideIcon } from "lucide-react";
 import { useActiveProgram } from "@/hooks/use-active-program";
 import { useRecordGroups } from "./profile-hero";
+import { PLAN_PATH } from "@/lib/routes";
 
 interface Tile {
   href: string;
@@ -27,7 +28,7 @@ export function ProfileLinks() {
       hint: records?.length === 1 ? "esercizio con record" : "esercizi con record",
     },
     {
-      href: "/programs",
+      href: PLAN_PATH,
       icon: CalendarDays,
       label: "Piano",
       value: program ? `Sett. ${program.weekProgress}` : "Nessuno",
