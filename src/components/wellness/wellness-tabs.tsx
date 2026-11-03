@@ -10,6 +10,7 @@ import { HeartTab } from "./heart-tab";
 import { OverviewTab } from "./overview-tab";
 import { useWellness } from "./queries";
 import { SleepTab } from "./sleep-tab";
+import { TrainingFormCard } from "./training-form";
 import { HistoryProgress, SyncStatus, WellnessEmpty } from "./sync-status";
 import { useWellnessBackfill } from "./use-wellness-backfill";
 import { VitalsTab } from "./vitals-tab";
@@ -56,7 +57,11 @@ export function WellnessTabs() {
           <WellnessSourcePicker connected={data.sources} value={data.source} />
           <HistoryProgress data={data} progress={backfill.progress} active={backfill.active} />
           {!data.days.length && !data.sleeps.length ? (
-            <WellnessEmpty connected={data.connected} source={data.source} />
+            <>
+              <WellnessEmpty connected={data.connected} source={data.source} />
+              {/* La forma viene dalle corse: si vede anche senza dati dell'orologio */}
+              {tab === "panoramica" && <TrainingFormCard />}
+            </>
           ) : (
             <TabContent tab={tab} data={data} />
           )}

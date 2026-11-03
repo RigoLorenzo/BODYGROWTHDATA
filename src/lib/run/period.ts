@@ -1,5 +1,7 @@
-import { addMonths, format, startOfMonth, subMonths } from "date-fns";
+import { addMonths, addWeeks, format, startOfMonth, startOfWeek, subMonths } from "date-fns";
 import { itemsInPeriod, periodWindow, type Period, type PeriodWindow } from "@/lib/insights";
+
+const WEEK = { weekStartsOn: 1 } as const;
 
 /**
  * Statistiche della corsa per un periodo qualsiasi (settimana, mese, anno,
@@ -78,4 +80,23 @@ export function monthlyRunTotals(runs: RunEntry[], count: number, now: Date): Mo
     const start = subMonths(current, count - 1 - i);
     return { start, key: format(start, "yyyy-MM"), ...runTotals(itemsInPeriod(runs, { from: start, to: addMonths(start, 1) })) };
   });
+}
+
+/**
+ * Settimane del periodo (già concluse, più quella in corso se l'hai già
+ * raggiunto) in cui hai corso almeno `goalMeters`.
+ */
+export function weeksOnGoal(runs: RunEntry[], window: PeriodWindow, now: Date, goalMeters: number): { hit: number; total: number } {
+  const from = window.from ?? (runs.length ? startOfWeek(runs[runs.length - 1].startedAt, WEEK) : startOfWeek(now, WEEK));
+  const end = window.to && window.to < now ? window.to : now;
+  let hit = 0;
+  let total = 0;
+  for (let w = startOfWeek(from, WEEK); w < end; w = addWeeks(w, 1)) {
+    const distance = itemsInPeriod(runs, { from: w, to: addWeeks(w, 1) }).reduce((s, r) => s + r.distance, 0);
+    const done = addWeeks(w, 1) <= now;
+    if (!done && distance < goalMeters) continue;
+    total++;
+    if (distance >= goalMeters) hit++;
+  }
+  return { hit, total };
 }

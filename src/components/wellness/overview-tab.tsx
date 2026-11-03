@@ -20,6 +20,7 @@ import {
 } from "@/lib/wellness/insights";
 import type { SleepJson, WellnessResponse } from "@/lib/wellness/types";
 import { StageBar, StageLegend } from "./charts";
+import { TrainingFormCard } from "./training-form";
 import { FindingList } from "./finding-list";
 import { QualityStat } from "./quality-stat";
 import { ScoreHero } from "./score-hero";
@@ -87,6 +88,8 @@ export function OverviewTab({ data }: { data: WellnessResponse }) {
   return (
     <div className="space-y-5">
       {ready ? <ReadinessHero value={ready} /> : data.connected && <ReadinessPending sleepDate={lastNight?.date ?? null} restingDate={heart.latestDate} source={data.source} />}
+
+      <TrainingFormCard />
 
       {lastNight && (
         <Section

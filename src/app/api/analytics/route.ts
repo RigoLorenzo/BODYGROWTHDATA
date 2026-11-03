@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { weekOverview } from "@/lib/overview";
 import { startOfWeek, endOfWeek, subWeeks, subDays, differenceInDays, format } from "date-fns";
 import { it } from "date-fns/locale";
+import { clampInt, parseInstant } from "@/lib/query-params";
 import {
   accumulateMuscleSets,
   countWorkingSets,
@@ -87,9 +88,12 @@ export async function GET(req: Request) {
   }
 
   if (type === "muscle-stats") {
-    const weeks = parseInt(searchParams.get("weeks") ?? "8");
+    // Intervallo [from, to) dal periodo scelto nel client, altrimenti le ultime N settimane
+    const weeks = clampInt(searchParams.get("weeks"), 8, 1, 520);
+    const from = parseInstant(searchParams.get("from")) ?? subWeeks(new Date(), weeks);
+    const to = parseInstant(searchParams.get("to"));
     const sessions = await prisma.workoutSession.findMany({
-      where: { userId, status: "COMPLETED", startedAt: { gte: subWeeks(new Date(), weeks) } },
+      where: { userId, status: "COMPLETED", startedAt: { gte: from, ...(to ? { lt: to } : {}) } },
       include: {
         exercises: {
           include: {

@@ -1,20 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, Trophy } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { periodLabel, periodTotals, periodWindow, type ActivityItem } from "@/lib/insights";
 import { cn, formatVolume, getMuscleColor, getMuscleLabel } from "@/lib/utils";
 import type { WeeklyAnalytics } from "@/types";
-import { StackedBars } from "./bars";
-import { formatDecimal, formatDelta } from "./format";
-import { EmptyState, Section, Segmented, Stat } from "./ui";
+import { Delta } from "./delta";
+import { formatDecimal, formatDelta, formatHours, splitUnit } from "./format";
+import { HeadlineNumber, KpiRow, PeriodCard, firstActivity, previousLabel, type PeriodSelection } from "./period-card";
+import { PeriodChart, type ChartMetric } from "./period-chart";
+import { usePeriodSelection } from "./period-picker";
+import { EmptyState, Section, Segmented } from "./ui";
+import { useActivity } from "./use-activity";
 
 /**
- * Palestra: il carico settimanale (serie e tonnellaggio) e come si
- * distribuisce sui muscoli. Ultime 8 settimane, le ultime 4 confrontate con
- * le 4 prima.
+ * Palestra, con la stessa logica del Riepilogo: scegli il periodo nella card
+ * in alto e grafico e muscoli lo seguono.
  */
 
 const MUSCLES = ["CHEST", "BACK", "SHOULDERS", "BICEPS", "TRICEPS", "QUADS", "HAMSTRINGS", "GLUTES", "CORE", "CALVES"];
@@ -43,15 +47,23 @@ function useWeekly() {
   });
 }
 
-function useMuscleStats() {
+/** Muscoli nel periodo [from, to); senza limiti ("sempre") gli ultimi 10 anni */
+function useMuscleStats(from: Date | null, to: Date | null) {
+  const fromIso = from?.toISOString() ?? null;
+  const toIso = to?.toISOString() ?? null;
   return useQuery<Record<string, MuscleStats>>({
-    queryKey: ["analytics", "muscle-stats"],
+    queryKey: ["analytics", "muscle-stats", fromIso, toIso],
     queryFn: async () => {
-      const res = await fetch("/api/analytics?type=muscle-stats&weeks=8");
+      const params = new URLSearchParams({ type: "muscle-stats" });
+      if (fromIso) params.set("from", fromIso);
+      else params.set("weeks", "520");
+      if (toIso) params.set("to", toIso);
+      const res = await fetch(`/api/analytics?${params}`);
       if (!res.ok) return {};
       return res.json();
     },
     staleTime: 5 * 60 * 1000,
+    placeholderData: (previous) => previous,
   });
 }
 
@@ -67,73 +79,61 @@ function useMuscleFrequency() {
   });
 }
 
-/* ─── Carico ─── */
+/* ─── Periodo ─── */
 
-const LOAD_METRICS = [
-  { value: "sets", label: "Serie" },
-  { value: "tonnage", label: "Tonnellaggio" },
-] as const;
-type LoadMetric = (typeof LOAD_METRICS)[number]["value"];
-
-const sum = (list: number[]) => list.reduce((s, v) => s + v, 0);
-
-function DeltaLine({ current, previous }: { current: number; previous: number }) {
-  const delta = formatDelta(current, previous);
-  if (!delta) return null;
-  const tone = delta === "=" ? "text-muted-foreground" : delta.startsWith("−") ? "text-red-600 dark:text-red-400" : "text-lime-700 dark:text-lime-400";
-  return <span className={cn("font-semibold", tone)}>{delta}</span>;
-}
-
-function LoadSection({ data }: { data: WeeklyAnalytics }) {
-  const [metric, setMetric] = useState<LoadMetric>("sets");
-  const weeks = data.weeks;
-  const last = weeks.slice(-4);
-  const prev = weeks.slice(-8, -4);
-  const sets = sum(last.map((w) => w.workingSets)) / 4;
-  const prevSets = sum(prev.map((w) => w.workingSets)) / 4;
-  const tonnage = sum(last.map((w) => w.tonnage)) / 4;
-  const prevTonnage = sum(prev.map((w) => w.tonnage)) / 4;
-  const sessions = sum(last.map((w) => w.sessions)) / 4;
-  const prevSessions = sum(prev.map((w) => w.sessions)) / 4;
-  const vsPrev = prev.length === 4;
+function StrengthHero({ items, now, selection }: { items: ActivityItem[]; now: Date; selection: PeriodSelection }) {
+  const { period, anchor } = selection;
+  const { current, previous } = periodTotals(items, period, now, anchor);
+  const first = useMemo(() => firstActivity(items), [items]);
+  const compare = period === "all" ? null : previous;
+  const [volume, volumeUnit] = splitUnit(formatVolume(current.volume));
+  const delta = (now: number, before?: number) => <Delta inverse value={formatDelta(now, before)} />;
 
   return (
-    <Section title="Carico" hint="Media a settimana, ultime 4 settimane">
-      <div className="grid grid-cols-3 gap-3">
-        <Stat label="Serie" value={Math.round(sets)} detail={vsPrev ? <DeltaLine current={sets} previous={prevSets} /> : undefined} />
-        <Stat label="Volume" value={formatVolume(tonnage)} detail={vsPrev ? <DeltaLine current={tonnage} previous={prevTonnage} /> : undefined} />
-        <Stat label="Sedute" value={formatDecimal(sessions)} detail={vsPrev ? <DeltaLine current={sessions} previous={prevSessions} /> : undefined} />
-      </div>
-
-      <div className="mt-5 border-t border-border/60 pt-4">
-        <Segmented value={metric} options={LOAD_METRICS} onChange={setMetric} size="sm" className="mb-4" />
-        <StackedBars
-          height={120}
-          data={weeks.map((w, i) => ({
-            key: w.weekStart,
-            label: w.label,
-            primary: metric === "sets" ? w.workingSets : w.tonnage,
-            caption: metric === "sets" ? (w.workingSets ? String(w.workingSets) : undefined) : w.tonnage ? formatVolume(w.tonnage) : undefined,
-            highlight: i === weeks.length - 1,
-          }))}
-          labelEvery={2}
-        />
-      </div>
-    </Section>
+    <PeriodCard selection={selection} now={now} first={first} pickerItems={items}>
+      <HeadlineNumber
+        value={current.gym}
+        caption={current.gym === 1 ? "seduta in palestra" : "sedute in palestra"}
+        delta={compare && delta(current.gym, compare.gym)}
+        compareLabel={compare && `vs ${previousLabel(period, anchor, now)} (${compare.gym})`}
+      />
+      <KpiRow
+        items={[
+          { label: "Volume", value: volume, unit: volumeUnit, detail: delta(current.volume, compare?.volume) },
+          { label: "Serie", value: current.sets.toLocaleString("it-IT"), detail: delta(current.sets, compare?.sets) },
+          { label: "Tempo", value: formatHours(current.gymDuration), detail: delta(current.gymDuration, compare?.gymDuration) },
+        ]}
+      />
+      {current.gym > 0 && (
+        <p className="mt-3 text-xs opacity-70">
+          In media <span className="font-semibold tabular-nums">{formatVolume(current.volume / current.gym)}</span> e{" "}
+          <span className="font-semibold tabular-nums">{Math.round(current.sets / current.gym)} serie</span> a seduta
+        </p>
+      )}
+    </PeriodCard>
   );
 }
+
+/** Sopra le barre serve poco spazio: 85,9t → "86t", 6,2t resta "6,2t" */
+const compactVolume = (kg: number) => (kg >= 10_000 ? `${Math.round(kg / 1000)}t` : formatVolume(kg).replace(" kg", "kg"));
+
+/** Volume o sedute, in nero come la palestra in tutta l'app */
+const METRICS: ChartMetric[] = [
+  { value: "volume", label: "Volume", parts: (b) => ({ primary: b.volume }), format: compactVolume },
+  { value: "sessions", label: "Sedute", parts: (b) => ({ primary: b.gym }), format: (v) => formatDecimal(v) },
+];
 
 /* ─── Muscoli ─── */
 
 const MUSCLE_METRICS = [
-  { value: "effective", label: "Serie efficaci" },
+  { value: "effective", label: "Serie" },
   { value: "direct", label: "Dirette" },
   { value: "tonnage", label: "Volume" },
 ] as const;
 type MuscleMetric = (typeof MUSCLE_METRICS)[number]["value"];
 
 const METRIC_HINT: Record<MuscleMetric, string> = {
-  effective: "Serie pesate per contributo del muscolo e vicinanza al cedimento",
+  effective: "Serie efficaci: pesate per quanto lavora il muscolo e quanto vai vicino al cedimento",
   direct: "Serie in cui il muscolo è il principale",
   tonnage: "Volume Load attribuito al muscolo",
 };
@@ -188,63 +188,75 @@ function MuscleWeeks({ muscle, weekly }: { muscle: string; weekly?: WeeklyAnalyt
           </span>
         ))}
       </div>
-      <p className="mt-1 text-[11px] text-muted-foreground">Serie efficaci a settimana</p>
+      <p className="mt-1 text-[11px] text-muted-foreground">Serie efficaci a settimana, ultime 8 settimane</p>
     </div>
   );
 }
 
-function MuscleSection({ weekly }: { weekly?: WeeklyAnalytics }) {
+function MuscleSection({ from, to, hint, weekly }: { from: Date | null; to: Date | null; hint: string; weekly?: WeeklyAnalytics }) {
   const [metric, setMetric] = useState<MuscleMetric>("effective");
   const [open, setOpen] = useState<string | null>(null);
-  const { data: stats, isLoading } = useMuscleStats();
+  const { data: stats, isLoading } = useMuscleStats(from, to);
   const { data: freq } = useMuscleFrequency();
 
   const rows = MUSCLES.map((m) => ({ muscle: m, value: muscleValue(stats?.[m], metric) })).sort((a, b) => b.value - a.value);
   const max = Math.max(1, ...rows.map((r) => r.value));
+  const worked = rows.filter((r) => r.value > 0);
+  const least = rows.at(-1)!;
 
   return (
-    <Section title="Muscoli" hint="Ultime 8 settimane · tocca un muscolo per il dettaglio">
+    <Section title="Muscoli" hint={hint}>
       <Segmented value={metric} options={MUSCLE_METRICS} onChange={setMetric} size="sm" />
-      <p className="mb-3 mt-2 text-[11px] text-muted-foreground">{METRIC_HINT[metric]}</p>
-      {isLoading ? (
+      <p className="mb-4 mt-2 text-[11px] text-muted-foreground">{METRIC_HINT[metric]}</p>
+
+      {isLoading && !stats ? (
         <Skeleton className="h-64 rounded-2xl" />
+      ) : !worked.length ? (
+        <EmptyState>Nessuna serie in questo periodo.</EmptyState>
       ) : (
         <>
-        <div className="flex items-center gap-3 pb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground" aria-hidden>
-          <span className="flex-1" />
-          <span className="w-12 text-right">Totale</span>
-          <span className="w-12 text-right">Ultimo</span>
-          <span className="w-3.5" />
-        </div>
-        <ul>
-          {rows.map(({ muscle, value }) => {
-            const expanded = open === muscle;
-            return (
-              <li key={muscle} className="border-b border-border/40 last:border-0">
-                <button
-                  type="button"
-                  onClick={() => setOpen(expanded ? null : muscle)}
-                  aria-expanded={expanded}
-                  className="flex min-h-11 w-full items-center gap-3 py-1.5 text-left active:bg-muted/40"
-                >
-                  <span className="w-20 shrink-0 truncate text-xs font-medium">{getMuscleLabel(muscle)}</span>
-                  <span className="h-2.5 flex-1 overflow-hidden rounded-full bg-muted">
-                    <span
-                      className="block h-full rounded-full"
-                      style={{ width: `${(value / max) * 100}%`, background: getMuscleColor(muscle) }}
-                    />
-                  </span>
-                  <span className="w-12 shrink-0 text-right text-xs font-semibold tabular-nums">
-                    {value > 0 ? formatMuscleValue(value, metric) : <span className="text-muted-foreground">—</span>}
-                  </span>
-                  <Recency freq={freq?.[muscle]} />
-                  <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform", expanded && "rotate-180")} aria-hidden />
-                </button>
-                {expanded && <MuscleWeeks muscle={muscle} weekly={weekly} />}
-              </li>
-            );
-          })}
-        </ul>
+          {/* La lettura in una riga: dove lavori di più e cosa resta indietro */}
+          <p className="mb-4 rounded-2xl bg-muted/60 px-3 py-2.5 text-sm">
+            Più allenato: <span className="font-semibold">{getMuscleLabel(rows[0].muscle)}</span>
+            {least.value < max * 0.35 && (
+              <>
+                {" "}
+                · indietro: <span className="font-semibold">{getMuscleLabel(least.muscle)}</span>
+              </>
+            )}
+          </p>
+          <div className="flex items-center gap-3 pb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground" aria-hidden>
+            <span className="flex-1" />
+            <span className="w-12 text-right">Totale</span>
+            <span className="w-12 text-right">Ultimo</span>
+            <span className="w-3.5" />
+          </div>
+          <ul>
+            {rows.map(({ muscle, value }) => {
+              const expanded = open === muscle;
+              return (
+                <li key={muscle} className="border-b border-border/40 last:border-0">
+                  <button
+                    type="button"
+                    onClick={() => setOpen(expanded ? null : muscle)}
+                    aria-expanded={expanded}
+                    className="flex min-h-11 w-full items-center gap-3 py-1.5 text-left active:bg-muted/40"
+                  >
+                    <span className="w-20 shrink-0 truncate text-xs font-medium">{getMuscleLabel(muscle)}</span>
+                    <span className="h-2.5 flex-1 overflow-hidden rounded-full bg-muted">
+                      <span className="block h-full rounded-full" style={{ width: `${(value / max) * 100}%`, background: getMuscleColor(muscle) }} />
+                    </span>
+                    <span className="w-12 shrink-0 text-right text-xs font-semibold tabular-nums">
+                      {value > 0 ? formatMuscleValue(value, metric) : <span className="text-muted-foreground">—</span>}
+                    </span>
+                    <Recency freq={freq?.[muscle]} />
+                    <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform", expanded && "rotate-180")} aria-hidden />
+                  </button>
+                  {expanded && <MuscleWeeks muscle={muscle} weekly={weekly} />}
+                </li>
+              );
+            })}
+          </ul>
         </>
       )}
     </Section>
@@ -252,20 +264,29 @@ function MuscleSection({ weekly }: { weekly?: WeeklyAnalytics }) {
 }
 
 export function StrengthTab() {
-  const { data: weekly, isLoading } = useWeekly();
-  if (isLoading) {
+  const { data: items, isLoading } = useActivity();
+  const { data: weekly } = useWeekly();
+  const now = useMemo(() => new Date(), []);
+  const selection = usePeriodSelection(now);
+  const gym = useMemo(() => (items ?? []).filter((i) => i.kind === "gym"), [items]);
+
+  if (isLoading || !items) {
     return (
       <div className="space-y-5">
         <Skeleton className="h-72 rounded-3xl" />
+        <Skeleton className="h-56 rounded-3xl" />
         <Skeleton className="h-96 rounded-3xl" />
       </div>
     );
   }
-  const hasGym = !!weekly?.weeks.some((w) => w.sessions > 0);
+  if (!gym.length) return <EmptyState>Ancora nessun allenamento in palestra.</EmptyState>;
+
+  const span = periodWindow(selection.period, selection.anchor, now);
   return (
     <div className="space-y-5">
-      {weekly && hasGym ? <LoadSection data={weekly} /> : <EmptyState>Nessun allenamento in palestra nelle ultime 8 settimane.</EmptyState>}
-      <MuscleSection weekly={weekly} />
+      <StrengthHero items={gym} now={now} selection={selection} />
+      <PeriodChart items={gym} now={now} selection={selection} metrics={METRICS} />
+      <MuscleSection from={span.from} to={span.to} hint={periodLabel(selection.period, selection.anchor)} weekly={weekly} />
       <Link href="/records" className="flex items-center gap-3 rounded-3xl border border-border/60 bg-card px-4 py-3.5 active:bg-muted/50">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
           <Trophy className="h-[18px] w-[18px]" aria-hidden />
