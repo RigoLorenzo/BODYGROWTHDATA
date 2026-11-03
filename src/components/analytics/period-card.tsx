@@ -20,18 +20,6 @@ export interface PeriodSelection {
 export const firstActivity = (items: { startedAt: Date }[]) =>
   items.reduce<Date | null>((min, i) => (!min || i.startedAt < min ? i.startedAt : min), null);
 
-export const PREVIOUS_LABEL: Record<Exclude<Period, "all">, [current: string, past: string]> = {
-  week: ["settimana scorsa", "settimana prima"],
-  month: ["mese scorso", "mese prima"],
-  year: ["anno scorso", "anno prima"],
-};
-
-/** "vs mese scorso" per il periodo in corso, "vs mese prima" per uno passato */
-export function previousLabel(period: Period, anchor: Date, now: Date) {
-  if (period === "all") return "";
-  return PREVIOUS_LABEL[period][periodWindow(period, anchor, now).isCurrent ? 0 : 1];
-}
-
 /**
  * La card scura del periodo, uguale in Riepilogo, Palestra e Corsa: scelta
  * del periodo, frecce, scorrimento e scelta del mese. Il contenuto cambia
@@ -116,35 +104,26 @@ export function PeriodCard({
   );
 }
 
-/** Il numero principale con la sua etichetta e il confronto a destra */
+/** Il numero principale, cosa misura e (sotto) la frase del confronto */
 export function HeadlineNumber({
   value,
   unit,
   caption,
-  delta,
-  compareLabel,
+  compare,
 }: {
   value: React.ReactNode;
   unit?: React.ReactNode;
   caption: React.ReactNode;
-  delta?: React.ReactNode;
-  compareLabel?: React.ReactNode;
+  compare?: React.ReactNode;
 }) {
   return (
-    <div className="mt-4 flex items-end justify-between gap-3">
-      <div className="min-w-0">
-        <p className="whitespace-nowrap font-display text-7xl font-bold leading-none tabular-nums">
-          {value}
-          {unit && <span className="ml-1 text-xl font-semibold opacity-60">{unit}</span>}
-        </p>
-        <p className="mt-1 text-sm opacity-70">{caption}</p>
-      </div>
-      {delta && (
-        <div className="shrink-0 pb-1 text-right">
-          <p className="font-display text-2xl font-bold">{delta}</p>
-          {compareLabel && <p className="text-xs opacity-60">{compareLabel}</p>}
-        </div>
-      )}
+    <div className="mt-4">
+      <p className="whitespace-nowrap font-display text-7xl font-bold leading-none tabular-nums">
+        {value}
+        {unit && <span className="ml-1 text-xl font-semibold opacity-60">{unit}</span>}
+      </p>
+      <p className="mt-1 text-sm opacity-70">{caption}</p>
+      {compare}
     </div>
   );
 }
@@ -163,7 +142,8 @@ export function KpiRow({ items }: { items: Kpi[] }) {
     <dl className="mt-5 grid grid-cols-3 gap-3 border-t border-background/15 pt-4">
       {items.map((k) => (
         <div key={k.label} className="min-w-0">
-          <dt className="text-[11px] uppercase tracking-wider opacity-60">{k.label}</dt>
+          {/* Etichette su una o due righe: i valori restano allineati */}
+          <dt className="flex min-h-[2.5em] items-end text-[11px] uppercase leading-tight tracking-wider opacity-60">{k.label}</dt>
           <dd className="truncate font-display text-2xl font-bold leading-tight tabular-nums">
             {k.value}
             {k.unit && <span className="ml-0.5 text-xs font-medium opacity-60">{k.unit}</span>}

@@ -22,6 +22,19 @@ function habitSentence(items: ActivityItem[]): string | null {
   return `Ti alleni soprattutto ${day === "domenica" ? "la" : "il"} ${day}, ${slot === "notte" ? "di notte" : `di ${slot}`}.`;
 }
 
+/** Il giudizio in una frase, così non serve leggere i numeri */
+function verdict(percent: number, unit: "days" | "weeks", missed: number) {
+  if (unit === "days") {
+    if (percent >= 70) return "Settimana molto attiva.";
+    if (percent >= 40) return "Buon ritmo questa settimana.";
+    return "Settimana tranquilla finora.";
+  }
+  if (percent >= 90) return "Ti alleni quasi ogni settimana: ottimo.";
+  if (percent >= 70) return `Buona costanza: ${missed} ${missed === 1 ? "settimana saltata" : "settimane saltate"}.`;
+  if (percent >= 40) return `Costanza a metà: ${missed} settimane senza allenamenti.`;
+  return "Poche settimane attive: anche un allenamento a settimana fa la differenza.";
+}
+
 /** Nella settimana: i sette giorni con l'iniziale, pieni se ti sei allenato */
 function DayDots({ cells, anchor }: { cells: { start: Date; active: boolean }[]; anchor: Date }) {
   const monday = periodStart("week", anchor);
@@ -84,34 +97,46 @@ export function PeriodConsistency({
   const streak = overview?.streak ?? 0;
   const habit = habitSentence(inPeriod);
   const shown = c.cells.length;
+  const missed = c.total - c.active;
 
   return (
     <Section
       title="Costanza"
-      action={
-        <p className="shrink-0 pt-1 text-sm font-semibold tabular-nums">
-          {c.active}/{c.total} <span className="font-normal text-muted-foreground">{c.unit === "days" ? "giorni" : "settimane"}</span>
-        </p>
+      hint={
+        <span className="text-sm text-foreground">
+          <span className="font-semibold tabular-nums">
+            {c.active} su {c.total}
+          </span>{" "}
+          {c.unit === "days" ? "giorni con allenamento" : "settimane con almeno un allenamento"}
+        </span>
       }
     >
+      <p className="mb-4 text-sm text-muted-foreground">{verdict(c.percent, c.unit, missed)}</p>
       {c.unit === "days" ? <DayDots cells={c.cells} anchor={anchor} /> : <WeekDots cells={c.cells} />}
-      {c.unit === "weeks" && shown < c.total && (
-        <p className="mt-2 text-[11px] text-muted-foreground">Ultime {shown} settimane</p>
+      {c.unit === "weeks" && (
+        <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-lime-500" aria-hidden /> settimana con allenamento
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-muted" aria-hidden /> senza
+          </span>
+          {shown < c.total && <span>· ultime {shown}</span>}
+        </p>
       )}
 
       <div className="mt-5 grid grid-cols-2 gap-4 border-t border-border/60 pt-4">
         {/* Nella settimana il totale è già il numero principale in alto */}
-        {c.unit === "weeks" && <Stat label="Media" value={formatDecimal(c.avgPerWeek)} unit="a settimana" />}
+        {c.unit === "weeks" && <Stat label="In media" value={formatDecimal(c.avgPerWeek)} unit={c.avgPerWeek === 1 ? "allenamento a settimana" : "allenamenti a settimana"} />}
         <Stat
-          label="Streak"
+          label="Giorni di fila"
           value={
             <span className="inline-flex items-center gap-1">
               {streak}
               <Flame className={cn("h-5 w-5", streak > 0 ? "text-orange-500" : "text-muted-foreground")} aria-hidden />
             </span>
           }
-          unit={streak === 1 ? "giorno" : "giorni"}
-          detail={`Record ${overview?.longestStreak ?? 0}`}
+          detail={`Il tuo record: ${overview?.longestStreak ?? 0} giorni`}
         />
       </div>
 

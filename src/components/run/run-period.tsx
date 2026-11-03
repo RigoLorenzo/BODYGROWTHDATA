@@ -2,10 +2,10 @@
 
 import { useMemo } from "react";
 import { ArrowDownRight, ArrowUpRight, Target } from "lucide-react";
-import { Delta } from "@/components/analytics/delta";
-import { formatDecimal, formatDelta } from "@/components/analytics/format";
-import { HeadlineNumber, KpiRow, PeriodCard, previousLabel, type PeriodSelection } from "@/components/analytics/period-card";
+import { CompareLine, DiffBadge, compareContext } from "@/components/analytics/compare";
+import { HeadlineNumber, KpiRow, PeriodCard, type PeriodSelection } from "@/components/analytics/period-card";
 import { PeriodChart, type ChartMetric, type DayTone } from "@/components/analytics/period-chart";
+import { formatDecimal, formatHours } from "@/components/analytics/format";
 import type { ActivityItem } from "@/lib/insights";
 import { formatDuration, formatKm, formatPace } from "@/lib/run/format";
 import { runPeriod, weeksOnGoal, type RunEntry } from "@/lib/run/period";
@@ -44,7 +44,7 @@ function PaceChange({ seconds }: { seconds: number | null }) {
   return (
     <span className={cn("inline-flex items-center gap-0.5 font-semibold tabular-nums", faster ? "text-lime-400 dark:text-lime-600" : "text-red-300 dark:text-red-600")}>
       <Icon className="h-[1.1em] w-[1.1em]" aria-hidden />
-      {Math.abs(seconds)}″ {faster ? "più veloce" : "più lento"}
+      {Math.abs(seconds)} sec {faster ? "più veloce" : "più lento"}
     </span>
   );
 }
@@ -69,7 +69,8 @@ export function RunPeriodHero({
   const { period, anchor } = selection;
   const { current, previous, window: span, paceChange } = runPeriod(runs, period, anchor, now);
   const first = runs.length ? runs[runs.length - 1].startedAt : null;
-  const compare = period === "all" ? null : previous;
+  const ctx = compareContext(period, anchor, now);
+  const hide = !previous || !ctx || ctx.early;
 
   const goal = stats.settings.weeklyRunKmGoal ? stats.settings.weeklyRunKmGoal * 1000 : null;
   const showGoal = period === "week" && span.isCurrent && !!goal;
@@ -89,8 +90,7 @@ export function RunPeriodHero({
               : `su ${formatKm(goal!)} km · ne mancano ${formatKm(goal! - current.distance)}`
             : "di corsa"
         }
-        delta={compare && <Delta inverse value={formatDelta(current.distance, compare.distance)} />}
-        compareLabel={compare && `vs ${previousLabel(period, anchor, now)} (${formatKm(compare.distance)})`}
+        compare={previous && <CompareLine inverse ctx={ctx} diff={current.distance - previous.distance} previous={previous.distance} format={formatKm} noun={() => "km"} />}
       />
 
       {showGoal && (
@@ -108,13 +108,14 @@ export function RunPeriodHero({
 
       <KpiRow
         items={[
-          { label: "Corse", value: current.runs, detail: compare && <Delta inverse value={formatDelta(current.runs, compare.runs)} /> },
+          { label: "Uscite", value: current.runs, detail: hide || !previous!.runs ? undefined : <DiffBadge inverse diff={current.runs - previous!.runs} format={String} /> },
           {
             label: "Tempo",
             value: current.movingTime ? formatDuration(current.movingTime) : "—",
-            detail: compare && <Delta inverse value={formatDelta(current.movingTime, compare.movingTime)} />,
+            detail: hide || !previous!.movingTime ? undefined : <DiffBadge inverse diff={current.movingTime - previous!.movingTime} format={formatHours} />,
           },
-          { label: "Ritmo", value: formatPace(current.avgPace), unit: "/km", detail: compare && <PaceChange seconds={paceChange} /> },
+          // Il ritmo è il tempo per fare un km: più basso = più veloce
+          { label: "Min per km", value: formatPace(current.avgPace), detail: hide ? undefined : <PaceChange seconds={paceChange} /> },
         ]}
       />
 
@@ -149,7 +150,7 @@ export function RunPeriodHero({
 
 /** Km in verde, come la corsa in tutta l'app */
 const METRICS: ChartMetric[] = [
-  { value: "km", label: "Km", parts: (b) => ({ primary: 0, secondary: b.distance / 1000 }), format: (v) => formatDecimal(v) },
+  { value: "km", label: "Km", title: "Km corsi", unit: "km", parts: (b) => ({ primary: 0, secondary: b.distance / 1000 }), format: (v) => formatDecimal(v) },
 ];
 
 /** Nel calendario: più è acceso il verde, più km quel giorno */
@@ -182,7 +183,8 @@ export function RunPeriodChart({ items, now, selection }: { items: ActivityItem[
       selection={selection}
       metrics={METRICS}
       dayTone={runDayTone}
-      legend={selection.period === "month" ? <CalendarLegend /> : <span className="text-xs text-muted-foreground">Km di corsa</span>}
+      calendarTitle="I giorni in cui hai corso"
+      legend={selection.period === "month" ? <CalendarLegend /> : undefined}
     />
   );
 }

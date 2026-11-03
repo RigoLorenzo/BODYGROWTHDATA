@@ -14,17 +14,6 @@ export function formatHours(seconds: number): string {
 export const formatDecimal = (value: number, digits = 1): string =>
   value.toFixed(digits).replace(".", ",").replace(/,0+$/, "");
 
-/** "+12%" / "−4%" / null se non confrontabile */
-export function formatDelta(current: number, previous: number | null | undefined): string | null {
-  if (previous == null || previous === 0) return null;
-  // Oltre il triplo la percentuale non si legge più (+1700%): meglio "×18"
-  const ratio = current / previous;
-  if (ratio >= 3) return `×${ratio >= 10 ? Math.round(ratio) : formatDecimal(ratio)}`;
-  const pct = Math.round((ratio - 1) * 100);
-  if (pct === 0) return "=";
-  return `${pct > 0 ? "+" : "−"}${Math.abs(pct)}%`;
-}
-
 /** "80,4t" → ["80,4", "t"], "500 kg" → ["500", "kg"]: l'unità si scrive più piccola */
 export function splitUnit(text: string): [string, string | undefined] {
   const match = text.match(/^([\d.,]+)\s*([a-zA-Z]+)$/);

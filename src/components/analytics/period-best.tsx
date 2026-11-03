@@ -106,7 +106,7 @@ export function PeriodBest({ items, period }: { items: ActivityItem[]; period: P
   if (!list.length) return null;
   return (
     <Section
-      title={period === "all" ? "Record" : "Il meglio"}
+      title={period === "all" ? "I tuoi record" : "I tuoi risultati migliori"}
       action={
         <Link href="/records" className="-mr-2 flex h-9 shrink-0 items-center gap-0.5 px-2 text-xs font-medium text-muted-foreground active:text-foreground">
           Per esercizio <ChevronRight className="h-3.5 w-3.5" aria-hidden />

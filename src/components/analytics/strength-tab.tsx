@@ -8,9 +8,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { periodLabel, periodTotals, periodWindow, type ActivityItem } from "@/lib/insights";
 import { cn, formatVolume, getMuscleColor, getMuscleLabel } from "@/lib/utils";
 import type { WeeklyAnalytics } from "@/types";
-import { Delta } from "./delta";
-import { formatDecimal, formatDelta, formatHours, splitUnit } from "./format";
-import { HeadlineNumber, KpiRow, PeriodCard, firstActivity, previousLabel, type PeriodSelection } from "./period-card";
+import { CompareLine, DiffBadge, compareContext } from "./compare";
+import { formatDecimal, formatHours, splitUnit } from "./format";
+import { HeadlineNumber, KpiRow, PeriodCard, firstActivity, type PeriodSelection } from "./period-card";
 import { PeriodChart, type ChartMetric } from "./period-chart";
 import { usePeriodSelection } from "./period-picker";
 import { EmptyState, Section, Segmented } from "./ui";
@@ -85,29 +85,32 @@ function StrengthHero({ items, now, selection }: { items: ActivityItem[]; now: D
   const { period, anchor } = selection;
   const { current, previous } = periodTotals(items, period, now, anchor);
   const first = useMemo(() => firstActivity(items), [items]);
-  const compare = period === "all" ? null : previous;
-  const [volume, volumeUnit] = splitUnit(formatVolume(current.volume));
-  const delta = (now: number, before?: number) => <Delta inverse value={formatDelta(now, before)} />;
+  const ctx = compareContext(period, anchor, now);
+  const [lifted, liftedUnit] = splitUnit(formatVolume(current.volume));
+  const hide = !previous || !ctx || ctx.early;
+  const diff = (value: number, before: number | undefined, write: (n: number) => string) =>
+    hide || !before ? undefined : <DiffBadge inverse diff={value - before} format={write} />;
 
   return (
     <PeriodCard selection={selection} now={now} first={first} pickerItems={items}>
       <HeadlineNumber
         value={current.gym}
-        caption={current.gym === 1 ? "seduta in palestra" : "sedute in palestra"}
-        delta={compare && delta(current.gym, compare.gym)}
-        compareLabel={compare && `vs ${previousLabel(period, anchor, now)} (${compare.gym})`}
+        caption={current.gym === 1 ? "allenamento in palestra" : "allenamenti in palestra"}
+        compare={
+          previous && <CompareLine inverse ctx={ctx} diff={current.gym - previous.gym} previous={previous.gym} noun={(n) => (n === 1 ? "allenamento" : "allenamenti")} />
+        }
       />
       <KpiRow
         items={[
-          { label: "Volume", value: volume, unit: volumeUnit, detail: delta(current.volume, compare?.volume) },
-          { label: "Serie", value: current.sets.toLocaleString("it-IT"), detail: delta(current.sets, compare?.sets) },
-          { label: "Tempo", value: formatHours(current.gymDuration), detail: delta(current.gymDuration, compare?.gymDuration) },
+          { label: "Peso sollevato", value: lifted, unit: liftedUnit, detail: diff(current.volume, previous?.volume, formatVolume) },
+          { label: "Serie", value: current.sets.toLocaleString("it-IT"), detail: diff(current.sets, previous?.sets, String) },
+          { label: "Tempo", value: formatHours(current.gymDuration), detail: diff(current.gymDuration, previous?.gymDuration, formatHours) },
         ]}
       />
       {current.gym > 0 && (
         <p className="mt-3 text-xs opacity-70">
-          In media <span className="font-semibold tabular-nums">{formatVolume(current.volume / current.gym)}</span> e{" "}
-          <span className="font-semibold tabular-nums">{Math.round(current.sets / current.gym)} serie</span> a seduta
+          Ogni allenamento in media: <span className="font-semibold tabular-nums">{Math.round(current.sets / current.gym)} serie</span> e{" "}
+          <span className="font-semibold tabular-nums">{formatVolume(current.volume / current.gym)}</span> sollevati
         </p>
       )}
     </PeriodCard>
@@ -119,29 +122,26 @@ const compactVolume = (kg: number) => (kg >= 10_000 ? `${Math.round(kg / 1000)}t
 
 /** Volume o sedute, in nero come la palestra in tutta l'app */
 const METRICS: ChartMetric[] = [
-  { value: "volume", label: "Volume", parts: (b) => ({ primary: b.volume }), format: compactVolume },
-  { value: "sessions", label: "Sedute", parts: (b) => ({ primary: b.gym }), format: (v) => formatDecimal(v) },
+  { value: "volume", label: "Peso sollevato", title: "Peso sollevato", parts: (b) => ({ primary: b.volume }), format: compactVolume },
+  { value: "sessions", label: "Allenamenti", title: "Allenamenti", unit: "allenamenti", parts: (b) => ({ primary: b.gym }), format: (v) => formatDecimal(v) },
 ];
 
 /* ─── Muscoli ─── */
 
 const MUSCLE_METRICS = [
   { value: "effective", label: "Serie" },
-  { value: "direct", label: "Dirette" },
-  { value: "tonnage", label: "Volume" },
+  { value: "tonnage", label: "Peso sollevato" },
 ] as const;
 type MuscleMetric = (typeof MUSCLE_METRICS)[number]["value"];
 
 const METRIC_HINT: Record<MuscleMetric, string> = {
-  effective: "Serie efficaci: pesate per quanto lavora il muscolo e quanto vai vicino al cedimento",
-  direct: "Serie in cui il muscolo è il principale",
-  tonnage: "Volume Load attribuito al muscolo",
+  effective: "Le serie contano di più se il muscolo è il protagonista dell'esercizio e se arrivi vicino al cedimento.",
+  tonnage: "Peso × ripetizioni degli esercizi in cui il muscolo è il principale.",
 };
 
 function muscleValue(stats: MuscleStats | undefined, metric: MuscleMetric) {
   if (!stats) return 0;
   if (metric === "effective") return stats.effectiveSets ?? 0;
-  if (metric === "direct") return stats.directSets ?? stats.totalSets;
   return stats.tonnage;
 }
 
@@ -205,7 +205,7 @@ function MuscleSection({ from, to, hint, weekly }: { from: Date | null; to: Date
   const least = rows.at(-1)!;
 
   return (
-    <Section title="Muscoli" hint={hint}>
+    <Section title="Quanto alleni ogni muscolo" hint={hint}>
       <Segmented value={metric} options={MUSCLE_METRICS} onChange={setMetric} size="sm" />
       <p className="mb-4 mt-2 text-[11px] text-muted-foreground">{METRIC_HINT[metric]}</p>
 
@@ -217,18 +217,19 @@ function MuscleSection({ from, to, hint, weekly }: { from: Date | null; to: Date
         <>
           {/* La lettura in una riga: dove lavori di più e cosa resta indietro */}
           <p className="mb-4 rounded-2xl bg-muted/60 px-3 py-2.5 text-sm">
-            Più allenato: <span className="font-semibold">{getMuscleLabel(rows[0].muscle)}</span>
-            {least.value < max * 0.35 && (
+            Alleni di più <span className="font-semibold">{getMuscleLabel(rows[0].muscle)}</span>
+            {least.value < max * 0.35 ? (
               <>
-                {" "}
-                · indietro: <span className="font-semibold">{getMuscleLabel(least.muscle)}</span>
+                ; <span className="font-semibold">{getMuscleLabel(least.muscle)}</span> resta indietro.
               </>
+            ) : (
+              "; gli altri muscoli sono abbastanza bilanciati."
             )}
           </p>
           <div className="flex items-center gap-3 pb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground" aria-hidden>
             <span className="flex-1" />
-            <span className="w-12 text-right">Totale</span>
-            <span className="w-12 text-right">Ultimo</span>
+            <span className="w-12 text-right">{metric === "tonnage" ? "Peso" : "Serie"}</span>
+            <span className="w-12 text-right">Ultima volta</span>
             <span className="w-3.5" />
           </div>
           <ul>

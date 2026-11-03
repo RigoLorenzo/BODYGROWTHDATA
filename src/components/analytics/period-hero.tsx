@@ -5,27 +5,29 @@ import { periodTotals, type ActivityItem, type Totals } from "@/lib/insights";
 import { formatKm } from "@/lib/run/format";
 import { cn, formatVolume } from "@/lib/utils";
 import { KIND_STYLE } from "./activity-kind";
-import { Delta } from "./delta";
-import { formatDelta, formatHours, splitUnit } from "./format";
-import { HeadlineNumber, KpiRow, PeriodCard, firstActivity, previousLabel, type Kpi, type PeriodSelection } from "./period-card";
+import { CompareLine, DiffBadge, compareContext, type CompareContext } from "./compare";
+import { formatHours, splitUnit } from "./format";
+import { HeadlineNumber, KpiRow, PeriodCard, firstActivity, type Kpi, type PeriodSelection } from "./period-card";
 
 export type { PeriodSelection } from "./period-card";
 export { firstActivity } from "./period-card";
 
-/** Tre numeri di contorno: tempo, carico in palestra e km di corsa (se corri) */
-function kpis(current: Totals, previous: Totals | null, hasRuns: boolean): Kpi[] {
-  const [volume, volumeUnit] = splitUnit(formatVolume(current.volume));
-  const delta = (now: number, before?: number) => <Delta inverse value={formatDelta(now, before)} />;
+/** Tre numeri di contorno con nomi che non vanno spiegati */
+function kpis(current: Totals, previous: Totals | null, ctx: CompareContext | null, hasRuns: boolean): Kpi[] {
+  const [lifted, liftedUnit] = splitUnit(formatVolume(current.volume));
+  const hide = !previous || !ctx || ctx.early;
+  const diff = (now: number, before: number | undefined, write: (n: number) => string) =>
+    hide || !before ? undefined : <DiffBadge inverse diff={now - before} format={write} />;
   return [
-    { label: "Tempo", value: formatHours(current.duration), detail: delta(current.duration, previous?.duration) },
-    { label: "Volume", value: volume, unit: volumeUnit, detail: delta(current.volume, previous?.volume) },
+    { label: "Tempo allenato", value: formatHours(current.duration), detail: diff(current.duration, previous?.duration, formatHours) },
+    { label: "Peso sollevato", value: lifted, unit: liftedUnit, detail: diff(current.volume, previous?.volume, formatVolume) },
     hasRuns
-      ? { label: "Corsa", value: formatKm(current.distance), unit: "km", detail: delta(current.distance, previous?.distance) }
-      : { label: "Giorni attivi", value: current.activeDays, detail: delta(current.activeDays, previous?.activeDays) },
+      ? { label: "Km corsi", value: formatKm(current.distance), detail: diff(current.distance, previous?.distance, (m) => `${formatKm(m)} km`) }
+      : { label: "Giorni attivi", value: current.activeDays, detail: diff(current.activeDays, previous?.activeDays, String) },
   ];
 }
 
-/** Proporzione palestra / corsa / altro in una sola barra, con i conteggi */
+/** Di cosa sono fatti gli allenamenti: una barra sola, con i conteggi scritti */
 function KindSplit({ totals }: { totals: Totals }) {
   const parts = [
     { kind: "gym" as const, count: totals.gym },
@@ -35,8 +37,8 @@ function KindSplit({ totals }: { totals: Totals }) {
   if (!parts.length) return null;
   const dot = (kind: (typeof parts)[number]["kind"]) => (kind === "gym" ? "bg-background" : KIND_STYLE[kind].dot);
   return (
-    <div className="mt-4">
-      <div className="flex h-1.5 gap-0.5 overflow-hidden rounded-full" aria-hidden>
+    <div className="mt-5">
+      <div className="flex h-2 gap-0.5 overflow-hidden rounded-full" aria-hidden>
         {parts.map((p) => (
           <span key={p.kind} className={cn("h-full", dot(p.kind))} style={{ flexGrow: p.count }} />
         ))}
@@ -55,26 +57,36 @@ function KindSplit({ totals }: { totals: Totals }) {
 }
 
 /**
- * Il periodo scelto a colpo d'occhio: un numero principale (allenamenti) col
- * confronto, la ripartizione per tipo e tre valori di contorno.
+ * Il periodo scelto in pochi secondi: quante volte ti sei allenato, una frase
+ * che dice se è più o meno di prima, di cosa sono fatti gli allenamenti e
+ * tre numeri di contorno.
  */
 export function PeriodHero({ items, now, selection }: { items: ActivityItem[]; now: Date; selection: PeriodSelection }) {
   const { period, anchor } = selection;
   const { current, previous } = periodTotals(items, period, now, anchor);
   const first = useMemo(() => firstActivity(items), [items]);
   const hasRuns = useMemo(() => items.some((i) => i.kind === "run"), [items]);
-  const compare = period === "all" ? null : previous;
+  const ctx = compareContext(period, anchor, now);
 
   return (
     <PeriodCard selection={selection} now={now} first={first} pickerItems={items}>
       <HeadlineNumber
         value={current.sessions}
         caption={current.sessions === 1 ? "allenamento" : "allenamenti"}
-        delta={compare && <Delta inverse value={formatDelta(current.sessions, compare.sessions)} />}
-        compareLabel={compare && `vs ${previousLabel(period, anchor, now)} (${compare.sessions})`}
+        compare={
+          previous && (
+            <CompareLine
+              inverse
+              ctx={ctx}
+              diff={current.sessions - previous.sessions}
+              previous={previous.sessions}
+              noun={(n) => (n === 1 ? "allenamento" : "allenamenti")}
+            />
+          )
+        }
       />
       <KindSplit totals={current} />
-      <KpiRow items={kpis(current, compare, hasRuns)} />
+      <KpiRow items={kpis(current, previous, ctx, hasRuns)} />
     </PeriodCard>
   );
 }

@@ -13,6 +13,10 @@ import { Section, Segmented } from "./ui";
 export interface ChartMetric {
   value: string;
   label: string;
+  /** cosa misura il grafico, come titolo: "Allenamenti" → "Allenamenti per mese" */
+  title: string;
+  /** unità detta nella media ("75 km al mese"), se il formato non la scrive già */
+  unit?: string;
   parts: (b: Bucket) => { primary: number; secondary?: number; tertiary?: number };
   /** testo sopra la barra e nella linea della media */
   format: (v: number) => string;
@@ -29,11 +33,10 @@ const LABEL: Record<SeriesUnit, (d: Date) => string> = {
   year: (d) => format(d, "yyyy"),
 };
 
-const TITLE: Record<SeriesUnit, string> = {
-  day: "Giorno per giorno",
-  month: "Mese per mese",
-  year: "Anno per anno",
-};
+/** "Allenamenti per mese", "Km corsi per giorno" */
+const PER: Record<SeriesUnit, string> = { day: "per giorno", month: "per mese", year: "per anno" };
+/** "9 al mese": la media detta come si dice a voce */
+const EACH: Record<SeriesUnit, string> = { day: "al giorno", month: "al mese", year: "all'anno" };
 
 const NEXT: Record<SeriesUnit, (d: Date) => Date> = {
   day: (d) => addDays(d, 1),
@@ -57,8 +60,19 @@ function MonthCalendar({ from, to, items, tone }: { from: Date; to: Date; items:
   const days = byDay(items);
   const list = eachDayOfInterval({ start: from, end: subDays(to, 1) });
   const pad = (getDay(from) + 6) % 7;
+  const today = new Date();
+  const elapsed = list.filter((d) => d <= today).length;
+  const active = list.filter((d) => days.has(dayKey(d))).length;
   return (
     <div>
+      <p className="mb-3 text-sm">
+        <span className="font-semibold tabular-nums">{active}</span>
+        <span className="text-muted-foreground">
+          {" "}
+          {active === 1 ? "giorno attivo" : "giorni attivi"} su {elapsed}
+          {elapsed < list.length ? " finora" : ""}
+        </span>
+      </p>
       <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-medium uppercase text-muted-foreground" aria-hidden>
         {["L", "M", "M", "G", "V", "S", "D"].map((d, i) => (
           <span key={i}>{d}</span>
@@ -144,7 +158,7 @@ function SeriesChart({
         height={132}
         labelEvery={buckets.length > 12 ? 2 : 1}
         onSelect={target ? open : undefined}
-        average={average != null ? { value: average, label: `media ${metric.format(average)}` } : null}
+        average={average != null ? { value: average, label: `La tua media: ${[metric.format(average), metric.unit, EACH[unit]].filter(Boolean).join(" ")}` } : null}
         data={buckets.map((b) => {
           const value = sum(b);
           return {
@@ -173,6 +187,7 @@ export function PeriodChart({
   selection,
   metrics,
   dayTone = kindDayTone,
+  calendarTitle = "I giorni in cui ti sei allenato",
   legend,
 }: {
   items: ActivityItem[];
@@ -180,6 +195,7 @@ export function PeriodChart({
   selection: PeriodSelection;
   metrics: ChartMetric[];
   dayTone?: DayTone;
+  calendarTitle?: string;
   legend?: React.ReactNode;
 }) {
   const { period, anchor } = selection;
@@ -190,7 +206,7 @@ export function PeriodChart({
   if (period === "month") {
     const span = periodWindow(period, anchor, now);
     return (
-      <Section title="Calendario" hint={legend}>
+      <Section title={calendarTitle} hint={legend}>
         <MonthCalendar from={span.from!} to={span.to!} items={items} tone={dayTone} />
       </Section>
     );
@@ -200,13 +216,13 @@ export function PeriodChart({
   const empty = buckets.every((b) => metrics.every((m) => sumParts(m.parts(b)) === 0));
   if (empty) {
     return (
-      <Section title={TITLE[unit]}>
+      <Section title={`${metric.title} ${PER[unit]}`}>
         <p className="py-6 text-center text-sm text-muted-foreground">Ancora niente in questo periodo.</p>
       </Section>
     );
   }
   return (
-    <Section title={TITLE[unit]} hint={legend}>
+    <Section title={`${metric.title} ${PER[unit]}`} hint={legend}>
       <SeriesChart
         unit={unit}
         buckets={buckets}
