@@ -115,3 +115,31 @@ export function EmptyState({ children }: { children: React.ReactNode }) {
     </p>
   );
 }
+
+/**
+ * Blocco della pagina senza riquadro: una linea sottile sopra, un'etichetta
+ * discreta e tanto spazio. I numeri restano i protagonisti.
+ */
+export function Block({
+  title,
+  action,
+  className,
+  children,
+}: {
+  title?: string;
+  action?: React.ReactNode;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className={cn("border-t border-border/60 pt-6", className)}>
+      {(title || action) && (
+        <div className="mb-4 flex min-h-8 items-center justify-between gap-3">
+          {title && <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">{title}</h2>}
+          {action}
+        </div>
+      )}
+      {children}
+    </section>
+  );
+}

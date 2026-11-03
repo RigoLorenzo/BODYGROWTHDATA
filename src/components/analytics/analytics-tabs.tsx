@@ -1,6 +1,6 @@
 "use client";
 
-import { Segmented } from "./ui";
+import { cn } from "@/lib/utils";
 import { StrengthTab } from "./strength-tab";
 import { SummaryTab } from "./summary-tab";
 import { useUrlTab } from "./tab-strip";
@@ -27,9 +27,23 @@ const ALIASES = {
 export function AnalyticsTabs() {
   const [tab, select] = useUrlTab(TABS, ALIASES);
   return (
-    <div className="space-y-5">
-      <div className="sticky top-0 z-30 -mx-4 bg-background/95 px-4 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-        <Segmented value={tab} options={TABS} onChange={select} />
+    <div className="space-y-3">
+      {/* Tab di testo: navigano tra viste; il selettore a pillole sotto filtra il periodo */}
+      <div role="tablist" aria-label="Viste di Analytics" className="flex gap-6 border-b border-border/60">
+        {TABS.map((t) => (
+          <button
+            key={t.value}
+            role="tab"
+            aria-selected={tab === t.value}
+            onClick={() => select(t.value)}
+            className={cn(
+              "-mb-px h-11 border-b-2 text-base font-semibold transition-colors",
+              tab === t.value ? "border-foreground text-foreground" : "border-transparent text-muted-foreground"
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
       {tab === "palestra" ? <StrengthTab /> : <SummaryTab />}
     </div>

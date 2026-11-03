@@ -4,14 +4,13 @@ import { useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { format, isValid, parse, startOfMonth, startOfYear } from "date-fns";
 import { it } from "date-fns/locale";
-import { ChevronDown, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { periodLabel, periodStart, periodWindow, shiftPeriod, type ActivityItem, type Period } from "@/lib/insights";
+import { periodStart, periodWindow, type ActivityItem, type Period } from "@/lib/insights";
 
 const PERIODS: readonly Period[] = ["week", "month", "year", "all"];
 const DEFAULT_PERIOD: Period = "month";
-const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /**
  * Periodo del Riepilogo nell'URL (?periodo=settimana…&del=2026-10-01): aprendo
@@ -49,82 +48,6 @@ export function usePeriodSelection(now: Date, defaultPeriod: Period = DEFAULT_PE
     /** Tipo di periodo e data insieme (es. tocco su un mese da un'altra vista) */
     select: (next: Period, nextAnchor: Date) => update(next, nextAnchor),
   };
-}
-
-interface NavigatorProps {
-  period: Period;
-  anchor: Date;
-  now: Date;
-  /** prima seduta registrata: prima non c'è nulla da vedere */
-  first: Date | null;
-  onChange: (anchor: Date) => void;
-  onOpenPicker: () => void;
-}
-
-/** Frecce e nome del periodo; toccando il nome si sceglie il mese (o l'anno) */
-export function PeriodNavigator({ period, anchor, now, first, onChange, onOpenPicker }: NavigatorProps) {
-  if (period === "all") return null;
-  const span = periodWindow(period, anchor, now);
-  const canGoBack = !!first && span.from! > periodStart(period, first);
-  const pickable = period !== "week";
-  const arrow =
-    "flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-background/10 transition active:scale-90 disabled:opacity-25";
-
-  return (
-    <div className="mt-4 flex items-center gap-2">
-      <button
-        type="button"
-        onClick={() => onChange(shiftPeriod(period, anchor, -1))}
-        disabled={!canGoBack}
-        aria-label="Periodo precedente"
-        className={arrow}
-      >
-        <ChevronLeft className="h-5 w-5" />
-      </button>
-      <button
-        type="button"
-        onClick={pickable ? onOpenPicker : undefined}
-        disabled={!pickable}
-        aria-haspopup={pickable ? "dialog" : undefined}
-        className="flex min-h-11 min-w-0 flex-1 flex-col items-center justify-center rounded-2xl px-2 active:bg-background/10 disabled:active:bg-transparent"
-      >
-        <span className="flex max-w-full items-center gap-1 font-display text-xl font-bold uppercase tracking-wide">
-          <span className="truncate">{capitalize(periodLabel(period, anchor))}</span>
-          {pickable && <ChevronDown className="h-4 w-4 shrink-0 opacity-60" aria-hidden />}
-        </span>
-        {!span.isCurrent && (
-          <span className="text-[11px] uppercase tracking-wider opacity-60">periodo concluso</span>
-        )}
-      </button>
-      {span.isCurrent ? (
-        <button type="button" disabled aria-label="Periodo successivo" className={arrow}>
-          <ChevronRight className="h-5 w-5" />
-        </button>
-      ) : (
-        <button
-          type="button"
-          onClick={() => onChange(shiftPeriod(period, anchor, 1))}
-          aria-label="Periodo successivo"
-          className={arrow}
-        >
-          <ChevronRight className="h-5 w-5" />
-        </button>
-      )}
-    </div>
-  );
-}
-
-/** Torna al periodo in corso, visibile solo quando stai guardando il passato */
-export function BackToToday({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="mx-auto mt-2 flex h-9 items-center gap-1.5 rounded-full bg-lime-400 px-3.5 text-xs font-bold uppercase tracking-wide text-zinc-950 active:scale-95"
-    >
-      <RotateCcw className="h-3.5 w-3.5" aria-hidden /> Torna a oggi
-    </button>
-  );
 }
 
 /** Quanto ti sei allenato in ogni mese (chiave yyyy-MM) */
