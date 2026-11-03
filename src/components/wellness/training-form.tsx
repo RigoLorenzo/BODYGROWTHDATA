@@ -2,8 +2,6 @@
 
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
-import { Delta } from "@/components/analytics/delta";
-import { formatDelta } from "@/components/analytics/format";
 import { Section } from "@/components/analytics/ui";
 import { useRunStats } from "@/components/run/queries";
 import type { FormTone, RunStats } from "@/components/run/types";
@@ -83,6 +81,23 @@ function FitnessTrend({ series }: { series: RunStats["fitness"]["series"] }) {
   );
 }
 
+/** Come sta andando la fitness rispetto a un mese fa, in parole */
+function buildTrend(now: number, monthAgo: number | undefined) {
+  if (monthAgo == null || monthAgo <= 0) return { text: "in costruzione", className: "text-foreground" };
+  const change = (now - monthAgo) / monthAgo;
+  if (change > 0.05) return { text: "in crescita", className: "text-lime-700 dark:text-lime-400" };
+  if (change < -0.05) return { text: "in calo", className: "text-red-600 dark:text-red-400" };
+  return { text: "stabile", className: "text-foreground" };
+}
+
+/** Fatica rispetto alla fitness: quanto pesa l'ultima settimana su quello che reggi di solito */
+function tirednessLevel(fatigue: number, fitness: number) {
+  const ratio = fitness > 0 ? fatigue / fitness : fatigue > 0 ? 2 : 0;
+  if (ratio > 1.3) return { text: "alta", className: "text-amber-600 dark:text-amber-400" };
+  if (ratio < 0.8) return { text: "bassa", className: "text-lime-700 dark:text-lime-400" };
+  return { text: "nella norma", className: "text-foreground" };
+}
+
 export function TrainingFormCard() {
   const { data: stats } = useRunStats();
   const fitness = stats?.fitness;
@@ -92,6 +107,8 @@ export function TrainingFormCard() {
   // "Fresco: buon momento per spingere" → stato e consiglio
   const [status, advice] = label.label.split(":").map((s) => s.trim());
   const monthAgo = series.at(-31)?.fitness;
+  const build = buildTrend(today.fitness, monthAgo);
+  const tiredness = tirednessLevel(today.fatigue, today.fitness);
 
   return (
     <Section
@@ -110,28 +127,20 @@ export function TrainingFormCard() {
         <FormGauge form={today.form} />
       </div>
 
-      <div className="mt-5 grid grid-cols-2 gap-4 border-t border-border/60 pt-4">
-        <div>
-          <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Fitness</p>
-          <p className="font-display text-2xl font-bold tabular-nums leading-tight text-sky-600 dark:text-sky-400">{Math.round(today.fitness)}</p>
-          <p className="text-xs text-muted-foreground">
-            {monthAgo != null && monthAgo > 0 ? (
-              <>
-                <Delta value={formatDelta(today.fitness, monthAgo)} /> in 30 giorni
-              </>
-            ) : (
-              "costruita in 6 settimane"
-            )}
-          </p>
+      {/* Niente numeri senza unità: due letture in parole */}
+      <dl className="mt-5 space-y-3 border-t border-border/60 pt-4 text-sm">
+        <div className="flex items-baseline justify-between gap-3">
+          <dt className="text-muted-foreground">Allenamento accumulato</dt>
+          <dd className={cn("font-semibold", build.className)}>{build.text}</dd>
         </div>
-        <div>
-          <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Fatica</p>
-          <p className="font-display text-2xl font-bold tabular-nums leading-tight">{Math.round(today.fatigue)}</p>
-          <p className="text-xs text-muted-foreground">ultimi 7 giorni</p>
+        <div className="flex items-baseline justify-between gap-3">
+          <dt className="text-muted-foreground">Stanchezza degli ultimi giorni</dt>
+          <dd className={cn("font-semibold", tiredness.className)}>{tiredness.text}</dd>
         </div>
-      </div>
+      </dl>
 
-      <div className="mt-4">
+      <p className="mt-5 text-xs font-medium text-muted-foreground">Il tuo livello di allenamento negli ultimi 3 mesi</p>
+      <div className="mt-2">
         <FitnessTrend series={series} />
       </div>
     </Section>

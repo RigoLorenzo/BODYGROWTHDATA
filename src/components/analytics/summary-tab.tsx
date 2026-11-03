@@ -20,12 +20,15 @@ const METRICS: ChartMetric[] = [
   {
     value: "sessions",
     label: "Allenamenti",
+    title: "Allenamenti",
+    unit: "allenamenti",
     parts: (b) => ({ primary: b.gym, secondary: b.runs, tertiary: b.other }),
     format: (v) => formatDecimal(v),
   },
   {
     value: "duration",
     label: "Ore",
+    title: "Ore di allenamento",
     parts: (b) => ({ primary: b.gymDuration / 3600, secondary: b.runDuration / 3600, tertiary: b.otherDuration / 3600 }),
     format: (v) => `${formatDecimal(v)}h`,
   },
