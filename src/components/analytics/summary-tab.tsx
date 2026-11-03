@@ -1,38 +1,30 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { format } from "date-fns";
-import { ChevronRight, History } from "lucide-react";
+import { differenceInCalendarDays, format, min, subDays } from "date-fns";
+import { ChevronRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { itemsInPeriod, periodLabel, periodWindow, type ActivityItem, type Period } from "@/lib/insights";
-import { PeriodBest } from "./period-best";
-import { PeriodConsistency } from "./period-consistency";
-import { PeriodHero } from "./period-hero";
-import { usePeriodSelection } from "./period-picker";
-import { PeriodChart, type ChartMetric } from "./period-chart";
+import { useAnalyticsOverview } from "@/hooks/use-workout-session";
+import { itemsInPeriod, periodConsistency, periodLabel, periodTotals, periodWindow, type ActivityItem, type Period } from "@/lib/insights";
+import { compareContext } from "./compare";
 import { formatDecimal } from "./format";
-import { ActivityLegend, EmptyState } from "./ui";
+import { Frequency, type Fact } from "./frequency";
+import { PeriodBar, PeriodSwipe, firstActivity } from "./period-bar";
+import { bestOfPeriod } from "./period-best";
+import { KM, LIFTED, SESSIONS, TIME } from "./metrics";
+import { MetricTiles, TrendChart } from "./period-metrics";
+import { usePeriodSelection } from "./period-picker";
+import { RecordList } from "./record-list";
+import { Block, EmptyState } from "./ui";
 import { useActivity } from "./use-activity";
 
-/** Allenamenti o ore, palestra / corsa / altro impilati */
-const METRICS: ChartMetric[] = [
-  {
-    value: "sessions",
-    label: "Allenamenti",
-    title: "Allenamenti",
-    unit: "allenamenti",
-    parts: (b) => ({ primary: b.gym, secondary: b.runs, tertiary: b.other }),
-    format: (v) => formatDecimal(v),
-  },
-  {
-    value: "duration",
-    label: "Ore",
-    title: "Ore di allenamento",
-    parts: (b) => ({ primary: b.gymDuration / 3600, secondary: b.runDuration / 3600, tertiary: b.otherDuration / 3600 }),
-    format: (v) => `${formatDecimal(v)}h`,
-  },
-];
+/** Giorni passati del periodo (fino a oggi): "16 su 31" */
+function elapsedDays(period: Period, anchor: Date, now: Date) {
+  const span = periodWindow(period, anchor, now);
+  if (!span.from || !span.to) return null;
+  return differenceInCalendarDays(min([now, subDays(span.to, 1)]), span.from) + 1;
+}
 
 /** Lo storico completo, filtrato sul periodo che stai guardando */
 function historyHref(period: Period, anchor: Date, now: Date) {
@@ -46,58 +38,92 @@ function historyHref(period: Period, anchor: Date, now: Date) {
   return `/history?${params}`;
 }
 
-function HistoryLink({ href, count }: { href: string; count: number }) {
-  return (
-    <Link href={href} className="flex items-center gap-3 rounded-3xl border border-border/60 bg-card px-4 py-3.5 active:bg-muted/50">
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted">
-        <History className="h-[18px] w-[18px]" aria-hidden />
-      </span>
-      <span className="min-w-0 flex-1 text-sm font-semibold">Storico allenamenti</span>
-      <span className="text-sm tabular-nums text-muted-foreground">{count}</span>
-      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-    </Link>
-  );
-}
-
 /**
- * Riepilogo: una gerarchia sola per ogni periodo. In alto i numeri chiave,
- * poi l'andamento, il meglio del periodo e la costanza. Il singolo
- * allenamento resta nello storico, a un tocco.
+ * Riepilogo: una barra del periodo in alto governa tutta la pagina. Sotto,
+ * "quanto" (riquadri + grafico della metrica scelta), "quando" (costanza) e
+ * il meglio del periodo. Il singolo allenamento sta nello storico.
  */
 export function SummaryTab() {
   const { data: items, isLoading } = useActivity();
+  const { data: overview } = useAnalyticsOverview();
   const now = useMemo(() => new Date(), []);
   const selection = usePeriodSelection(now);
   const { period, anchor } = selection;
-  const inPeriod = useMemo<ActivityItem[]>(
-    () => (items ? itemsInPeriod(items, periodWindow(period, anchor, now)) : []),
-    [items, period, anchor, now]
+  const [metricKey, setMetricKey] = useState(SESSIONS.key);
+
+  const all = useMemo(() => items ?? [], [items]);
+  const first = useMemo(() => firstActivity(all), [all]);
+  const metrics = useMemo(
+    () => [SESSIONS, TIME, ...(all.some((i) => i.kind === "gym") ? [LIFTED] : []), ...(all.some((i) => i.kind === "run") ? [KM] : [])],
+    [all]
   );
+  const inPeriod = useMemo<ActivityItem[]>(() => itemsInPeriod(all, periodWindow(period, anchor, now)), [all, period, anchor, now]);
 
   if (isLoading || !items) {
     return (
       <div className="space-y-5">
-        <Skeleton className="h-80 rounded-3xl" />
-        <Skeleton className="h-56 rounded-3xl" />
-        <Skeleton className="h-48 rounded-3xl" />
+        <Skeleton className="h-24 rounded-2xl" />
+        <Skeleton className="h-56 rounded-2xl" />
+        <Skeleton className="h-48 rounded-2xl" />
       </div>
     );
   }
   if (!items.length) return <EmptyState>Ancora nessun allenamento.</EmptyState>;
 
+  const { current, previous } = periodTotals(items, period, now, anchor);
+  const metric = metrics.find((m) => m.key === metricKey) ?? SESSIONS;
+  const consistency = periodConsistency(items, period, anchor, now);
+  const elapsed = elapsedDays(period, anchor, now);
+  const streak = overview?.streak ?? 0;
+  const facts: Fact[] = [
+    { label: "Giorni attivi", value: current.activeDays, detail: elapsed ? `su ${elapsed}` : undefined },
+    ...(period === "week" ? [] : [{ label: "A settimana", value: formatDecimal(consistency.avgPerWeek), detail: "allenamenti" }]),
+    { label: "Di fila", value: streak, detail: `record ${overview?.longestStreak ?? 0}` },
+  ];
+  const best = bestOfPeriod(inPeriod, period);
+
   return (
-    <div className="space-y-5">
-      <PeriodHero items={items} now={now} selection={selection} />
-      <PeriodChart
-        items={items}
-        now={now}
-        selection={selection}
-        metrics={METRICS}
-        legend={<ActivityLegend className="mt-1" other={items.some((i) => i.kind === "cardio")} />}
-      />
-      <PeriodBest items={inPeriod} period={period} />
-      <PeriodConsistency all={items} inPeriod={inPeriod} period={period} anchor={anchor} now={now} />
-      <HistoryLink href={historyHref(period, anchor, now)} count={inPeriod.length} />
+    <div className="space-y-6">
+      <PeriodBar selection={selection} now={now} first={first} pickerItems={items} />
+
+      <PeriodSwipe selection={selection} now={now} first={first}>
+        <MetricTiles
+          metrics={metrics}
+          current={current}
+          previous={period === "all" ? null : previous}
+          ctx={compareContext(period, anchor, now)}
+          selected={metric.key}
+          onSelect={setMetricKey}
+        />
+        <TrendChart items={items} now={now} selection={selection} metric={metric} />
+      </PeriodSwipe>
+
+      <Block title="Costanza">
+        <Frequency items={items} period={period} anchor={anchor} now={now} facts={facts} />
+      </Block>
+
+      {best.length > 0 && (
+        <Block
+          title={period === "all" ? "Record" : "Migliori del periodo"}
+          action={
+            <Link href="/records" className="-mr-2 flex h-8 items-center gap-0.5 px-2 text-xs font-medium text-muted-foreground active:text-foreground">
+              Per esercizio <ChevronRight className="h-3.5 w-3.5" aria-hidden />
+            </Link>
+          }
+        >
+          <RecordList items={best} />
+        </Block>
+      )}
+
+      <Link
+        href={historyHref(period, anchor, now)}
+        className="flex h-12 items-center justify-between rounded-2xl bg-muted/60 px-4 text-sm font-medium active:bg-muted"
+      >
+        <span>
+          Tutti gli allenamenti <span className="text-muted-foreground tabular-nums">· {inPeriod.length}</span>
+        </span>
+        <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden />
+      </Link>
     </div>
   );
 }

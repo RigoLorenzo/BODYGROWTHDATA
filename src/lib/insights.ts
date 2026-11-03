@@ -313,16 +313,16 @@ export function byDay(items: ActivityItem[]): Map<string, ActivityItem[]> {
   return map;
 }
 
-export type SeriesUnit = "day" | "month" | "year";
+export type SeriesUnit = "day" | "week" | "month" | "year";
 
 /**
- * L'andamento dentro il periodo scelto, alla granularità giusta:
- * settimana → 7 giorni, anno → 12 mesi, sempre → anni (o mesi, se la
- * storia è più corta di due anni). Il mese si legge sul calendario.
+ * L'andamento dentro il periodo scelto, un livello più in giù:
+ * settimana → 7 giorni, mese → le sue settimane (solo i giorni del mese),
+ * anno → 12 mesi, sempre → anni (o mesi, se la storia è più corta di due anni).
  */
 export function periodSeries(
   items: ActivityItem[],
-  period: Exclude<Period, "month">,
+  period: Period,
   anchor: Date,
   now: Date
 ): { unit: SeriesUnit; buckets: Bucket[] } {
@@ -330,6 +330,14 @@ export function periodSeries(
     const start = periodStart("week", anchor);
     const starts = Array.from({ length: 7 }, (_, i) => addDays(start, i));
     return { unit: "day", buckets: bucketize(items, starts, (s) => addDays(s, 1)) };
+  }
+  if (period === "month") {
+    const from = periodStart("month", anchor);
+    const to = addMonths(from, 1);
+    const inMonth = itemsInPeriod(items, { from, to });
+    const starts: Date[] = [];
+    for (let w = startOfWeek(from, WEEK); w < to; w = addWeeks(w, 1)) starts.push(w);
+    return { unit: "week", buckets: bucketize(inMonth, starts, (s) => addWeeks(s, 1)) };
   }
   if (period === "year") {
     const start = periodStart("year", anchor);

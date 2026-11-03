@@ -11,7 +11,8 @@ import { RunSettings } from "./run-settings";
 import { DeviceExpiredBanner } from "./run-header";
 import { useRunStats, useRuns } from "./queries";
 import { DEVICES_PATH } from "@/components/devices/routes";
-import { RunPeriodChart, RunPeriodHero, useRunHistory, useRunItems } from "./run-period";
+import { RunProgress, useRunHistory } from "./run-period";
+import { Block } from "@/components/analytics/ui";
 import { usePeriodSelection } from "@/components/analytics/period-picker";
 import type { RunStats } from "./types";
 
@@ -19,18 +20,16 @@ import type { RunStats } from "./types";
 const RECENT_RUNS = 5;
 
 /**
- * Statistiche della corsa: la card del periodo e il grafico condividono la
- * stessa selezione, come in Analytics. Poi record e attività.
+ * La corsa per periodo (stessa struttura di Analytics), poi i record di
+ * sempre e le attività.
  */
 function RunStatsSections({ stats }: { stats: RunStats }) {
   const now = useMemo(() => new Date(), []);
   const runs = useRunHistory(stats);
-  const items = useRunItems(runs);
   const selection = usePeriodSelection(now, "week");
   return (
     <>
-      <RunPeriodHero stats={stats} runs={runs} items={items} now={now} selection={selection} />
-      <RunPeriodChart items={items} now={now} selection={selection} />
+      <RunProgress stats={stats} runs={runs} now={now} selection={selection} />
       <RecordsCard stats={stats} />
     </>
   );
@@ -44,10 +43,7 @@ function RecentRuns() {
 
   const visible = showAll ? runs : runs.slice(0, RECENT_RUNS);
   return (
-    <section aria-labelledby="run-activities">
-      <h2 id="run-activities" className="mb-2 px-1 font-display text-xl font-bold uppercase tracking-wide">
-        Attività
-      </h2>
+    <Block title="Attività">
       <RunList runs={visible} />
       {runs.length > RECENT_RUNS && (
         <button
@@ -60,7 +56,7 @@ function RecentRuns() {
           <ChevronDown className={cn("h-4 w-4 transition-transform", showAll && "rotate-180")} aria-hidden />
         </button>
       )}
-    </section>
+    </Block>
   );
 }
 
@@ -80,7 +76,7 @@ export function RunOverview() {
   const hasRuns = stats.allTime.runs > 0;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <DeviceExpiredBanner />
       {!hasRuns && (
         <p className="rounded-3xl border border-dashed border-border/60 p-5 text-center text-sm text-muted-foreground">

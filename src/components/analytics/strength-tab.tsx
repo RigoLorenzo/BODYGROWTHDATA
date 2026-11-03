@@ -5,20 +5,21 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, Trophy } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { periodLabel, periodTotals, periodWindow, type ActivityItem } from "@/lib/insights";
+import { periodTotals, periodWindow, type Totals } from "@/lib/insights";
 import { cn, formatVolume, getMuscleColor, getMuscleLabel } from "@/lib/utils";
 import type { WeeklyAnalytics } from "@/types";
-import { CompareLine, DiffBadge, compareContext } from "./compare";
-import { formatDecimal, formatHours, splitUnit } from "./format";
-import { HeadlineNumber, KpiRow, PeriodCard, firstActivity, type PeriodSelection } from "./period-card";
-import { PeriodChart, type ChartMetric } from "./period-chart";
+import { compareContext } from "./compare";
+import { formatDecimal, formatHours } from "./format";
+import { PeriodBar, PeriodSwipe, firstActivity } from "./period-bar";
+import { MetricTiles, TrendChart, type PeriodMetric } from "./period-metrics";
 import { usePeriodSelection } from "./period-picker";
-import { EmptyState, Section, Segmented } from "./ui";
+import { LIFTED } from "./metrics";
+import { Block, EmptyState, Segmented } from "./ui";
 import { useActivity } from "./use-activity";
 
 /**
- * Palestra, con la stessa logica del Riepilogo: scegli il periodo nella card
- * in alto e grafico e muscoli lo seguono.
+ * Palestra, con la stessa struttura del Riepilogo: la barra del periodo
+ * governa i riquadri, il grafico e i muscoli.
  */
 
 const MUSCLES = ["CHEST", "BACK", "SHOULDERS", "BICEPS", "TRICEPS", "QUADS", "HAMSTRINGS", "GLUTES", "CORE", "CALVES"];
@@ -79,65 +80,52 @@ function useMuscleFrequency() {
   });
 }
 
-/* ─── Periodo ─── */
+/* ─── Metriche della palestra (barre scure, il colore della palestra) ─── */
 
-function StrengthHero({ items, now, selection }: { items: ActivityItem[]; now: Date; selection: PeriodSelection }) {
-  const { period, anchor } = selection;
-  const { current, previous } = periodTotals(items, period, now, anchor);
-  const first = useMemo(() => firstActivity(items), [items]);
-  const ctx = compareContext(period, anchor, now);
-  const [lifted, liftedUnit] = splitUnit(formatVolume(current.volume));
-  const hide = !previous || !ctx || ctx.early;
-  const diff = (value: number, before: number | undefined, write: (n: number) => string) =>
-    hide || !before ? undefined : <DiffBadge inverse diff={value - before} format={write} />;
+const GYM_SESSIONS: PeriodMetric = {
+  key: "sessions",
+  label: "Allenamenti",
+  value: (t) => t.gym,
+  display: (v) => ({ value: String(v) }),
+  diff: String,
+  parts: (t) => ({ primary: t.gym }),
+  caption: (v) => formatDecimal(v),
+  unit: "allenamenti",
+};
 
-  return (
-    <PeriodCard selection={selection} now={now} first={first} pickerItems={items}>
-      <HeadlineNumber
-        value={current.gym}
-        caption={current.gym === 1 ? "allenamento in palestra" : "allenamenti in palestra"}
-        compare={
-          previous && <CompareLine inverse ctx={ctx} diff={current.gym - previous.gym} previous={previous.gym} noun={(n) => (n === 1 ? "allenamento" : "allenamenti")} />
-        }
-      />
-      <KpiRow
-        items={[
-          { label: "Peso sollevato", value: lifted, unit: liftedUnit, detail: diff(current.volume, previous?.volume, formatVolume) },
-          { label: "Serie", value: current.sets.toLocaleString("it-IT"), detail: diff(current.sets, previous?.sets, String) },
-          { label: "Tempo", value: formatHours(current.gymDuration), detail: diff(current.gymDuration, previous?.gymDuration, formatHours) },
-        ]}
-      />
-      {current.gym > 0 && (
-        <p className="mt-3 text-xs opacity-70">
-          Ogni allenamento in media: <span className="font-semibold tabular-nums">{Math.round(current.sets / current.gym)} serie</span> e{" "}
-          <span className="font-semibold tabular-nums">{formatVolume(current.volume / current.gym)}</span> sollevati
-        </p>
-      )}
-    </PeriodCard>
-  );
-}
+const SETS: PeriodMetric = {
+  key: "sets",
+  label: "Serie",
+  value: (t) => t.sets,
+  display: (v) => ({ value: v.toLocaleString("it-IT") }),
+  diff: (n) => n.toLocaleString("it-IT"),
+  parts: (t) => ({ primary: t.sets }),
+  caption: (v) => String(Math.round(v)),
+  unit: "serie",
+};
 
-/** Sopra le barre serve poco spazio: 85,9t → "86t", 6,2t resta "6,2t" */
-const compactVolume = (kg: number) => (kg >= 10_000 ? `${Math.round(kg / 1000)}t` : formatVolume(kg).replace(" kg", "kg"));
+const GYM_TIME: PeriodMetric = {
+  key: "time",
+  label: "Tempo",
+  value: (t: Totals) => t.gymDuration,
+  display: (v) => ({ value: formatHours(v) }),
+  diff: formatHours,
+  parts: (t) => ({ primary: t.gymDuration / 3600 }),
+  caption: (v) => `${formatDecimal(v)}h`,
+};
 
-/** Volume o sedute, in nero come la palestra in tutta l'app */
-const METRICS: ChartMetric[] = [
-  { value: "volume", label: "Peso sollevato", title: "Peso sollevato", parts: (b) => ({ primary: b.volume }), format: compactVolume },
-  { value: "sessions", label: "Allenamenti", title: "Allenamenti", unit: "allenamenti", parts: (b) => ({ primary: b.gym }), format: (v) => formatDecimal(v) },
-];
+const METRICS = [GYM_SESSIONS, LIFTED, SETS, GYM_TIME];
 
 /* ─── Muscoli ─── */
 
 const MUSCLE_METRICS = [
   { value: "effective", label: "Serie" },
-  { value: "tonnage", label: "Peso sollevato" },
+  { value: "tonnage", label: "Peso" },
 ] as const;
 type MuscleMetric = (typeof MUSCLE_METRICS)[number]["value"];
 
-const METRIC_HINT: Record<MuscleMetric, string> = {
-  effective: "Le serie contano di più se il muscolo è il protagonista dell'esercizio e se arrivi vicino al cedimento.",
-  tonnage: "Peso × ripetizioni degli esercizi in cui il muscolo è il principale.",
-};
+/** Sotto questa quota del muscolo più allenato, il muscolo "resta indietro" */
+const BEHIND = 0.35;
 
 function muscleValue(stats: MuscleStats | undefined, metric: MuscleMetric) {
   if (!stats) return 0;
@@ -188,12 +176,17 @@ function MuscleWeeks({ muscle, weekly }: { muscle: string; weekly?: WeeklyAnalyt
           </span>
         ))}
       </div>
-      <p className="mt-1 text-[11px] text-muted-foreground">Serie efficaci a settimana, ultime 8 settimane</p>
+      <p className="mt-1 text-[11px] text-muted-foreground">Serie a settimana, ultime 8 settimane</p>
     </div>
   );
 }
 
-function MuscleSection({ from, to, hint, weekly }: { from: Date | null; to: Date | null; hint: string; weekly?: WeeklyAnalytics }) {
+/**
+ * Muscoli nel periodo: una riga per muscolo, dal più allenato. Quelli
+ * rimasti indietro hanno un'etichetta; toccando una riga si vedono le sue
+ * ultime 8 settimane.
+ */
+function Muscles({ from, to, weekly }: { from: Date | null; to: Date | null; weekly?: WeeklyAnalytics }) {
   const [metric, setMetric] = useState<MuscleMetric>("effective");
   const [open, setOpen] = useState<string | null>(null);
   const { data: stats, isLoading } = useMuscleStats(from, to);
@@ -201,66 +194,46 @@ function MuscleSection({ from, to, hint, weekly }: { from: Date | null; to: Date
 
   const rows = MUSCLES.map((m) => ({ muscle: m, value: muscleValue(stats?.[m], metric) })).sort((a, b) => b.value - a.value);
   const max = Math.max(1, ...rows.map((r) => r.value));
-  const worked = rows.filter((r) => r.value > 0);
-  const least = rows.at(-1)!;
 
   return (
-    <Section title="Quanto alleni ogni muscolo" hint={hint}>
-      <Segmented value={metric} options={MUSCLE_METRICS} onChange={setMetric} size="sm" />
-      <p className="mb-4 mt-2 text-[11px] text-muted-foreground">{METRIC_HINT[metric]}</p>
-
+    <Block title="Muscoli" action={<Segmented value={metric} options={MUSCLE_METRICS} onChange={setMetric} size="sm" className="w-40" />}>
       {isLoading && !stats ? (
         <Skeleton className="h-64 rounded-2xl" />
-      ) : !worked.length ? (
+      ) : !rows.some((r) => r.value > 0) ? (
         <EmptyState>Nessuna serie in questo periodo.</EmptyState>
       ) : (
-        <>
-          {/* La lettura in una riga: dove lavori di più e cosa resta indietro */}
-          <p className="mb-4 rounded-2xl bg-muted/60 px-3 py-2.5 text-sm">
-            Alleni di più <span className="font-semibold">{getMuscleLabel(rows[0].muscle)}</span>
-            {least.value < max * 0.35 ? (
-              <>
-                ; <span className="font-semibold">{getMuscleLabel(least.muscle)}</span> resta indietro.
-              </>
-            ) : (
-              "; gli altri muscoli sono abbastanza bilanciati."
-            )}
-          </p>
-          <div className="flex items-center gap-3 pb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground" aria-hidden>
-            <span className="flex-1" />
-            <span className="w-12 text-right">{metric === "tonnage" ? "Peso" : "Serie"}</span>
-            <span className="w-12 text-right">Ultima volta</span>
-            <span className="w-3.5" />
-          </div>
-          <ul>
-            {rows.map(({ muscle, value }) => {
-              const expanded = open === muscle;
-              return (
-                <li key={muscle} className="border-b border-border/40 last:border-0">
-                  <button
-                    type="button"
-                    onClick={() => setOpen(expanded ? null : muscle)}
-                    aria-expanded={expanded}
-                    className="flex min-h-11 w-full items-center gap-3 py-1.5 text-left active:bg-muted/40"
-                  >
-                    <span className="w-20 shrink-0 truncate text-xs font-medium">{getMuscleLabel(muscle)}</span>
-                    <span className="h-2.5 flex-1 overflow-hidden rounded-full bg-muted">
-                      <span className="block h-full rounded-full" style={{ width: `${(value / max) * 100}%`, background: getMuscleColor(muscle) }} />
-                    </span>
-                    <span className="w-12 shrink-0 text-right text-xs font-semibold tabular-nums">
-                      {value > 0 ? formatMuscleValue(value, metric) : <span className="text-muted-foreground">—</span>}
-                    </span>
-                    <Recency freq={freq?.[muscle]} />
-                    <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform", expanded && "rotate-180")} aria-hidden />
-                  </button>
-                  {expanded && <MuscleWeeks muscle={muscle} weekly={weekly} />}
-                </li>
-              );
-            })}
-          </ul>
-        </>
+        <ul className="-my-1">
+          {rows.map(({ muscle, value }) => {
+            const expanded = open === muscle;
+            const behind = value < max * BEHIND;
+            return (
+              <li key={muscle}>
+                <button
+                  type="button"
+                  onClick={() => setOpen(expanded ? null : muscle)}
+                  aria-expanded={expanded}
+                  className="flex min-h-11 w-full items-center gap-3 rounded-lg py-1.5 text-left active:bg-muted/40"
+                >
+                  <span className="w-24 shrink-0">
+                    <span className="block truncate text-sm font-medium">{getMuscleLabel(muscle)}</span>
+                    {behind && <span className="block text-[10px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">Indietro</span>}
+                  </span>
+                  <span className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+                    <span className="block h-full rounded-full" style={{ width: `${(value / max) * 100}%`, background: getMuscleColor(muscle) }} />
+                  </span>
+                  <span className="w-12 shrink-0 text-right text-sm font-semibold tabular-nums">
+                    {value > 0 ? formatMuscleValue(value, metric) : <span className="text-muted-foreground">—</span>}
+                  </span>
+                  <Recency freq={freq?.[muscle]} />
+                  <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform", expanded && "rotate-180")} aria-hidden />
+                </button>
+                {expanded && <MuscleWeeks muscle={muscle} weekly={weekly} />}
+              </li>
+            );
+          })}
+        </ul>
       )}
-    </Section>
+    </Block>
   );
 }
 
@@ -269,31 +242,48 @@ export function StrengthTab() {
   const { data: weekly } = useWeekly();
   const now = useMemo(() => new Date(), []);
   const selection = usePeriodSelection(now);
+  const { period, anchor } = selection;
+  const [metricKey, setMetricKey] = useState(GYM_SESSIONS.key);
   const gym = useMemo(() => (items ?? []).filter((i) => i.kind === "gym"), [items]);
+  const first = useMemo(() => firstActivity(gym), [gym]);
 
   if (isLoading || !items) {
     return (
       <div className="space-y-5">
-        <Skeleton className="h-72 rounded-3xl" />
-        <Skeleton className="h-56 rounded-3xl" />
-        <Skeleton className="h-96 rounded-3xl" />
+        <Skeleton className="h-24 rounded-2xl" />
+        <Skeleton className="h-56 rounded-2xl" />
+        <Skeleton className="h-96 rounded-2xl" />
       </div>
     );
   }
   if (!gym.length) return <EmptyState>Ancora nessun allenamento in palestra.</EmptyState>;
 
-  const span = periodWindow(selection.period, selection.anchor, now);
+  const { current, previous } = periodTotals(gym, period, now, anchor);
+  const metric = METRICS.find((m) => m.key === metricKey) ?? GYM_SESSIONS;
+  const span = periodWindow(period, anchor, now);
+
   return (
-    <div className="space-y-5">
-      <StrengthHero items={gym} now={now} selection={selection} />
-      <PeriodChart items={gym} now={now} selection={selection} metrics={METRICS} />
-      <MuscleSection from={span.from} to={span.to} hint={periodLabel(selection.period, selection.anchor)} weekly={weekly} />
-      <Link href="/records" className="flex items-center gap-3 rounded-3xl border border-border/60 bg-card px-4 py-3.5 active:bg-muted/50">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
-          <Trophy className="h-[18px] w-[18px]" aria-hidden />
-        </span>
-        <span className="min-w-0 flex-1 text-sm font-semibold">Record per esercizio</span>
-        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+    <div className="space-y-6">
+      <PeriodBar selection={selection} now={now} first={first} pickerItems={gym} />
+
+      <PeriodSwipe selection={selection} now={now} first={first}>
+        <MetricTiles
+          metrics={METRICS}
+          current={current}
+          previous={period === "all" ? null : previous}
+          ctx={compareContext(period, anchor, now)}
+          selected={metric.key}
+          onSelect={setMetricKey}
+        />
+        <TrendChart items={gym} now={now} selection={selection} metric={metric} />
+      </PeriodSwipe>
+
+      <Muscles from={span.from} to={span.to} weekly={weekly} />
+
+      <Link href="/records" className="flex h-12 items-center gap-3 rounded-2xl bg-muted/60 px-4 text-sm font-medium active:bg-muted">
+        <Trophy className="h-4 w-4 text-amber-500" aria-hidden />
+        <span className="flex-1">Record per esercizio</span>
+        <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden />
       </Link>
     </div>
   );

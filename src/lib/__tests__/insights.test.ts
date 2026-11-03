@@ -172,6 +172,11 @@ describe("insights", () => {
     expect(week.unit).toBe("day");
     expect(week.buckets.map((b) => b.sessions)).toEqual([1, 0, 1, 0, 1, 1, 1]);
 
+    // Mese: le settimane che lo toccano, contando solo i giorni del mese
+    const month = periodSeries(items, "month", NOW, NOW);
+    expect(month.unit).toBe("week");
+    expect(month.buckets.map((b) => b.sessions)).toEqual([0, 3, 5, 0, 0]);
+
     const year = periodSeries(items, "year", NOW, NOW);
     expect(year.unit).toBe("month");
     expect(year.buckets).toHaveLength(12);

@@ -73,18 +73,19 @@ export function StackedBars({
         <div className="pointer-events-none absolute inset-x-0 bottom-0 border-t border-border" aria-hidden />
 
         {average && average.value > 0 && (
-          <div className="pointer-events-none absolute inset-x-0 z-10" style={{ bottom: px(average.value) }} aria-hidden>
+          <div className="pointer-events-none absolute inset-x-0 z-0" style={{ bottom: px(average.value) }} aria-hidden>
             <div className="border-t border-dashed border-foreground/50" />
           </div>
         )}
 
-        <div className="flex h-full items-end gap-1.5">
+        {/* Barre e valori sopra la linea della media: la linea passa dietro */}
+        <div className="relative z-10 flex h-full items-end gap-1.5">
           {data.map((d) => {
             const sum = total(d);
             return (
               <Column key={d.key} onClick={onSelect && !d.future ? () => onSelect(d.key) : undefined} title={`${d.label}: ${d.caption ?? sum}`}>
                 {d.caption && sum > 0 && (
-                  <span className={cn("mb-1 whitespace-nowrap text-[10px] tabular-nums", d.highlight ? "font-bold text-foreground" : "text-muted-foreground")}>
+                  <span className={cn("mb-0.5 whitespace-nowrap rounded bg-background px-0.5 text-[10px] tabular-nums", d.highlight ? "font-bold text-foreground" : "text-muted-foreground")}>
                     {d.caption}
                   </span>
                 )}
