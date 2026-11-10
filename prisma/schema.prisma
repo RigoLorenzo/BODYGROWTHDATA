@@ -15,6 +15,14 @@ enum SubscriptionTier {
   ELITE
 }
 
+/// Stile di allenamento: decide quali indicatori di progresso contano di più
+enum TrainingStyle {
+  BODYBUILDING
+  POWERLIFTING
+  RUNNING
+  HYBRID
+}
+
 enum ExperienceLevel {
   BEGINNER
   INTERMEDIATE
@@ -183,6 +191,8 @@ model User {
 
   /// Smartwatch da cui la sezione Benessere prende i dati (null: nessuno collegato)
   wellnessSource DeviceProvider?
+  /// Che tipo di allenamento fa (null: non ancora scelto, si chiede all'ingresso)
+  trainingStyle  TrainingStyle?
 
   accounts Account[]
   sessions Session[]

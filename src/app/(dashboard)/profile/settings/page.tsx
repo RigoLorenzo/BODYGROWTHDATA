@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { SettingsForm } from "@/components/profile/settings-form";
+import { readTrainingStyle } from "@/lib/training-style-server";
 
 export const metadata = { title: "Impostazioni" };
 
@@ -11,6 +12,7 @@ export default async function SettingsPage() {
   const session = await auth();
   if (!session) redirect("/login");
   const { name } = session.user;
+  const trainingStyle = await readTrainingStyle(session.user.id);
 
   return (
     <div className="container mx-auto max-w-xl space-y-6 px-4 pb-6 pt-3">
@@ -40,7 +42,7 @@ export default async function SettingsPage() {
         <ChevronRight className="h-5 w-5 shrink-0 text-[#d4ff3a]" />
       </Link>
 
-      <SettingsForm user={session.user} />
+      <SettingsForm user={session.user} trainingStyle={trainingStyle} />
     </div>
   );
 }
