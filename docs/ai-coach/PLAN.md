@@ -2,6 +2,9 @@
 
 > Un personal trainer conversazionale dentro BodyGrowth: legge i tuoi dati, fa le domande giuste,
 > crea e modifica il piano su tua autorizzazione, ti segue nel tempo e ti scrive ogni settimana.
+>
+> **Funzione a pagamento: BodyGrowth Coach, 10 €/mese IVA inclusa.** Pagamento con Apple Pay, Google Pay o carta.
+> Accesso gratuito solo per gli utenti scelti dal proprietario (oggi: solo il proprietario). Dettagli al §10.
 
 ---
 
@@ -27,6 +30,8 @@ serie, range di ripetizioni, recuperi). Chi inizia abbandona prima di arrivare a
 | % proposte del coach applicate | > 60% |
 | Utenti con piano attivo a 30 giorni | +50% rispetto a oggi |
 | Aderenza (sedute fatte / pianificate) di chi usa il coach | > chi non lo usa |
+| Conversione visita pagina Coach → abbonamento | > 3% |
+| Abbonati che restano dopo il 1° mese | > 70% |
 
 ---
 
@@ -45,7 +50,11 @@ serie, range di ripetizioni, recuperi). Chi inizia abbandona prima di arrivare a
 4. **Memoria esplicita e modificabile.** Preferenze e vincoli dell'atleta vivono in una tabella (`AthleteBrief`),
    visibile e modificabile dall'utente, non sepolti nello storico chat.
 5. **Tutto reversibile.** Ogni modifica del piano crea una `ProgramRevision`: annulla con un tap.
-6. **Rispetto delle decisioni prese.** Nel flusso di allenamento non ci sono consigli di carico (commit
+6. **L'accesso si decide solo sul server.** Una sola funzione, `hasCoachAccess(userId)`, protegge ogni endpoint
+   del coach, il cron e la pagina. L'abbonamento si attiva solo dal webhook firmato del provider di pagamento,
+   mai dal redirect del browser. La logica non dipende da un provider specifico, così domani si aggiungono
+   App Store e Google Play senza riscriverla.
+7. **Rispetto delle decisioni prese.** Nel flusso di allenamento non ci sono consigli di carico (commit
    `f169abe`): il coach parla di progressione in chat e nelle review, non dentro la schermata della seduta.
 
 ---
@@ -65,6 +74,9 @@ serie, range di ripetizioni, recuperi). Chi inizia abbandona prima di arrivare a
 | Push | Web Push standard (VAPID) con pacchetto `web-push` + handler in `public/sw.js` | La PWA c'è già; nessun servizio esterno |
 | Job pianificati | Vercel Cron (già usato in `vercel.json`) | Review settimanale e controlli giornalieri |
 | Persistenza | PostgreSQL / Prisma (nuove tabelle, §5) | Coerente con il resto |
+| Pagamenti | Stripe Billing + Stripe Checkout (abbonamento mensile) | Apple Pay e Google Pay inclusi senza codice in più, 3D Secure/SCA gestiti, nessun dato di carta sui nostri server |
+| Gestione abbonamento | Stripe Customer Portal | Disdetta, cambio carta e ricevute già pronti |
+| IVA | Stripe Tax (IVA italiana e OSS per gli altri Paesi UE) | Prezzo mostrato IVA inclusa, come richiesto per i consumatori UE |
 
 **Dettagli Opus 5.5 da rispettare nel codice**
 
@@ -228,6 +240,45 @@ model PushSubscription {
 }
 ```
 
+### Abbonamento
+
+```prisma
+enum BillingProvider    { STRIPE  APP_STORE  PLAY_STORE }
+enum SubscriptionStatus { ACTIVE  TRIALING  PAST_DUE  CANCELED  INCOMPLETE  EXPIRED }
+
+/// Fonte di verità dell'accesso a pagamento al Coach (aggiornata solo dai webhook)
+model CoachSubscription {
+  id                 String             @id @default(cuid())
+  userId             String             @unique
+  provider           BillingProvider    @default(STRIPE)
+  customerId         String                              // Stripe customer (cus_…)
+  subscriptionId     String             @unique          // Stripe subscription (sub_…)
+  priceId            String
+  status             SubscriptionStatus
+  currentPeriodEnd   DateTime
+  cancelAtPeriodEnd  Boolean            @default(false)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// Webhook già elaborati: lo stesso evento non si applica due volte
+model BillingEvent {
+  id          String   @id                               // id evento Stripe (evt_…)
+  type        String
+  processedAt DateTime @default(now())
+}
+
+/// Lista d'attesa prima dell'apertura delle vendite
+model CoachWaitlist {
+  userId    String   @id
+  createdAt DateTime @default(now())
+}
+```
+
+Il campo `User.subscriptionTier` esistente (oggi inutilizzato) resta compatibile: il webhook lo porta a `PRO`
+quando l'abbonamento è attivo e a `FREE` quando scade. La fonte di verità resta però `CoachSubscription`.
+
 Più: `NotificationType` += `COACH_REVIEW`, `COACH_NUDGE`, `COACH_PROPOSAL`.
 Il `Goal` esistente resta per i target numerici (peso, alzata); il coach lo legge e può proporne di nuovi.
 
@@ -366,10 +417,12 @@ Implementazione:
 ## 9. UX / UI
 
 - **Navigazione:** quinta voce **Coach** al centro della barra in basso (`bottom-nav.tsx`, `grid-cols-5`),
-  icona dedicata, badge per messaggi non letti.
+  sempre visibile a tutti. Per chi non è abbonato ha un piccolo segno ✦; per chi lo è, il badge dei messaggi non letti.
+  La stessa pagina `/coach` mostra la **pagina di vendita** a chi non ha accesso e la **chat** a chi ce l'ha (§10).
 - **Punti d'ingresso contestuali:** "Chiedi al coach" su Piano (modifica), su riepilogo seduta, su un esercizio in stallo,
   e nell'**onboarding** (`/welcome`): dopo la scelta dello stile, "Vuoi che ti prepari io il piano?" → thread `ONBOARDING`.
-  Questo risolve direttamente il problema dell'inserimento iniziale.
+  Questo risolve direttamente il problema dell'inserimento iniziale. Per chi non è abbonato, gli stessi punti
+  portano alla pagina di vendita (§10.4).
 - **Chat:** streaming, indicatori di stato dei tool, chip per le risposte rapide, suggerimenti iniziali
   ("Creami un piano", "Come sta andando?", "Ho poco tempo questa settimana", "Sostituisci un esercizio").
 - **Card proposta:** riepilogo + diff per giorno (aggiunto/rimosso/modificato, colori), motivazioni,
@@ -380,7 +433,171 @@ Implementazione:
 
 ---
 
-## 10. Sicurezza, privacy, costi
+## 10. Abbonamento: BodyGrowth Coach a 10 €/mese
+
+### 10.1 Offerta
+
+| | |
+|---|---|
+| Prodotto | **BodyGrowth Coach**: tutto ciò che è descritto in questo documento |
+| Prezzo | **10 € al mese, IVA inclusa** (prezzo d'ingresso) |
+| Rinnovo | Mensile automatico, disdetta in qualsiasi momento; resta attivo fino a fine mese pagato |
+| Prova gratuita | Nessuna al lancio (vedi §15) |
+| Pagamento | **Apple Pay, Google Pay** o carta, tramite Stripe |
+| Cosa resta gratis | Tutto il resto dell'app (allenamenti, piani manuali, Fitness, Benessere, dispositivi), senza cambiamenti |
+
+### 10.2 Chi ha accesso
+
+Unica regola, lato server (`src/lib/billing/entitlements.ts`), usata da pagina, API del coach e cron:
+
+```ts
+hasCoachAccess(userId):
+  userId in COACH_FREE_USER_IDS           → true   // accesso omaggio deciso dal proprietario
+  abbonamento ACTIVE | TRIALING           → true
+  abbonamento PAST_DUE                    → true per 7 giorni (Stripe ritenta il pagamento)
+  CANCELED ma currentPeriodEnd nel futuro → true fino a fine periodo
+  altrimenti                              → false
+```
+
+- **Accesso omaggio = solo il proprietario.** `COACH_FREE_USER_IDS` è una variabile d'ambiente su Vercel
+  con l'**ID utente** (non l'email), separato da virgole. Si cambia senza toccare il codice e non mette dati
+  personali nel repository. Si usa l'ID e non l'email perché la registrazione oggi non verifica l'indirizzo email.
+- Senza accesso, ogni endpoint `/api/coach/*` risponde `402` e il cron salta l'utente: nessun costo AI
+  per chi non paga.
+- Il proprietario può vedere la pagina di vendita con `/coach?anteprima=1`.
+
+### 10.3 Flusso di pagamento
+
+```
+[Attiva il Coach] ──► POST /api/billing/checkout
+                       • utente loggato, non già abbonato, vendite aperte
+                       • crea/riusa lo Stripe Customer (metadata.userId)
+                       • Checkout Session: mode=subscription, prezzo da env,
+                         client_reference_id=userId, automatic_tax, locale "it",
+                         consenso ai termini + rinuncia al recesso
+                  ◄── url
+Pagina Stripe Checkout: Apple Pay (Safari/iPhone) · Google Pay (Chrome/Android) · carta
+                  │
+                  ├──► Webhook POST /api/billing/webhook (firma verificata, evento deduplicato)
+                  │      checkout.session.completed · customer.subscription.created/updated/deleted
+                  │      invoice.paid · invoice.payment_failed  →  CoachSubscription
+                  │
+                  └──► redirect /coach/benvenuto
+                         attende che l'accesso risulti attivo (il webhook arriva in pochi secondi)
+                         → apre il thread di onboarding: "Iniziamo: qual è il tuo obiettivo?"
+```
+
+- **Apple Pay e Google Pay** compaiono da soli nella pagina Checkout di Stripe sui dispositivi compatibili:
+  basta attivarli tra i metodi di pagamento della dashboard Stripe. Con il Checkout ospitato da Stripe non serve
+  verificare il dominio per Apple Pay; servirà solo se un domani si porta il pagamento dentro la pagina dell'app
+  (Express Checkout Element).
+- **Gestione:** Profilo › Impostazioni › **Abbonamento**: stato, prossimo rinnovo, "Gestisci" che apre lo
+  Stripe Customer Portal (disdetta, cambio carta, ricevute).
+- **Pagamento non riuscito:** banner "Aggiorna il metodo di pagamento"; Stripe ritenta e manda l'email.
+  Dopo 7 giorni l'accesso si sospende. Conversazioni e memoria restano: chi si riabbona riprende da dove era.
+- **Uso equo:** budget AI mensile interno per abbonato (~4 €) per proteggere il margine. Oltre quel budget
+  le risposte rallentano, con un messaggio chiaro e senza blocchi improvvisi. Un uso normale non lo raggiunge mai.
+
+### 10.4 Dove si vede (per invogliare senza infastidire)
+
+| Punto | Cosa vede chi non è abbonato |
+|---|---|
+| **Barra in basso: voce Coach ✦** (sempre visibile) | Pagina di vendita completa (§10.5) |
+| **Onboarding** (`/welcome`), dopo la scelta dello stile | Due scelte: "Fammi il piano con il Coach" (10 €/mese) · "Lo creo io" |
+| **Piano vuoto / nuovo piano** | "Non hai voglia di compilarlo? Il Coach te lo prepara in pochi minuti." |
+| **Esercizio in stallo** (insight esistente) | "Panca piana ferma da 3 settimane. Il Coach sa come sbloccarla." |
+| **Fitness › Riepilogo** | "Ogni lunedì una review della tua settimana, scritta per te." |
+| **Profilo › Impostazioni** | Riga "Abbonamento: BodyGrowth Coach" |
+
+Regole:
+- al massimo un invito per schermata, sempre chiudibile, e se chiuso non ricompare per 14 giorni;
+- **mai durante un allenamento in corso**;
+- gli inviti usano numeri veri dell'utente, calcolati in codice e senza costo AI
+  (es. "Hai registrato 14 allenamenti nelle ultime 4 settimane").
+
+### 10.5 Pagina di vendita: testi
+
+> **Il tuo personal trainer. Sempre con te.**
+> Dimmi cosa vuoi ottenere: il Coach legge i tuoi allenamenti, ti fa le domande giuste e ti prepara il piano.
+> Poi ti segue, settimana dopo settimana.
+>
+> *(se l'utente ha dati)* Hai registrato **14 allenamenti** nelle ultime 4 settimane. Il Coach può leggerli e dirti
+> dove stai migliorando e dove no.
+
+**Cosa fa per te**
+
+| | |
+|---|---|
+| **Ti crea il piano in pochi minuti** | Niente schede da compilare: rispondi a qualche domanda e il piano è pronto, con esercizi, serie e recuperi. |
+| **Ti conosce davvero** | Legge allenamenti, record, corse, sonno e battito. Sa cosa ti piace, cosa eviti e dove hai fastidi. |
+| **Fa le domande giuste** | Se manca qualcosa (quanti giorni, quanto tempo, che attrezzatura) te lo chiede prima di decidere. |
+| **Aggiorna il piano quando serve** | Stallo, settimana piena, esercizio che non ti va: ti propone la modifica e tu approvi con un tocco. Puoi sempre tornare indietro. |
+| **Ogni lunedì la tua review** | Com'è andata, cosa è migliorato, cosa fare la settimana dopo. Ti arriva con una notifica. |
+| **Ti risponde quando vuoi** | Dubbi su un esercizio, sul recupero, sulla corsa: chiedi in chat, come a un personal trainer. |
+
+**Come funziona**
+1. Dimmi il tuo obiettivo.
+2. Rispondi a qualche domanda.
+3. Approvi il piano e ti alleni: il resto lo segue il Coach.
+
+**Cosa gli serve:** i dati che registri già nell'app. Più ti alleni con BodyGrowth, più è preciso.
+Sonno e battito li usa solo se gli dai il permesso.
+
+**Box prezzo**
+> **10 € al mese** · IVA inclusa
+> Meno di una lezione con un personal trainer, per un mese intero.
+> Disdici quando vuoi, in due tocchi.
+>
+> **[ Attiva il Coach ]**
+> Paga con Apple Pay, Google Pay o carta
+
+**Domande frequenti**
+- *Posso disdire quando voglio?* Sì, da Impostazioni › Abbonamento. Il Coach resta attivo fino alla fine del mese già pagato.
+- *Cambia il piano senza chiedermelo?* No, a meno che tu non lo permetta nelle impostazioni. Di base chiede sempre.
+- *I miei dati sono al sicuro?* Servono solo per seguirti. Sonno e battito li usa solo con il tuo consenso. Non vengono usati per addestrare modelli.
+- *Funziona anche per la corsa?* Sì: bodybuilding, powerlifting, corsa e allenamento ibrido.
+- *Sostituisce un medico o un fisioterapista?* No. Se segnali dolore o un infortunio, ti consiglia di sentire un professionista.
+
+**Prima dell'apertura delle vendite** (`COACH_SALES_ENABLED=false`) la pagina è la stessa, ma il pulsante diventa
+**"Avvisami quando è disponibile"** (lista d'attesa). Non si incassa per un servizio che non c'è ancora,
+e intanto si misura l'interesse reale.
+
+### 10.6 Conti per abbonato (stima mensile)
+
+| Voce | € |
+|---|---|
+| Prezzo pagato | 10,00 |
+| IVA 22% | −1,80 |
+| Stripe (carta EU ~1,5% + 0,25 €, Billing, Tax) | ~−0,55 |
+| **Incasso netto** | **~7,65** |
+| Costo AI per un utente attivo tipico (Opus 5.5) | ~−1,50 / −2,00 |
+| **Margine** | **~5,50–6,00** |
+| Caso peggiore (budget di uso equo esaurito) | ~3,65 |
+
+Hosting (Vercel, Neon) invariato per i volumi iniziali.
+
+### 10.7 Prerequisiti non tecnici (da verificare con il commercialista)
+
+- Soggetto che incassa (partita IVA o società) e account Stripe verificato a suo nome.
+- Termini di vendita. Per i servizi digitali che partono subito, il consumatore perde il diritto di recesso
+  di 14 giorni solo con consenso esplicito: va una casella apposita nel Checkout.
+- Informativa privacy aggiornata con Stripe e Anthropic come fornitori.
+- IVA: Stripe Tax calcola l'imposta per Paese; gli adempimenti (OSS, corrispettivi/fatture) vanno impostati col commercialista.
+
+### 10.8 Futuro: App Store e Google Play
+
+- Dentro un'app iOS, gli abbonamenti digitali devono passare per l'**acquisto in-app di Apple** (linea guida 3.1.1),
+  salvo le eccezioni per Paese (es. link esterni negli USA, condizioni alternative UE). Su Google Play vale una regola
+  analoga con Play Billing. Apple Pay nel web e acquisto in-app sono due cose diverse.
+- Per questo `CoachSubscription` ha il campo `provider` e `hasCoachAccess` non sa da dove arriva il pagamento.
+  Si aggiungerà **RevenueCat** (StoreKit + Play Billing) con i suoi webhook verso la stessa tabella.
+- Le commissioni degli store (15% con lo Small Business Program) vanno messe in conto.
+  Chi si è abbonato dal web potrà accedere anche dall'app con lo stesso account, purché l'acquisto sia offerto
+  anche in-app (regole da ricontrollare al momento della pubblicazione).
+
+---
+
+## 11. Sicurezza, privacy, costi
 
 **Sicurezza**
 
@@ -391,6 +608,11 @@ Implementazione:
 - Rate limiting per utente (messaggi/minuto e budget token/giorno) — tabella usage o contatore su `CoachMessage.usage`.
 - Limite iterazioni del loop e `max_tokens` per risposta; timeout coerente con `maxDuration`.
 - Endpoint cron protetti con `CRON_SECRET` (come quello esistente).
+- Pagamenti: nessun dato di carta sui nostri server (Checkout ospitato da Stripe). Webhook con firma verificata
+  (`STRIPE_WEBHOOK_SECRET`, body grezzo) e idempotenti (`BillingEvent`). Il prezzo si legge dall'env, mai dal client.
+  L'accesso non si attiva mai dalla pagina di ritorno.
+- Chiavi `STRIPE_SECRET_KEY` e `ANTHROPIC_API_KEY` solo nelle variabili d'ambiente di Vercel; chiavi di test
+  in Preview e chiavi live solo in Production.
 
 **Privacy (GDPR)**
 
@@ -409,11 +631,11 @@ Implementazione:
 | Review settimanale (prompt corto) | ~$0,02; ~$0,01 con Batch |
 
 Leve: prompt caching (fondamentale), snapshot compatto, effort `medium` in chat, Batch per i job.
-Il campo `SubscriptionTier` esistente permette limiti per piano (es. FREE: review settimanale + N messaggi/mese).
+Ricavi e margine per abbonato: §10.6.
 
 ---
 
-## 11. Struttura del codice
+## 12. Struttura del codice
 
 ```
 src/lib/coach/
@@ -446,10 +668,22 @@ src/app/api/coach/
   revisions/[id]/restore/route.ts
   settings/route.ts
   brief/route.ts
+  access/route.ts            # GET stato accesso (per la pagina di benvenuto)
+  waitlist/route.ts          # POST lista d'attesa
 src/app/api/push/subscribe/route.ts
 src/app/api/cron/coach/route.ts
 
-src/app/(dashboard)/coach/page.tsx
+src/lib/billing/
+  stripe.ts                  # client Stripe, prezzo da env
+  entitlements.ts            # hasCoachAccess, requireCoachAccess (402)
+  sync-subscription.ts       # evento Stripe → CoachSubscription (+ subscriptionTier)
+src/app/api/billing/
+  checkout/route.ts          # POST → URL Stripe Checkout
+  portal/route.ts            # POST → URL Customer Portal
+  webhook/route.ts           # POST, runtime nodejs, firma verificata
+
+src/app/(dashboard)/coach/page.tsx            # accesso ? chat : pagina di vendita
+src/app/(dashboard)/coach/benvenuto/page.tsx  # dopo il pagamento
 src/app/(dashboard)/coach/[threadId]/page.tsx
 src/app/(dashboard)/coach/settings/page.tsx
 
@@ -457,25 +691,39 @@ src/components/coach/
   chat-view.tsx  message-bubble.tsx  composer.tsx  tool-status.tsx
   ask-user-chips.tsx  proposal-card.tsx  proposal-diff.tsx
   coach-settings-form.tsx  brief-editor.tsx  revision-history.tsx
+src/components/coach/paywall/
+  coach-paywall.tsx  feature-grid.tsx  price-card.tsx  faq.tsx
+  coach-teaser.tsx           # invito contestuale chiudibile (§10.4)
+src/components/profile/subscription-card.tsx
 src/hooks/use-coach-chat.ts  # fetch + ReadableStream, stato messaggi
 ```
 
+Variabili d'ambiente nuove (da aggiungere a `.env.example`):
+`ANTHROPIC_API_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_COACH_MONTHLY`,
+`COACH_FREE_USER_IDS`, `COACH_SALES_ENABLED`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`.
+
 ---
 
-## 12. Roadmap a fasi
+## 13. Roadmap a fasi
 
-Ogni fase è rilasciabile da sola, dietro feature flag (`COACH_ENABLED` + allowlist utenti all'inizio).
+Ogni fase è rilasciabile da sola. Dalla Fase 0 il Coach è protetto da `hasCoachAccess`: lo usa solo il proprietario
+(`COACH_FREE_USER_IDS`) finché le vendite non si aprono.
 
-### Fase 0 — Fondamenta (2–3 gg)
+### Fase 0 — Fondamenta e abbonamento (4–5 gg)
 - `@anthropic-ai/sdk`, env (`ANTHROPIC_API_KEY`), `client.ts`.
-- Migrazione Prisma (§5), feature flag, schermata consenso.
-- Harness di valutazione vuoto (§13).
+- Migrazione Prisma (§5, incluse `CoachSubscription`, `BillingEvent`, `CoachWaitlist`), schermata consenso.
+- Stripe in modalità test: prodotto "BodyGrowth Coach", prezzo 10 € mensile IVA inclusa, Apple Pay/Google Pay attivi,
+  Stripe Tax, Customer Portal.
+- `entitlements.ts`, checkout, webhook, portal, card Abbonamento nel profilo.
+- Voce **Coach ✦** in navigazione con la pagina di vendita (§10.5) e la lista d'attesa (`COACH_SALES_ENABLED=false`).
+- Test: regole di accesso, webhook (firma, duplicati, ogni stato), checkout con carte di test Stripe.
+- Harness di valutazione vuoto (§14).
 
 ### Fase 1 — Coach che legge e risponde (4–5 gg)
 - Loop agente + SSE + UI chat + thread persistenti.
 - Tool di lettura, `search_exercises`, `update_athlete_brief`, `ask_user`.
 - Snapshot atleta, knowledge pack v1, caching.
-- Voce **Coach** nella navigazione.
+- Chat al posto della pagina di vendita per chi ha accesso.
 - ✅ Risultato: "come sto andando?", "perché la panca è ferma?" con numeri reali.
 
 ### Fase 2 — Creazione del piano (5–6 gg) ← risolve il problema principale
@@ -483,6 +731,14 @@ Ogni fase è rilasciabile da sola, dietro feature flag (`COACH_ENABLED` + allowl
 - `ProgramRevision` + ripristino.
 - Ingresso dall'onboarding (`/welcome`) e da Piano vuoto.
 - ✅ Risultato: dalla registrazione al piano attivo in pochi minuti, senza builder.
+
+### 🚀 Apertura vendite (dopo la Fase 2)
+Quando creazione del piano ed eval sono stabili:
+- chiavi Stripe live in Production, `COACH_SALES_ENABLED=true`;
+- inviti contestuali attivi (§10.4), email/notifica a chi è in lista d'attesa;
+- prerequisiti del §10.7 completati.
+
+Le fasi 3 e 4 arrivano come aggiornamenti per chi è già abbonato.
 
 ### Fase 3 — Modifica e adattamento (4–5 gg)
 - `propose_program_changes` (swap, prescrizioni, giorni, deload) con diff.
@@ -498,14 +754,18 @@ Ogni fase è rilasciabile da sola, dietro feature flag (`COACH_ENABLED` + allowl
 - Input vocale (Web Speech API) per parlare al coach in palestra.
 - **Server MCP di BodyGrowth**: espone gli stessi tool (lettura + proposte) per usare il proprio coach anche da
   Claude/altri client, con OAuth per utente.
-- Limiti per `SubscriptionTier`, Batch API per i job, web search sulle domande di approfondimento.
+- Piano annuale, prova gratuita, codici sconto (Stripe li supporta già).
+- Batch API per i job, web search sulle domande di approfondimento.
 - Periodizzazione multi-blocco (mesociclo → nuovo piano proposto a fine ciclo, usando `plan-cycle.ts`).
 
-**Totale MVP (Fasi 0–2): ~2–3 settimane; completo (0–4): ~5–6 settimane** per una persona.
+### Fase 6 — App Store e Google Play
+- App nativa o wrapper della PWA, acquisti in-app tramite RevenueCat → stessa `CoachSubscription` (§10.8).
+
+**Totale fino all'apertura vendite (Fasi 0–2): ~3 settimane; completo (0–4): ~6 settimane** per una persona.
 
 ---
 
-## 13. Qualità: valutazione e test
+## 14. Qualità: valutazione e test
 
 **Eval set** (~30 scenari, eseguito prima di ogni cambio di prompt/modello):
 
@@ -518,17 +778,23 @@ Ogni fase è rilasciabile da sola, dietro feature flag (`COACH_ENABLED` + allowl
 - contenuto malevolo in una nota → nessuna azione fuori dalle proposte.
 
 **Test automatici** (Jest, come il resto di `src/lib`): validatore, diff, apply/restore, slot obbligatori,
-dispatcher dei tool con input non validi, rate limit, cron (autorizzazione, ore silenziose, deduplica).
-Playwright: flusso onboarding → piano applicato.
+dispatcher dei tool con input non validi, rate limit, cron (autorizzazione, ore silenziose, deduplica),
+regole di accesso (omaggio, attivo, past_due con tolleranza, disdetto a fine periodo, scaduto), webhook Stripe.
+Playwright: pagina di vendita → Checkout di test → benvenuto → onboarding → piano applicato.
 
 ---
 
-## 14. Decisioni aperte (con raccomandazione)
+## 15. Decisioni
 
-| Decisione | Raccomandazione |
+| Decisione | Stato |
 |---|---|
-| Modello | `claude-opus-5-5` ovunque; valutare un modello più economico solo per le review settimanali dopo l'eval |
-| Autonomia predefinita | `ASK_ALWAYS` finché l'eval non è stabile |
-| Coach gratis o a pagamento | Gratis in beta con budget mensile; poi limiti per `SubscriptionTier` |
-| Posizione in navigazione | Quinta voce centrale "Coach" |
-| Web search | Attiva ma limitata a domini selezionati, solo su domande di approfondimento |
+| Coach a pagamento | ✅ Deciso: funzione a pagamento, nessuna versione gratuita |
+| Prezzo | ✅ Deciso: **10 €/mese IVA inclusa** come prezzo d'ingresso |
+| Accesso omaggio | ✅ Deciso: solo il proprietario (`COACH_FREE_USER_IDS`) |
+| Pagamenti | ✅ Deciso: Stripe Checkout con Apple Pay, Google Pay e carta |
+| Posizione | ✅ Deciso: quinta voce centrale "Coach ✦" + inviti contestuali (§10.4) |
+| Modello | Raccomandato: `claude-opus-5-5` ovunque; un modello più economico per le review solo dopo l'eval |
+| Autonomia predefinita | Raccomandato: `ASK_ALWAYS` finché l'eval non è stabile |
+| Prova gratuita | Raccomandato: nessuna al lancio; valutare 7 giorni dopo aver misurato la conversione |
+| Piano annuale | Raccomandato: dopo il lancio (es. 96 €/anno, cioè 2 mesi in regalo) |
+| Web search | Raccomandato: attiva, limitata a domini selezionati, solo sulle domande di approfondimento |
