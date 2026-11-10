@@ -14,6 +14,7 @@ import { PeriodBar, PeriodSwipe, firstActivity } from "./period-bar";
 import { MetricTiles, TrendChart, type PeriodMetric } from "./period-metrics";
 import { usePeriodSelection } from "./period-picker";
 import { LIFTED } from "./metrics";
+import type { TrainingStyle } from "@/lib/training-style";
 import { Block, EmptyState, Segmented } from "./ui";
 import { useActivity } from "./use-activity";
 
@@ -237,13 +238,14 @@ function Muscles({ from, to, weekly }: { from: Date | null; to: Date | null; wee
   );
 }
 
-export function StrengthTab() {
+/** Con lo stile bodybuilding il grafico parte dal peso sollevato */
+export function StrengthTab({ style }: { style?: TrainingStyle | null } = {}) {
   const { data: items, isLoading } = useActivity();
   const { data: weekly } = useWeekly();
   const now = useMemo(() => new Date(), []);
   const selection = usePeriodSelection(now);
   const { period, anchor } = selection;
-  const [metricKey, setMetricKey] = useState(GYM_SESSIONS.key);
+  const [metricKey, setMetricKey] = useState(style === "BODYBUILDING" ? LIFTED.key : GYM_SESSIONS.key);
   const gym = useMemo(() => (items ?? []).filter((i) => i.kind === "gym"), [items]);
   const first = useMemo(() => firstActivity(gym), [gym]);
 

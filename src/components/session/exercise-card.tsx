@@ -9,7 +9,7 @@ import { formatLoggedSets } from "@/lib/progression";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SetRow } from "./set-row";
-import { Plus, ChevronDown, ChevronUp, Trash2, TrendingUp, CheckCircle2, History, Repeat, Link2 } from "lucide-react";
+import { Plus, ChevronDown, ChevronUp, Trash2, CheckCircle2, History, Repeat, Link2 } from "lucide-react";
 import { ExerciseSelector } from "./exercise-selector";
 import { ExerciseNote } from "./exercise-note";
 import { buildActiveExercise, fetchExerciseHistory } from "@/lib/active-exercise";
@@ -50,7 +50,6 @@ export function lastTimeLabel(exercise: ActiveExercise): string {
   return [exercise.lastSameDay ? "stesso giorno" : null, day].filter(Boolean).join(" · ");
 }
 
-const formatKg = (kg?: number) => (kg == null ? "" : String(kg).replace(".", ","));
 
 function ExerciseCardComponent({ exercise, expanded, onToggle, onFinished, canLinkNext }: Props) {
   const addSet = useSessionStore((s) => s.addSet);
@@ -140,7 +139,6 @@ function ExerciseCardComponent({ exercise, expanded, onToggle, onFinished, canLi
                 serie
                 {target ? ` · piano ${target}` : ""}
                 {volume > 0 ? ` · ${formatVolume(volume)}` : ""}
-                {!expanded && exercise.progression ? ` · scorsa ${formatKg(exercise.progression.previousTop)} kg` : ""}
               </p>
             </button>
             <div className="flex items-center">
@@ -221,13 +219,6 @@ function ExerciseCardComponent({ exercise, expanded, onToggle, onFinished, canLi
                     <span className="font-semibold text-foreground">{formatLoggedSets(exercise.lastSets)}</span>
                   </span>
                 </p>
-                {exercise.progression?.increase && (
-                  <p className="flex items-center gap-1.5 font-medium text-green-600 dark:text-green-400">
-                    <TrendingUp className="h-3 w-3 shrink-0" />
-                    Hai chiuso tutte le ripetizioni: oggi prova{" "}
-                    {formatKg(exercise.sets[0]?.weight)} kg
-                  </p>
-                )}
               </div>
             )}
 

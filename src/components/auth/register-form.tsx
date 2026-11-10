@@ -48,13 +48,14 @@ export function RegisterForm() {
     await signIn("credentials", {
       email: data.email,
       password: data.password,
-      callbackUrl: "/dashboard",
+      // Prima cosa dopo la registrazione: che tipo di allenamento fai
+      callbackUrl: "/welcome",
     });
   };
 
   const handleOAuth = async (provider: string) => {
     setIsOAuthLoading(provider);
-    await signIn(provider, { callbackUrl: "/dashboard" });
+    await signIn(provider, { callbackUrl: "/welcome" });
     setIsOAuthLoading(null);
   };
 

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "@/hooks/use-toast";
 import {
+  Activity,
   ChevronRight,
   Download,
   Dumbbell,
@@ -25,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { readTheme, saveTheme, type Theme } from "@/lib/theme";
 import { readKeepAwake, saveKeepAwake } from "@/hooks/use-wake-lock";
 import { Switch } from "@/components/ui/switch";
+import { STYLE_INFO, type TrainingStyle } from "@/lib/training-style";
 
 const THEME_OPTIONS: { value: Theme; label: string; icon: typeof Sun }[] = [
   { value: "system", label: "Sistema", icon: Smartphone },
@@ -34,6 +36,8 @@ const THEME_OPTIONS: { value: Theme; label: string; icon: typeof Sun }[] = [
 
 interface Props {
   user: { name?: string | null; email?: string | null };
+  /** stile di allenamento scelto (null: non ancora) */
+  trainingStyle?: TrainingStyle | null;
 }
 
 /** "Garmin, Mi Fitness" · "Garmin: da ricollegare" · "Nessuno collegato" */
@@ -46,7 +50,7 @@ function useDevicesHint() {
   return expired ? `${expired.label}: da ricollegare` : connected.map((d) => d.label).join(", ");
 }
 
-export function SettingsForm({ user }: Props) {
+export function SettingsForm({ user, trainingStyle }: Props) {
   const devicesHint = useDevicesHint();
   const [theme, setTheme] = useState<Theme>("system");
   const [keepAwake, setKeepAwake] = useState(true);
@@ -114,6 +118,15 @@ export function SettingsForm({ user }: Props) {
 
   return (
     <div className="space-y-6">
+      <Group title="Allenamento">
+        <Row
+          href="/profile/settings/allenamento"
+          icon={Activity}
+          title="Stile di allenamento"
+          hint={trainingStyle ? `${STYLE_INFO[trainingStyle].name} · ${STYLE_INFO[trainingStyle].goal}` : "Non ancora scelto"}
+        />
+      </Group>
+
       <Group title="Dispositivi">
         <Row href={DEVICES_PATH} icon={Watch} title="Smartwatch e app" hint={devicesHint} />
       </Group>

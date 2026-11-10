@@ -3,6 +3,7 @@
 import { RunHeader } from "@/components/run/run-header";
 import { RunOverview } from "@/components/run/run-overview";
 import { cn } from "@/lib/utils";
+import { STYLE_INFO, type TrainingStyle } from "@/lib/training-style";
 import { StrengthTab } from "./strength-tab";
 import { SummaryTab } from "./summary-tab";
 import { useUrlTab } from "./tab-strip";
@@ -36,8 +37,9 @@ function RunTab() {
   );
 }
 
-export function FitnessTabs() {
-  const [tab, select] = useUrlTab(TABS, ALIASES);
+/** `style`: lo stile di allenamento decide la scheda che si apre per prima */
+export function FitnessTabs({ style }: { style?: TrainingStyle | null }) {
+  const [tab, select] = useUrlTab(TABS, ALIASES, style ? STYLE_INFO[style].fitnessTab : undefined);
   return (
     <div className="space-y-3">
       {/* Tab di testo: navigano tra viste; il selettore a pillole sotto filtra il periodo */}
@@ -57,7 +59,7 @@ export function FitnessTabs() {
           </button>
         ))}
       </div>
-      {tab === "palestra" ? <StrengthTab /> : tab === "corsa" ? <RunTab /> : <SummaryTab />}
+      {tab === "palestra" ? <StrengthTab style={style} /> : tab === "corsa" ? <RunTab /> : <SummaryTab />}
     </div>
   );
 }

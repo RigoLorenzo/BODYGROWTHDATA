@@ -8,6 +8,7 @@ export const config = {
     "/analytics/:path*",
     "/fitness/:path*",
     "/plan/:path*",
+    "/welcome/:path*",
     "/profile/:path*",
     "/workout/:path*",
     "/run/:path*",

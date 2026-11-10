@@ -10,20 +10,26 @@ export interface TabOption<T extends string> {
 }
 
 /**
- * Scheda scelta nell'URL (?tab=): la prima è quella predefinita e non compare.
- * `aliases`: vecchi nomi di schede rinominate, così i link salvati funzionano.
+ * Scheda scelta nell'URL (?tab=): la predefinita (la prima, o `defaultValue`)
+ * non compare. `aliases`: vecchi nomi di schede rinominate, così i link
+ * salvati funzionano.
  */
-export function useUrlTab<T extends string>(tabs: readonly TabOption<T>[], aliases: Partial<Record<string, T>> = {}) {
+export function useUrlTab<T extends string>(
+  tabs: readonly TabOption<T>[],
+  aliases: Partial<Record<string, T>> = {},
+  defaultValue?: T
+) {
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
   const raw = params.get("tab");
   const requested = (raw && aliases[raw]) ?? raw;
-  const tab = tabs.find((t) => t.value === requested)?.value ?? tabs[0].value;
+  const fallback = defaultValue ?? tabs[0].value;
+  const tab = tabs.find((t) => t.value === requested)?.value ?? fallback;
 
   const select = (value: T) => {
     const next = new URLSearchParams(params);
-    if (value === tabs[0].value) next.delete("tab");
+    if (value === fallback) next.delete("tab");
     else next.set("tab", value);
     const query = next.toString();
     router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
