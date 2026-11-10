@@ -1,5 +1,6 @@
 import type { AthleteBrief } from "@prisma/client";
 import { programInputSchema, type ProgramInput } from "@/lib/program-schema";
+import { getEquipmentLabel, getMuscleLabel } from "@/lib/utils";
 import type { ProposeProgramInput } from "./tools/schemas";
 
 /**
@@ -70,7 +71,7 @@ export function checkProposal(
       if (disliked.has(ex.exerciseId)) errors.push(`${meta.name} è tra gli esercizi che l'utente vuole evitare.`);
       const needs = meta.equipment.filter((e) => e !== "BODYWEIGHT" && e !== "OTHER");
       if (!fullGym && equipment.size > 0 && needs.length > 0 && !needs.some((e) => equipment.has(e))) {
-        errors.push(`${meta.name} richiede ${needs.join(", ")}, attrezzatura che l'utente non ha.`);
+        errors.push(`${meta.name} richiede ${needs.map(getEquipmentLabel).join(", ")}, attrezzatura che l'utente non ha.`);
       }
       if (meta.primaryMuscle) weeklySets[meta.primaryMuscle] = (weeklySets[meta.primaryMuscle] ?? 0) + ex.sets;
     }
@@ -82,11 +83,11 @@ export function checkProposal(
   }
 
   for (const [muscle, sets] of Object.entries(weeklySets)) {
-    if (sets > 25) warnings.push(`${muscle}: ${sets} serie dirette a settimana, molte per la maggior parte delle persone.`);
+    if (sets > 25) warnings.push(`${getMuscleLabel(muscle)}: ${sets} serie dirette a settimana, molte per la maggior parte delle persone.`);
   }
   if (trainingStyle !== "RUNNING") {
     const missing = MAJOR_MUSCLES.filter((m) => !weeklySets[m]);
-    if (missing.length > 0) warnings.push(`Nessuna serie diretta per: ${missing.join(", ")}. Va bene solo se è voluto.`);
+    if (missing.length > 0) warnings.push(`Nessuna serie diretta per: ${missing.map(getMuscleLabel).join(", ")}. Va bene solo se è voluto.`);
   }
 
   return { errors, warnings };

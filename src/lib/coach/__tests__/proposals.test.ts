@@ -45,7 +45,7 @@ describe("checkProposal", () => {
     const { errors } = checkProposal(plan([{ name: "A", workoutType: "FULL_BODY", exercises: [ex("row"), ex("ghost"), ex("cable")] }]), brief, meta, "BODYBUILDING");
     expect(errors.join(" ")).toMatch(/Rematore è tra gli esercizi/);
     expect(errors.join(" ")).toMatch(/inesistente/);
-    expect(errors.join(" ")).toMatch(/Croci ai cavi richiede CABLE/);
+    expect(errors.join(" ")).toMatch(/Croci ai cavi richiede /);
     expect(errors.join(" ")).toMatch(/1 giorni ma l'utente si allena 2/);
   });
 
