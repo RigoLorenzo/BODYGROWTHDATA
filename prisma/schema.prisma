@@ -216,6 +216,9 @@ model User {
   achievements        UserAchievement[]
   notifications       Notification[]
   workoutShares       WorkoutShare[]
+  coachThreads        CoachThread[]
+  coachProposals      CoachProposal[]
+  athleteBrief        AthleteBrief?
 
   following Follows[] @relation("Following")
   followers Follows[] @relation("Followers")
@@ -834,4 +837,84 @@ model SleepSession {
 
   @@unique([userId, externalId])
   @@index([userId, source, date])
+}
+
+// ─── Coach AI ─────────────────────────────────────────────────────────────────
+
+/// Una conversazione con il Coach
+model CoachThread {
+  id            String   @id @default(cuid())
+  userId        String
+  title         String?
+  lastMessageAt DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  CoachMessage[]
+  proposals CoachProposal[]
+
+  @@index([userId, lastMessageAt])
+}
+
+/// Un messaggio della conversazione. `content` contiene i blocchi completi
+/// dell'API (testo, thinking, tool_use, tool_result): si rimandano invariati.
+model CoachMessage {
+  id        String   @id @default(cuid())
+  /// Ordine di inserimento: più messaggi possono avere lo stesso istante
+  seq       Int      @default(autoincrement())
+  threadId  String
+  /// user | assistant
+  role      String
+  content   Json
+  /// Token usati dalla risposta (per costi e limiti)
+  usage     Json?
+  createdAt DateTime @default(now())
+
+  thread CoachThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([threadId, seq])
+}
+
+/// Memoria del Coach: preferenze e vincoli dell'atleta, visibili e modificabili
+model AthleteBrief {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  primaryGoal         String?
+  goalDetails         String?  @db.Text
+  daysPerWeek         Int?
+  preferredDays       Int[]
+  sessionMinutes      Int?
+  /// Attrezzatura disponibile (valori di Equipment) o "FULL_GYM"
+  equipment           String[]
+  likedExerciseIds    String[]
+  dislikedExerciseIds String[]
+  /// [{ area, note, avoid }]
+  injuries            Json?
+  notes               String?  @db.Text
+  updatedAt           DateTime @updatedAt
+  createdAt           DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// Piano proposto dal Coach: diventa un piano vero solo quando l'utente lo applica
+model CoachProposal {
+  id        String    @id @default(cuid())
+  userId    String
+  threadId  String
+  /// ProgramInput completo e validato
+  payload   Json
+  /// Perché questo piano, in parole semplici
+  rationale String    @db.Text
+  /// pending | applied | rejected
+  status    String    @default("pending")
+  /// Piano creato all'applicazione
+  programId String?
+  appliedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user   User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  thread CoachThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
 }
