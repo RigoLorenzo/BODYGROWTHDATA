@@ -3,8 +3,8 @@
 > Un personal trainer conversazionale dentro BodyGrowth: legge i tuoi dati, fa le domande giuste,
 > crea e modifica il piano su tua autorizzazione, ti segue nel tempo e ti scrive ogni settimana.
 >
-> **Funzione a pagamento: BodyGrowth Coach, 10 €/mese IVA inclusa.** Pagamento con Apple Pay, Google Pay o carta.
-> Accesso gratuito solo per gli utenti scelti dal proprietario (oggi: solo il proprietario). Dettagli al §10.
+> **Funzione a pagamento: BodyGrowth Coach, 15 €/mese + IVA.** Pagamento con Apple Pay, Google Pay o carta.
+> Accesso gratuito solo per gli utenti scelti dal proprietario (oggi: solo il proprietario). Dettagli al §11.
 
 ---
 
@@ -20,7 +20,9 @@ serie, range di ripetizioni, recuperi). Chi inizia abbandona prima di arrivare a
 2. capisce cosa manca e **chiede prima di agire** (giorni, durata, attrezzatura, esercizi preferiti/odiati, infortuni);
 3. **propone** un piano o una modifica con anteprima e motivazioni;
 4. lo **applica solo con il tuo ok** (o in autonomia entro i limiti scelti nelle impostazioni), con versioni e annulla;
-5. ti segue: review settimanale, commento dopo l'allenamento, avvisi su stallo/sovraccarico, via chat e notifica push.
+5. ti segue: review settimanale, commento dopo l'allenamento, avvisi su stallo/sovraccarico, via chat e notifica push;
+6. **risponde con i tuoi numeri veri** a qualsiasi domanda sui dati ("quante serie di petto ho fatto quest'anno?",
+   "quanti km ho corso a ottobre?", "com'è andata da quando uso l'app?"), tenendo conto dei **cambi di piano** (§7).
 
 **Metriche di successo**
 
@@ -54,7 +56,10 @@ serie, range di ripetizioni, recuperi). Chi inizia abbandona prima di arrivare a
    del coach, il cron e la pagina. L'abbonamento si attiva solo dal webhook firmato del provider di pagamento,
    mai dal redirect del browser. La logica non dipende da un provider specifico, così domani si aggiungono
    App Store e Google Play senza riscriverla.
-7. **Rispetto delle decisioni prese.** Nel flusso di allenamento non ci sono consigli di carico (commit
+7. **La storia è divisa in blocchi.** Ogni periodo con un piano diverso è un *blocco di allenamento* registrato
+   (`TrainingPhase`). Quando il periodo richiesto attraversa più blocchi, la risposta lo dice in modo esplicito
+   e confronta solo ciò che è confrontabile (§7.2).
+8. **Rispetto delle decisioni prese.** Nel flusso di allenamento non ci sono consigli di carico (commit
    `f169abe`): il coach parla di progressione in chat e nelle review, non dentro la schermata della seduta.
 
 ---
@@ -240,6 +245,34 @@ model PushSubscription {
 }
 ```
 
+### Blocchi di allenamento (per tutti gli utenti, anche senza Coach)
+
+```prisma
+enum PhaseReason { PLAN_STARTED  PLAN_SWITCHED  PLAN_CHANGED  PLAN_STOPPED  BACKFILL }
+
+/// Un periodo con lo stesso piano. Si chiude quando il piano cambia, si modifica in modo
+/// sostanziale o si disattiva. Gli allenamenti fuori da un piano hanno phaseId = null ("allenamento libero").
+model TrainingPhase {
+  id          String         @id @default(cuid())
+  userId      String
+  programId   String?                        // null se il piano è stato poi eliminato
+  programName String                         // copiato all'apertura: resta leggibile anche dopo
+  structure   Json                           // struttura del piano in quel periodo (giorni, esercizi, serie)
+  splitType   SplitType
+  frequency   Int
+  startedAt   DateTime
+  endedAt     DateTime?                      // null = blocco in corso
+  reason      PhaseReason
+  source      RevisionSource @default(USER)  // cambiato da te o dal Coach
+  createdAt   DateTime       @default(now())
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessions    WorkoutSession[]
+  @@index([userId, startedAt])
+}
+
+// WorkoutSession: nuovo campo phaseId String? (relazione con TrainingPhase, onDelete: SetNull)
+```
+
 ### Abbonamento
 
 ```prisma
@@ -300,6 +333,9 @@ Tutti i tool ricevono `userId` **dalla sessione server**, mai dal modello. Input
 | `get_running_summary` | km/settimana, uscita lunga, passo, CTL/ATL/TSB | `run/stats.ts`, `run/load.ts` |
 | `get_recovery_summary` | sonno, FC a riposo, stress, trend 14 giorni (solo con consenso) | `WellnessDay`, `SleepSession`, `wellness/insights.ts` |
 | `search_exercises` | esercizi della libreria + custom (id, nome IT, muscoli, attrezzatura, difficoltà) | `Exercise`, `exercise-library.ts` |
+| `query_training_data` | **qualsiasi numero sui tuoi allenamenti**, con periodo, filtri e raggruppamento (§7.1) | `src/lib/coach/data/query.ts` |
+| `get_training_phases` | elenco dei blocchi (piano, date, sedute, aderenza) | `TrainingPhase` |
+| `get_training_story` | riepilogo dall'inizio, blocco per blocco (§7.3) | `src/lib/coach/data/story.ts` |
 
 ### Memoria e interazione
 
@@ -343,13 +379,139 @@ Ogni applicazione automatica genera notifica + pulsante **Annulla** (ripristino 
 
 ---
 
-## 7. Intelligenza: prompt e conoscenza
+## 7. Dati reali: domande sui numeri e cambi di piano
+
+È il vantaggio più concreto del Coach: **conosce ogni tuo numero** e lo spiega bene, anche quando nel frattempo
+hai cambiato piano.
+
+### 7.1 Domande sui dati (`query_training_data`)
+
+Il modello non scrive SQL e non fa conti. Sceglie i parametri di una query tipizzata; il server la esegue sui dati
+dell'utente della sessione e restituisce numeri finali, definizioni e avvertenze.
+
+**Input (Zod, `strict: true`)**
+
+| Campo | Valori |
+|---|---|
+| `metric` | `sets` · `reps` · `volume_kg` · `sessions` · `training_time` · `max_weight` · `e1rm` · `prs` · `run_distance` · `run_time` · `run_pace` |
+| `period` | preset (`this_week`, `this_month`, `this_year`, `last_n_weeks`, `since_start`, `phase`) oppure `{ from, to }` |
+| `filters` | `muscles[]`, `exerciseIds[]`, `workoutTypes[]`, `phaseIds[]` (serie di riscaldamento sempre escluse) |
+| `groupBy` | `none` · `week` · `month` · `phase` · `exercise` · `muscle` |
+
+**Output**
+
+```jsonc
+{
+  "period":  { "from": "2026-01-01", "to": "2026-11-10", "label": "quest'anno" },  // fuso Europe/Rome
+  "value":   412, "unit": "serie",
+  "detail":  { "direct": 318, "indirect": 188, "indirectWeighted": 94 },
+  "perWeek": 9.4,
+  "breakdown": [ /* per groupBy */ ],
+  "phasesInRange": [ /* blocchi toccati dal periodo, con il valore per ciascuno */ ],
+  "definitions": "Serie allenanti, riscaldamento escluso. Dirette: il petto è il muscolo principale. Indirette: muscolo secondario, contate a metà.",
+  "coverage": { "firstSession": "2025-12-02", "sessions": 168, "importedWithoutSets": 3 }
+}
+```
+
+**Esempio di risposta**
+
+> Quest'anno (dal 1° gennaio a oggi) hai fatto **412 serie di petto**: 318 dirette (panca, croci, chest press)
+> e 94 indirette (dip e spinte per le spalle, contate a metà). Sono **9,4 serie a settimana**.
+>
+> ⚠️ A maggio hai cambiato piano, quindi il totale mette insieme due periodi diversi:
+> • **Multifrequenza 4x** (gen–apr): 11,2 serie/settimana
+> • **Upper/Lower 4x** (da mag): 8,1 serie/settimana
+>
+> *[grafico settimanale con la linea verticale del cambio piano]*
+
+Regole:
+- il periodo interpretato è sempre scritto nella risposta ("dal 1° gennaio a oggi");
+- per i muscoli si distinguono sempre serie dirette e indirette, con la regola di conteggio di `muscle-volume.ts`;
+- se mancano dati (es. sedute importate dall'orologio senza serie) il Coach lo dice;
+- la risposta può includere una **card grafico** (dati del tool → componente Recharts già usato in Fitness);
+  il modello non disegna né inventa serie storiche;
+- esecuzione: aggregazioni Prisma o `$queryRaw` con parametri tipizzati (mai stringhe concatenate), sempre
+  filtrate per `userId`, con un limite sul periodo massimo.
+
+Esempi di domande coperte: *"quanti allenamenti ho fatto a marzo?"*, *"qual è il mio massimale stimato di squat
+e come è cambiato?"*, *"quanti km ho corso quest'anno e qual è stata l'uscita più lunga?"*, *"che muscolo alleno di
+meno?"*, *"quante ore ho passato in palestra da quando uso l'app?"*.
+
+### 7.2 Cambi di piano: i blocchi di allenamento
+
+**Problema attuale nel codice:** attivare un piano sovrascrive `ActiveProgram` (`upsert` in
+`api/programs/active/route.ts`) e disattivarlo lo cancella. Le sedute hanno `programDayId`, ma senza relazione:
+se un giorno del piano viene eliminato il collegamento si perde. **Oggi non esiste la storia dei piani.**
+
+**Soluzione: `TrainingPhase` (§5), una funzione dell'app base gratuita per tutti.** Il Coach la sfrutta, ma
+serve anche ai grafici di Fitness.
+
+| Evento | Effetto sui blocchi |
+|---|---|
+| Attivi un piano (nessun blocco aperto) | apre un blocco `PLAN_STARTED` |
+| Attivi un piano diverso | chiude il blocco corrente, ne apre uno `PLAN_SWITCHED` |
+| Modifica **sostanziale** del piano attivo (giorni aggiunti/tolti, esercizi sostituiti/aggiunti/tolti, split diverso) | chiude e riapre (`PLAN_CHANGED`), con una nuova copia della struttura |
+| Modifica **leggera** (serie, ripetizioni, RPE, recuperi, note) | stesso blocco; resta nella `ProgramRevision` |
+| Disattivi o elimini il piano | chiude il blocco (`PLAN_STOPPED`) |
+| Inizi una seduta | `WorkoutSession.phaseId` = blocco aperto (o `null` se ti alleni senza piano) |
+
+- La regola "sostanziale o leggera" sta in una funzione pura (`phases/significance.ts`), testata.
+- Funzione unica `phases/tracker.ts` chiamata da tutti i punti che cambiano il piano: attivazione,
+  disattivazione, `updateProgram`, eliminazione, `plan-provisioning.ts` e le proposte del Coach.
+- **Recupero dello storico esistente** (migrazione una tantum): `programDayId` → `ProgramDay` → `Program`;
+  le sedute consecutive con lo stesso piano formano un blocco `BACKFILL`; quelle senza piano restano "allenamento libero";
+  quelle con giorni non più esistenti finiscono in "Piano precedente (non più disponibile)".
+
+**Come il Coach usa i blocchi**
+
+- `query_training_data` restituisce sempre `phasesInRange`. Se sono più di uno, il system prompt *obbliga* a dirlo
+  e a dare il dettaglio per blocco.
+- Metriche **sempre sommabili** (sedute, serie totali, km, ore): totale + dettaglio per blocco.
+- Metriche **legate al piano** (serie per seduta, progresso di un esercizio, aderenza): solo **dentro** ogni blocco.
+  Il confronto tra blocchi si fa su medie settimanali normalizzate, mai sui totali grezzi.
+- Un esercizio presente solo in un blocco viene segnalato come **non confrontabile** negli altri (flag `comparable: false`
+  calcolato dal server).
+- Correlazione non è causalità: il Coach può dire "nel blocco Upper/Lower la panca è salita più in fretta",
+  non "Upper/Lower funziona meglio per te", a meno che i dati non siano molti e coerenti, e lo dice con cautela.
+
+**Anche nell'app base:** linea verticale "Cambio piano" sui grafici di Fitness e Palestra, e una timeline dei blocchi
+nella pagina Piano ("Gen–Apr: Multifrequenza 4x · da Mag: Upper/Lower 4x").
+
+### 7.3 "Com'è andata da quando uso l'app?" (`get_training_story`)
+
+Riepilogo strutturato, calcolato dal server e raccontato dal Coach:
+
+```
+Da dicembre 2025 · 11 mesi · 168 allenamenti · 3 blocchi
+
+┌ Blocco 1 · Multifrequenza 4x · dic–apr (20 sett.) ┐
+│ 74 sedute · aderenza 92% · petto 11,2 serie/sett.  │
+│ Panca 80 → 92,5 kg (e1RM) · 6 record               │
+└────────────────────────────────────────────────────┘
+┌ Blocco 2 · Upper/Lower 4x · mag–set (19 sett.) ────┐
+│ 68 sedute · aderenza 89% · petto 8,1 serie/sett.   │
+│ Panca 92,5 → 97,5 kg · squat 110 → 125 kg          │
+└────────────────────────────────────────────────────┘
+┌ Blocco 3 · PPL 6x · da ottobre (in corso) ─────────┐
+│ ...                                                │
+└────────────────────────────────────────────────────┘
+In totale: panca +17,5 kg, 412 km di corsa, peso corporeo −3 kg
+```
+
+Il racconto in chat apre con un **avviso evidente** sui cambi di piano ("Hai seguito 3 piani diversi: li analizzo
+uno alla volta, poi ti dico cosa è cambiato tra l'uno e l'altro"), poi il blocco per blocco, poi il totale,
+poi 2–3 indicazioni per il futuro. La stessa vista è condivisibile come immagine (riusando `workout-share`).
+
+---
+
+## 8. Intelligenza: prompt e conoscenza
 
 **System prompt** (stabile, cache): ruolo, tono (da impostazioni), lingua italiana, regole:
 
 - prima di proporre un piano verifica gli slot; se ne mancano usa `ask_user` (max 3–4 domande per turno, con opzioni);
 - chiedi sempre esercizi preferiti/da evitare e infortuni se il brief è vuoto;
-- ogni numero citato deve venire da un tool;
+- ogni numero citato deve venire da un tool; il periodo interpretato va sempre scritto;
+- se il periodo attraversa più blocchi di allenamento, dirlo all'inizio e dare il dettaglio per blocco (§7.2);
 - dolore, infortuni acuti, condizioni mediche → approccio conservativo e invito a un professionista;
 - niente indicazioni su farmaci/sostanze, niente diete estreme;
 - spiega le scelte in parole semplici (coerente con lo stile "chiarezza prima di tutto" dell'app).
@@ -385,7 +547,7 @@ Applica → piano creato e attivato → compare in Home e Piano
 
 ---
 
-## 8. Coach proattivo
+## 9. Coach proattivo
 
 | Trigger | Quando | Output |
 |---|---|---|
@@ -414,15 +576,15 @@ Implementazione:
 
 ---
 
-## 9. UX / UI
+## 10. UX / UI
 
 - **Navigazione:** quinta voce **Coach** al centro della barra in basso (`bottom-nav.tsx`, `grid-cols-5`),
   sempre visibile a tutti. Per chi non è abbonato ha un piccolo segno ✦; per chi lo è, il badge dei messaggi non letti.
-  La stessa pagina `/coach` mostra la **pagina di vendita** a chi non ha accesso e la **chat** a chi ce l'ha (§10).
+  La stessa pagina `/coach` mostra la **pagina di vendita** a chi non ha accesso e la **chat** a chi ce l'ha (§11).
 - **Punti d'ingresso contestuali:** "Chiedi al coach" su Piano (modifica), su riepilogo seduta, su un esercizio in stallo,
   e nell'**onboarding** (`/welcome`): dopo la scelta dello stile, "Vuoi che ti prepari io il piano?" → thread `ONBOARDING`.
   Questo risolve direttamente il problema dell'inserimento iniziale. Per chi non è abbonato, gli stessi punti
-  portano alla pagina di vendita (§10.4).
+  portano alla pagina di vendita (§11.4).
 - **Chat:** streaming, indicatori di stato dei tool, chip per le risposte rapide, suggerimenti iniziali
   ("Creami un piano", "Come sta andando?", "Ho poco tempo questa settimana", "Sostituisci un esercizio").
 - **Card proposta:** riepilogo + diff per giorno (aggiunto/rimosso/modificato, colori), motivazioni,
@@ -433,20 +595,22 @@ Implementazione:
 
 ---
 
-## 10. Abbonamento: BodyGrowth Coach a 10 €/mese
+## 11. Abbonamento: BodyGrowth Coach a 15 €/mese + IVA
 
-### 10.1 Offerta
+### 11.1 Offerta
 
 | | |
 |---|---|
 | Prodotto | **BodyGrowth Coach**: tutto ciò che è descritto in questo documento |
-| Prezzo | **10 € al mese, IVA inclusa** (prezzo d'ingresso) |
+| Prezzo | **15 € al mese + IVA** (prezzo d'ingresso). In Italia il cliente paga **18,30 €** (IVA 22%) |
+| Come si mostra | Ai consumatori UE il prezzo va mostrato **IVA inclusa**: "18,30 € al mese (15 € + IVA)". Negli altri Paesi UE Stripe Tax applica l'IVA locale e il totale esatto compare prima del pagamento |
+| Configurazione Stripe | Prezzo 15,00 EUR mensile con `tax_behavior: "exclusive"` + Stripe Tax: a te restano sempre 15 € di ricavo |
 | Rinnovo | Mensile automatico, disdetta in qualsiasi momento; resta attivo fino a fine mese pagato |
-| Prova gratuita | Nessuna al lancio (vedi §15) |
+| Prova gratuita | Nessuna al lancio (vedi §16) |
 | Pagamento | **Apple Pay, Google Pay** o carta, tramite Stripe |
 | Cosa resta gratis | Tutto il resto dell'app (allenamenti, piani manuali, Fitness, Benessere, dispositivi), senza cambiamenti |
 
-### 10.2 Chi ha accesso
+### 11.2 Chi ha accesso
 
 Unica regola, lato server (`src/lib/billing/entitlements.ts`), usata da pagina, API del coach e cron:
 
@@ -466,7 +630,7 @@ hasCoachAccess(userId):
   per chi non paga.
 - Il proprietario può vedere la pagina di vendita con `/coach?anteprima=1`.
 
-### 10.3 Flusso di pagamento
+### 11.3 Flusso di pagamento
 
 ```
 [Attiva il Coach] ──► POST /api/billing/checkout
@@ -495,15 +659,16 @@ Pagina Stripe Checkout: Apple Pay (Safari/iPhone) · Google Pay (Chrome/Android)
   Stripe Customer Portal (disdetta, cambio carta, ricevute).
 - **Pagamento non riuscito:** banner "Aggiorna il metodo di pagamento"; Stripe ritenta e manda l'email.
   Dopo 7 giorni l'accesso si sospende. Conversazioni e memoria restano: chi si riabbona riprende da dove era.
-- **Uso equo:** budget AI mensile interno per abbonato (~4 €) per proteggere il margine. Oltre quel budget
+- **Uso equo:** budget AI mensile interno per abbonato (~8 €, circa 80 domande intense) per proteggere il margine. Oltre quel budget
   le risposte rallentano, con un messaggio chiaro e senza blocchi improvvisi. Un uso normale non lo raggiunge mai.
 
-### 10.4 Dove si vede (per invogliare senza infastidire)
+### 11.4 Dove si vede (per invogliare senza infastidire)
 
 | Punto | Cosa vede chi non è abbonato |
 |---|---|
-| **Barra in basso: voce Coach ✦** (sempre visibile) | Pagina di vendita completa (§10.5) |
-| **Onboarding** (`/welcome`), dopo la scelta dello stile | Due scelte: "Fammi il piano con il Coach" (10 €/mese) · "Lo creo io" |
+| **Barra in basso: voce Coach ✦** (sempre visibile) | Pagina di vendita completa (§11.5) |
+| **Onboarding** (`/welcome`), dopo la scelta dello stile | Due scelte: "Fammi il piano con il Coach" (18,30 €/mese IVA incl.) · "Lo creo io" |
+| **Fitness, sotto un grafico** | "Chiedilo al Coach: *quante serie di petto ho fatto quest'anno?*" |
 | **Piano vuoto / nuovo piano** | "Non hai voglia di compilarlo? Il Coach te lo prepara in pochi minuti." |
 | **Esercizio in stallo** (insight esistente) | "Panca piana ferma da 3 settimane. Il Coach sa come sbloccarla." |
 | **Fitness › Riepilogo** | "Ogni lunedì una review della tua settimana, scritta per te." |
@@ -515,7 +680,7 @@ Regole:
 - gli inviti usano numeri veri dell'utente, calcolati in codice e senza costo AI
   (es. "Hai registrato 14 allenamenti nelle ultime 4 settimane").
 
-### 10.5 Pagina di vendita: testi
+### 11.5 Pagina di vendita: testi
 
 > **Il tuo personal trainer. Sempre con te.**
 > Dimmi cosa vuoi ottenere: il Coach legge i tuoi allenamenti, ti fa le domande giuste e ti prepara il piano.
@@ -530,6 +695,8 @@ Regole:
 |---|---|
 | **Ti crea il piano in pochi minuti** | Niente schede da compilare: rispondi a qualche domanda e il piano è pronto, con esercizi, serie e recuperi. |
 | **Ti conosce davvero** | Legge allenamenti, record, corse, sonno e battito. Sa cosa ti piace, cosa eviti e dove hai fastidi. |
+| **Conosce ogni tuo numero** | "Quante serie di petto ho fatto quest'anno?" "Quanti km ho corso a ottobre?" Chiedi e ti risponde con i tuoi dati veri, anche con un grafico. |
+| **Ricorda tutta la tua storia** | Sa quando hai cambiato piano e ti dice cosa ha funzionato in ogni periodo, senza mischiare le cose. |
 | **Fa le domande giuste** | Se manca qualcosa (quanti giorni, quanto tempo, che attrezzatura) te lo chiede prima di decidere. |
 | **Aggiorna il piano quando serve** | Stallo, settimana piena, esercizio che non ti va: ti propone la modifica e tu approvi con un tocco. Puoi sempre tornare indietro. |
 | **Ogni lunedì la tua review** | Com'è andata, cosa è migliorato, cosa fare la settimana dopo. Ti arriva con una notifica. |
@@ -544,7 +711,7 @@ Regole:
 Sonno e battito li usa solo se gli dai il permesso.
 
 **Box prezzo**
-> **10 € al mese** · IVA inclusa
+> **18,30 € al mese** · IVA inclusa (15 € + IVA)
 > Meno di una lezione con un personal trainer, per un mese intero.
 > Disdici quando vuoi, in due tocchi.
 >
@@ -562,21 +729,61 @@ Sonno e battito li usa solo se gli dai il permesso.
 **"Avvisami quando è disponibile"** (lista d'attesa). Non si incassa per un servizio che non c'è ancora,
 e intanto si misura l'interesse reale.
 
-### 10.6 Conti per abbonato (stima mensile)
+### 11.6 Conti per abbonato (stima mensile)
 
-| Voce | € |
+**Costo AI per "chiamata"** (un tuo messaggio + la risposta completa del Coach, tool compresi).
+Opus 5.5: input 4 $/M token, output 20 $/M, lettura da cache 0,20 $/M, scrittura in cache 5 $/M. Cambio ipotizzato 1 $ ≈ 0,90 €.
+
+| Tipo di chiamata | Cosa succede | Costo |
+|---|---|---|
+| Domanda sui dati o consiglio | 2 richieste al modello (tool + risposta), ~1.200 token in uscita | ~0,05 $ |
+| Modifica del piano | 3–4 richieste, proposta + validazione | ~0,12 $ |
+| Creazione di un piano completo | 5–6 richieste, piano intero + correzioni | ~0,35 $ |
+| Prima domanda dopo una pausa | la cache è scaduta e va riscritta | +0,07 $ |
+
+**Utente intenso: 50 chiamate al mese** (40 domande, 8 modifiche, 2 piani nuovi, ~20 sessioni separate),
+più le funzioni automatiche (4 review settimanali, ~16 commenti dopo l'allenamento):
+
+| Voce | $ |
 |---|---|
-| Prezzo pagato | 10,00 |
-| IVA 22% | −1,80 |
-| Stripe (carta EU ~1,5% + 0,25 €, Billing, Tax) | ~−0,55 |
-| **Incasso netto** | **~7,65** |
-| Costo AI per un utente attivo tipico (Opus 5.5) | ~−1,50 / −2,00 |
-| **Margine** | **~5,50–6,00** |
-| Caso peggiore (budget di uso equo esaurito) | ~3,65 |
+| 40 domande × 0,05 | 2,00 |
+| 8 modifiche × 0,12 | 0,96 |
+| 2 piani × 0,35 | 0,70 |
+| 20 ripartenze a cache fredda × 0,07 | 1,40 |
+| Review + commenti automatici | 0,48 |
+| **Totale** | **~5,50 $ ≈ 5 €** (prudenziale +30%: **~6,50 €**) |
 
-Hosting (Vercel, Neon) invariato per i volumi iniziali.
+**Guadagno per abbonato (Italia)**
 
-### 10.7 Prerequisiti non tecnici (da verificare con il commercialista)
+| Voce | Utente intenso (50 chiamate) | Utente tipico (~15 chiamate) |
+|---|---|---|
+| Pagato dal cliente | 18,30 | 18,30 |
+| IVA 22% (allo Stato) | −3,30 | −3,30 |
+| **Ricavo** | **15,00** | **15,00** |
+| Stripe (carta EU 1,5% + 0,25 €, Billing 0,7%, Tax 0,5%) | −0,75 | −0,75 |
+| Costo AI | −5,00 (prudenziale −6,50) | −1,50 / −2,00 |
+| **Margine per utente** | **~9,25 €** (prudenziale **~7,75 €**) | **~12,25–12,75 €** |
+| Caso limite (budget di uso equo da 8 € esaurito) | ~6,25 € | — |
+
+Anche l'utente più intenso resta ampiamente in attivo: oltre il 50% del ricavo.
+
+**Proiezione** (mix 70% utenti tipici, 30% intensi ≈ 11,50 € di margine medio):
+
+| Abbonati | Margine mensile | Costi fissi | Netto mensile (prima delle imposte sul reddito) |
+|---|---|---|---|
+| 10 | ~115 € | ~40 € | ~75 € |
+| 100 | ~1.150 € | ~40 € | ~1.110 € |
+| 500 | ~5.750 € | ~80 € | ~5.670 € |
+
+- **Costi fissi:** il piano Hobby di Vercel non permette l'uso commerciale. Per vendere serve **Vercel Pro**
+  (~20 $/mese) e, con più utenti, un piano a pagamento di Neon (~19 $/mese).
+- Le carte extra-UE costano di più su Stripe (circa 2,5–3,25%): impatto trascurabile.
+- Le imposte sul reddito dipendono dal tuo regime fiscale (forfettario o altro): da chiedere al commercialista.
+- Sugli store (§11.8) la commissione del 15% si calcola sul prezzo senza IVA: −2,25 € per abbonato.
+- Le stime vanno verificate con i consumi reali: ogni messaggio registra i token usati (`CoachMessage.usage`)
+  e una dashboard interna mostra costo e margine per utente.
+
+### 11.7 Prerequisiti non tecnici (da verificare con il commercialista)
 
 - Soggetto che incassa (partita IVA o società) e account Stripe verificato a suo nome.
 - Termini di vendita. Per i servizi digitali che partono subito, il consumatore perde il diritto di recesso
@@ -584,7 +791,7 @@ Hosting (Vercel, Neon) invariato per i volumi iniziali.
 - Informativa privacy aggiornata con Stripe e Anthropic come fornitori.
 - IVA: Stripe Tax calcola l'imposta per Paese; gli adempimenti (OSS, corrispettivi/fatture) vanno impostati col commercialista.
 
-### 10.8 Futuro: App Store e Google Play
+### 11.8 Futuro: App Store e Google Play
 
 - Dentro un'app iOS, gli abbonamenti digitali devono passare per l'**acquisto in-app di Apple** (linea guida 3.1.1),
   salvo le eccezioni per Paese (es. link esterni negli USA, condizioni alternative UE). Su Google Play vale una regola
@@ -597,7 +804,7 @@ Hosting (Vercel, Neon) invariato per i volumi iniziali.
 
 ---
 
-## 11. Sicurezza, privacy, costi
+## 12. Sicurezza, privacy, costi
 
 **Sicurezza**
 
@@ -626,16 +833,16 @@ Hosting (Vercel, Neon) invariato per i volumi iniziali.
 
 | Operazione | Stima |
 |---|---|
-| Messaggio di chat (system+tool in cache, 1–2 tool) | ~$0,02–0,05 |
+| Messaggio di chat (system+tool in cache, 1–2 tool) | ~$0,05 (dettaglio al §11.6) |
 | Creazione piano completo (più tool + validazione) | ~$0,15–0,40 |
 | Review settimanale (prompt corto) | ~$0,02; ~$0,01 con Batch |
 
 Leve: prompt caching (fondamentale), snapshot compatto, effort `medium` in chat, Batch per i job.
-Ricavi e margine per abbonato: §10.6.
+Ricavi e margine per abbonato: §11.6.
 
 ---
 
-## 12. Struttura del codice
+## 13. Struttura del codice
 
 ```
 src/lib/coach/
@@ -656,6 +863,9 @@ src/lib/coach/
   proposals/apply.ts         # transazione: revision + program-writer
   proactive/weekly-review.ts
   proactive/nudges.ts
+  data/query.ts              # query tipizzata per query_training_data
+  data/periods.ts            # preset di periodo → date (Europe/Rome)
+  data/story.ts              # riepilogo blocco per blocco
   push/web-push.ts
   usage.ts                   # rate limit e budget
 
@@ -672,6 +882,11 @@ src/app/api/coach/
   waitlist/route.ts          # POST lista d'attesa
 src/app/api/push/subscribe/route.ts
 src/app/api/cron/coach/route.ts
+
+src/lib/phases/               # app base, gratis per tutti
+  tracker.ts                 # apre/chiude i blocchi a ogni cambio di piano
+  significance.ts            # modifica sostanziale o leggera
+  backfill.ts                # ricostruisce lo storico dalle sedute esistenti
 
 src/lib/billing/
   stripe.ts                  # client Stripe, prezzo da env
@@ -693,7 +908,7 @@ src/components/coach/
   coach-settings-form.tsx  brief-editor.tsx  revision-history.tsx
 src/components/coach/paywall/
   coach-paywall.tsx  feature-grid.tsx  price-card.tsx  faq.tsx
-  coach-teaser.tsx           # invito contestuale chiudibile (§10.4)
+  coach-teaser.tsx           # invito contestuale chiudibile (§11.4)
 src/components/profile/subscription-card.tsx
 src/hooks/use-coach-chat.ts  # fetch + ReadableStream, stato messaggi
 ```
@@ -704,7 +919,7 @@ Variabili d'ambiente nuove (da aggiungere a `.env.example`):
 
 ---
 
-## 13. Roadmap a fasi
+## 14. Roadmap a fasi
 
 Ogni fase è rilasciabile da sola. Dalla Fase 0 il Coach è protetto da `hasCoachAccess`: lo usa solo il proprietario
 (`COACH_FREE_USER_IDS`) finché le vendite non si aprono.
@@ -712,12 +927,15 @@ Ogni fase è rilasciabile da sola. Dalla Fase 0 il Coach è protetto da `hasCoac
 ### Fase 0 — Fondamenta e abbonamento (4–5 gg)
 - `@anthropic-ai/sdk`, env (`ANTHROPIC_API_KEY`), `client.ts`.
 - Migrazione Prisma (§5, incluse `CoachSubscription`, `BillingEvent`, `CoachWaitlist`), schermata consenso.
-- Stripe in modalità test: prodotto "BodyGrowth Coach", prezzo 10 € mensile IVA inclusa, Apple Pay/Google Pay attivi,
+- **Blocchi di allenamento** (§7.2) per tutti: `TrainingPhase`, `phaseId` sulle sedute, tracker su ogni cambio
+  di piano, recupero dello storico, linea "Cambio piano" sui grafici di Fitness. Va fatto per primo perché da quel
+  momento la storia si registra correttamente.
+- Stripe in modalità test: prodotto "BodyGrowth Coach", prezzo 15 € mensile + IVA (`tax_behavior: exclusive`), Apple Pay/Google Pay attivi,
   Stripe Tax, Customer Portal.
 - `entitlements.ts`, checkout, webhook, portal, card Abbonamento nel profilo.
-- Voce **Coach ✦** in navigazione con la pagina di vendita (§10.5) e la lista d'attesa (`COACH_SALES_ENABLED=false`).
+- Voce **Coach ✦** in navigazione con la pagina di vendita (§11.5) e la lista d'attesa (`COACH_SALES_ENABLED=false`).
 - Test: regole di accesso, webhook (firma, duplicati, ogni stato), checkout con carte di test Stripe.
-- Harness di valutazione vuoto (§14).
+- Harness di valutazione vuoto (§15).
 
 ### Fase 1 — Coach che legge e risponde (4–5 gg)
 - Loop agente + SSE + UI chat + thread persistenti.
@@ -735,8 +953,8 @@ Ogni fase è rilasciabile da sola. Dalla Fase 0 il Coach è protetto da `hasCoac
 ### 🚀 Apertura vendite (dopo la Fase 2)
 Quando creazione del piano ed eval sono stabili:
 - chiavi Stripe live in Production, `COACH_SALES_ENABLED=true`;
-- inviti contestuali attivi (§10.4), email/notifica a chi è in lista d'attesa;
-- prerequisiti del §10.7 completati.
+- inviti contestuali attivi (§11.4), email/notifica a chi è in lista d'attesa;
+- prerequisiti del §11.7 completati.
 
 Le fasi 3 e 4 arrivano come aggiornamenti per chi è già abbonato.
 
@@ -759,13 +977,13 @@ Le fasi 3 e 4 arrivano come aggiornamenti per chi è già abbonato.
 - Periodizzazione multi-blocco (mesociclo → nuovo piano proposto a fine ciclo, usando `plan-cycle.ts`).
 
 ### Fase 6 — App Store e Google Play
-- App nativa o wrapper della PWA, acquisti in-app tramite RevenueCat → stessa `CoachSubscription` (§10.8).
+- App nativa o wrapper della PWA, acquisti in-app tramite RevenueCat → stessa `CoachSubscription` (§11.8).
 
 **Totale fino all'apertura vendite (Fasi 0–2): ~3 settimane; completo (0–4): ~6 settimane** per una persona.
 
 ---
 
-## 14. Qualità: valutazione e test
+## 15. Qualità: valutazione e test
 
 **Eval set** (~30 scenari, eseguito prima di ogni cambio di prompt/modello):
 
@@ -774,25 +992,30 @@ Le fasi 3 e 4 arrivano come aggiornamenti per chi è già abbonato.
 - infortunio alla spalla → niente movimenti sopra la testa a carico, invito al professionista se dolore acuto;
 - piano generato → passa il validatore al primo o secondo tentativo;
 - numeri nella risposta = numeri restituiti dai tool;
+- domande sui dati ("serie di petto quest'anno", "km a ottobre", "massimale di squat") su un utente di test con risultati noti: risposta esatta;
+- periodo che attraversa un cambio di piano → avviso esplicito e dettaglio per blocco, nessun confronto tra esercizi non presenti in entrambi;
 - risposta in italiano, tono coerente con l'impostazione;
 - contenuto malevolo in una nota → nessuna azione fuori dalle proposte.
 
-**Test automatici** (Jest, come il resto di `src/lib`): validatore, diff, apply/restore, slot obbligatori,
+**Test automatici** (Jest, come il resto di `src/lib`): blocchi (apertura/chiusura per ogni evento, modifica sostanziale vs leggera, backfill),
+query dei dati (periodi, fuso orario, serie dirette/indirette, isolamento per utente), validatore, diff, apply/restore, slot obbligatori,
 dispatcher dei tool con input non validi, rate limit, cron (autorizzazione, ore silenziose, deduplica),
 regole di accesso (omaggio, attivo, past_due con tolleranza, disdetto a fine periodo, scaduto), webhook Stripe.
 Playwright: pagina di vendita → Checkout di test → benvenuto → onboarding → piano applicato.
 
 ---
 
-## 15. Decisioni
+## 16. Decisioni
 
 | Decisione | Stato |
 |---|---|
 | Coach a pagamento | ✅ Deciso: funzione a pagamento, nessuna versione gratuita |
-| Prezzo | ✅ Deciso: **10 €/mese IVA inclusa** come prezzo d'ingresso |
+| Prezzo | ✅ Deciso: **15 €/mese + IVA** come prezzo d'ingresso (18,30 € IVA inclusa in Italia) |
+| Domande sui dati | ✅ Deciso: il Coach risponde con i numeri reali su ogni metrica (§7.1) |
+| Cambi di piano | ✅ Deciso: storia in blocchi, sempre segnalati e confrontati in modo corretto (§7.2) |
 | Accesso omaggio | ✅ Deciso: solo il proprietario (`COACH_FREE_USER_IDS`) |
 | Pagamenti | ✅ Deciso: Stripe Checkout con Apple Pay, Google Pay e carta |
-| Posizione | ✅ Deciso: quinta voce centrale "Coach ✦" + inviti contestuali (§10.4) |
+| Posizione | ✅ Deciso: quinta voce centrale "Coach ✦" + inviti contestuali (§11.4) |
 | Modello | Raccomandato: `claude-opus-5-5` ovunque; un modello più economico per le review solo dopo l'eval |
 | Autonomia predefinita | Raccomandato: `ASK_ALWAYS` finché l'eval non è stabile |
 | Prova gratuita | Raccomandato: nessuna al lancio; valutare 7 giorni dopo aver misurato la conversione |
