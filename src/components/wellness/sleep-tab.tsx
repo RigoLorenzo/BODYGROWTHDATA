@@ -183,6 +183,7 @@ export function SleepTab({ data }: { data: WellnessResponse }) {
         icon={Moon}
         title={isToday ? "Punteggio sonno" : `Punteggio sonno · ${dayLabel(night.date)}`}
         value={sleepScore(night)}
+        note={sleepScore(night).source === "watch" ? "Punteggio dell'orologio, lo stesso della sua app" : "Calcolato dall'app: l'orologio non ha dato un punteggio"}
       />
 
       <Section title={isLast ? "Ultima notte" : "Notte"} hint={longDayLabel(night.date)}>

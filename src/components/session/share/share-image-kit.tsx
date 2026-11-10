@@ -7,7 +7,7 @@
  */
 
 import type { WorkoutShareStats } from "@/lib/workout-share";
-import { formatNumberIt, splitTonnage } from "@/lib/workout-share";
+import { formatNumberIt, formatShareDuration, splitTonnage } from "@/lib/workout-share";
 
 export const DISPLAY = "Barlow Condensed";
 export const BODY = "Inter";
@@ -34,15 +34,8 @@ export interface Palette {
   muted: string;
   faint: string;
   line: string;
-  /** Il numero da copertina */
-  hero: string;
-  /** Testi in evidenza: record, dominio */
-  accent: string;
-  pillBg: string;
-  pillText: string;
 }
 
-const LIME = "#d4ff3a";
 const INK = "#09090b";
 
 export const PALETTES: Record<"dark" | "light", Palette> = {
@@ -54,10 +47,6 @@ export const PALETTES: Record<"dark" | "light", Palette> = {
     muted: "rgba(250,250,250,0.6)",
     faint: "rgba(250,250,250,0.38)",
     line: "rgba(250,250,250,0.12)",
-    hero: LIME,
-    accent: LIME,
-    pillBg: LIME,
-    pillText: INK,
   },
   light: {
     bg: "#f5f5f0",
@@ -67,10 +56,6 @@ export const PALETTES: Record<"dark" | "light", Palette> = {
     muted: "rgba(9,9,11,0.62)",
     faint: "rgba(9,9,11,0.42)",
     line: "rgba(9,9,11,0.12)",
-    hero: INK,
-    accent: "#4d7c0f",
-    pillBg: LIME,
-    pillText: INK,
   },
 };
 
@@ -101,20 +86,6 @@ export function SectionLabel({
     >
       {children}
     </div>
-  );
-}
-
-export function TrophyIcon({ size, color }: { size: number; color: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <path
-        d="M7 4h10v3a5 5 0 0 1-10 0V4Zm0 1H4v1.5A3.5 3.5 0 0 0 7.5 10M17 5h3v1.5a3.5 3.5 0 0 1-3.5 3.5M12 12v4m-4 4h8m-6.5 0 .5-4h4l.5 4"
-        stroke={color}
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
   );
 }
 
@@ -167,14 +138,30 @@ export function WorkoutDate({
   );
 }
 
-/** Il tonnellaggio è il numero da copertina; a corpo libero lo sono le ripetizioni */
-export function heroMetric(stats: WorkoutShareStats) {
-  if (stats.tonnage > 0) return { label: "Tonnellaggio totale", ...splitTonnage(stats.tonnage) };
-  return { label: "Ripetizioni totali", value: formatNumberIt(stats.reps), unit: "rip." };
+export interface ShareMetric {
+  label: string;
+  value: string;
+  unit?: string;
+}
+
+/**
+ * I quattro numeri dell'allenamento, tutti con lo stesso peso: nessuno fa
+ * da copertina. A corpo libero (niente carichi) il volume lascia il posto
+ * al numero di esercizi.
+ */
+export function shareMetrics(stats: WorkoutShareStats): ShareMetric[] {
+  const volume = splitTonnage(stats.tonnage);
+  return [
+    { label: "Durata", value: stats.durationSeconds ? formatShareDuration(stats.durationSeconds) : "—" },
+    stats.tonnage > 0 ? { label: "Volume", value: volume.value, unit: volume.unit } : { label: "Esercizi", value: formatNumberIt(stats.exerciseCount) },
+    { label: "Serie", value: formatNumberIt(stats.workingSets) },
+    { label: "Ripetizioni", value: formatNumberIt(stats.reps) },
+  ];
 }
 
 export const hiddenExercisesText = (hidden: number) =>
   hidden === 1 ? "+ 1 altro esercizio" : `+ ${hidden} altri esercizi`;
 
+/** Solo nel riepilogo in app: i record restano tuoi, non finiscono nell'immagine condivisa */
 export const recordCountText = (count: number) =>
   count === 1 ? "1 record personale" : `${count} record personali`;

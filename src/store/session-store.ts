@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { ActiveSession, ActiveExercise, ActiveSet } from "@/types";
+import { linkWithNext, unlink, withSupersetTag } from "@/lib/superset";
 
 interface SessionState {
   activeSession: ActiveSession | null;
@@ -18,6 +19,10 @@ interface SessionState {
   reorderExercises: (exercises: ActiveExercise[]) => void;
   /** Nota dell'esercizio (vuota: nessuna nota) */
   setExerciseNotes: (exerciseId: string, notes: string) => void;
+  /** Superset con l'esercizio successivo: serie alternate; l'etichetta va nella nota del primo */
+  linkSuperset: (exerciseId: string) => void;
+  /** Scioglie il superset: i due esercizi tornano separati */
+  unlinkSuperset: (exerciseId: string) => void;
 
   // Set actions
   addSet: (exerciseId: string, set: ActiveSet) => void;
@@ -89,6 +94,27 @@ export const useSessionStore = create<SessionState>()(
 
         setExerciseNotes: (exerciseId, notes) =>
           update((session) => mapExercise(session, exerciseId, (ex) => ({ ...ex, notes }))),
+
+        linkSuperset: (exerciseId) =>
+          update((session) => {
+            const linked = linkWithNext(session.exercises, exerciseId);
+            if (!linked) return session;
+            return {
+              ...session,
+              exercises: linked.map((ex) => (ex.id === exerciseId ? { ...ex, notes: withSupersetTag(ex.notes, true) } : ex)),
+            };
+          }),
+
+        unlinkSuperset: (exerciseId) =>
+          update((session) => {
+            const partner = session.exercises.find((ex) => ex.id === exerciseId)?.supersetWith;
+            return {
+              ...session,
+              exercises: unlink(session.exercises, exerciseId).map((ex) =>
+                ex.id === exerciseId || ex.id === partner ? { ...ex, notes: withSupersetTag(ex.notes, false) } : ex
+              ),
+            };
+          }),
 
         addSet: (exerciseId, newSet) =>
           update((session) => mapExercise(session, exerciseId, (ex) => ({ ...ex, sets: [...ex.sets, newSet] }))),

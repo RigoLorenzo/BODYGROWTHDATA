@@ -193,6 +193,20 @@ const minutesOf = (p: Payload, ...keys: string[]) => {
   return v != null && v >= 0 ? Math.round(v) : null;
 };
 
+/**
+ * Risvegli durante la notte dall'ipnogramma: i tratti "sveglio" tra due fasi
+ * di sonno (quelli prima di addormentarsi e dopo l'ultimo risveglio non contano).
+ */
+export function countAwakenings(stages: SleepSegment[]): number {
+  const merged = stages.reduce<SleepSegment[]>((list, s) => {
+    const last = list.at(-1);
+    if (last && last.stage === s.stage) last.end = Math.max(last.end, s.end);
+    else list.push({ ...s });
+    return list;
+  }, []);
+  return merged.filter((s, i) => s.stage === "awake" && i > 0 && i < merged.length - 1).length;
+}
+
 /** Registrazione del sonno → notte (null se incompleta) */
 export function mapSleepRecord(record: FitnessRecord): SleepInput | null {
   const p = parsePayload(record);
@@ -256,7 +270,7 @@ export function mapSleepRecord(record: FitnessRecord): SleepInput | null {
     maxHr: maxHr && maxHr >= HR_RANGE[0] && maxHr <= HR_RANGE[1] ? Math.round(maxHr) : null,
     // Respiri al minuto plausibili nel sonno
     respRate: breath && breath >= 5 && breath <= 40 ? Math.round(breath * 10) / 10 : null,
-    awakeCount,
+    awakeCount: awakeCount ?? (stages.length ? countAwakenings(stages) : null),
     stages,
   };
 }

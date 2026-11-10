@@ -14,7 +14,15 @@ interface Props {
   /** Stessa serie l'ultima volta (stesso giorno del piano, se c'è) */
   previous?: LoggedSet;
   onRemove?: (index: number) => void;
+  /** Etichetta al posto del numero (superset: "A1", "B1") */
+  label?: string;
 }
+
+/** Colonne della riga: con l'etichetta del superset la prima è più larga */
+export const setGrid = (wide = false) =>
+  wide
+    ? "grid grid-cols-[1.75rem_minmax(0,1fr)_3.5rem_2.5rem_1.25rem] gap-1.5"
+    : "grid grid-cols-[1.25rem_minmax(0,1fr)_3.5rem_2.5rem_1.25rem] gap-1.5";
 
 const WEIGHT_STEP = 2.5;
 
@@ -74,7 +82,7 @@ function useSyncedField(value: number | undefined, parse: (v: string) => number,
   return [text, setText] as const;
 }
 
-function SetRowComponent({ exerciseId, set, index, previous, onRemove }: Props) {
+function SetRowComponent({ exerciseId, set, index, previous, onRemove, label }: Props) {
   const updateSet = useSessionStore((s) => s.updateSet);
   const completeSet = useSessionStore((s) => s.completeSet);
   const uncompleteSet = useSessionStore((s) => s.uncompleteSet);
@@ -106,7 +114,8 @@ function SetRowComponent({ exerciseId, set, index, previous, onRemove }: Props) 
   return (
     <div
       className={cn(
-        "grid grid-cols-[1.25rem_minmax(0,1fr)_3.5rem_2.5rem_1.25rem] gap-1.5 items-center rounded-lg px-1 py-1",
+        setGrid(!!label),
+        "items-center rounded-lg px-1 py-1",
         set.completed && "bg-green-500/10"
       )}
     >
@@ -116,7 +125,7 @@ function SetRowComponent({ exerciseId, set, index, previous, onRemove }: Props) 
           set.type === "WARMUP" ? "text-yellow-700 dark:text-yellow-400" : "text-muted-foreground"
         )}
       >
-        {set.type === "WARMUP" ? "W" : set.setNumber}
+        {set.type === "WARMUP" ? "W" : label ?? set.setNumber}
       </span>
 
       <div className="flex items-center gap-0.5 min-w-0">

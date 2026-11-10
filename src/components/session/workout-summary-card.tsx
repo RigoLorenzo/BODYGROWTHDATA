@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { motion, useReducedMotion, type Variants } from "framer-motion";
 import { CalendarDays, ChevronDown, Share2, Trophy, Watch, X } from "lucide-react";
 import type { Prisma } from "@prisma/client";
@@ -9,14 +9,12 @@ import { splitDayName } from "@/lib/plan-format";
 import {
   buildWorkoutShareStats,
   formatKg,
-  formatNumberIt,
-  formatShareDuration,
   timeOfDayTitle,
   type ShareExercise,
   type ShareMuscle,
   type WorkoutShareStats,
 } from "@/lib/workout-share";
-import { heroMetric, hiddenExercisesText, recordCountText } from "./share/share-image-kit";
+import { hiddenExercisesText, recordCountText, shareMetrics } from "./share/share-image-kit";
 import { ShareWorkoutDialog } from "./share/share-workout-dialog";
 import { SOURCE_NAME } from "./imported-activity-card";
 
@@ -51,75 +49,34 @@ const Label = ({ children, className }: { children: React.ReactNode; className?:
   <p className={cn("text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500", className)}>{children}</p>
 );
 
-/** Da 0 al valore in ~0,9 s; subito il valore se l'animazione è ridotta o spenta */
-function useCountUp(enabled: boolean) {
-  const reduce = useReducedMotion();
-  const [progress, setProgress] = useState(enabled && !reduce ? 0 : 1);
-  useEffect(() => {
-    if (!enabled || reduce) return setProgress(1);
-    let frame = 0;
-    const start = performance.now();
-    const tick = (now: number) => {
-      const t = Math.min(1, (now - start) / 900);
-      setProgress(1 - (1 - t) ** 3);
-      if (t < 1) frame = requestAnimationFrame(tick);
-    };
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [enabled, reduce]);
-  return progress;
-}
-
-/** Numero da copertina con la stessa unità finale anche durante il conteggio */
-function heroValue(stats: WorkoutShareStats, unit: string, progress: number) {
-  if (unit === "t") return ((stats.tonnage * progress) / 1000).toFixed(1).replace(".", ",");
-  if (unit === "kg") return formatNumberIt(stats.tonnage * progress);
-  return formatNumberIt(stats.reps * progress);
-}
-
-function Hero({ stats, celebrate }: { stats: WorkoutShareStats; celebrate: boolean }) {
-  const { label, value, unit } = heroMetric(stats);
-  const progress = useCountUp(celebrate);
+/** I quattro numeri della seduta, tutti allo stesso livello (come nell'immagine condivisa) */
+function Metrics({ stats }: { stats: WorkoutShareStats }) {
   return (
-    <div className="flex items-end justify-between gap-4">
-      <div className="min-w-0">
-        <Label>{label}</Label>
-        <p className="mt-1 flex items-end gap-1.5 font-display font-extrabold leading-[0.85]">
-          <span className="text-[5.5rem] tabular-nums tracking-tight text-[#d4ff3a]" aria-label={`${value} ${unit}`}>
-            {progress < 1 ? heroValue(stats, unit, progress) : value}
-          </span>
-          <span className="pb-2 text-4xl font-bold text-zinc-50">{unit}</span>
-        </p>
-      </div>
-      {stats.topSet && (
-        <div className="min-w-0 shrink pb-2 text-right">
-          <Label>Serie top</Label>
-          <p className="mt-1 whitespace-nowrap font-display text-3xl font-extrabold leading-none text-zinc-50">
-            {formatKg(stats.topSet.weight)} × {stats.topSet.reps}
-          </p>
-          <p className="mt-1 truncate text-xs font-medium text-zinc-400">{stats.topSet.exerciseName}</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function StatsRow({ stats }: { stats: WorkoutShareStats }) {
-  const items = [
-    { label: "Durata", value: stats.durationSeconds ? formatShareDuration(stats.durationSeconds) : "—" },
-    { label: "Serie", value: formatNumberIt(stats.workingSets) },
-    { label: "Ripetiz.", value: formatNumberIt(stats.reps) },
-    { label: "Esercizi", value: formatNumberIt(stats.exerciseCount) },
-  ];
-  return (
-    <dl className="grid grid-cols-[1.35fr_1fr_1fr_1fr] border-y border-white/10 py-3">
-      {items.map((item, i) => (
-        <div key={item.label} className={cn("min-w-0", i > 0 && "border-l border-white/10 pl-3")}>
-          <dd className="truncate font-display text-[1.75rem] font-bold leading-none tabular-nums text-zinc-50">{item.value}</dd>
+    <dl className="grid grid-cols-2 border-t border-white/10">
+      {shareMetrics(stats).map((item, i) => (
+        <div key={item.label} className={cn("min-w-0 border-b border-white/10 py-3", i % 2 === 1 ? "border-l pl-4" : "pr-4")}>
+          <dd className="flex items-baseline gap-1 font-display font-bold leading-none tabular-nums text-zinc-50">
+            <span className="truncate text-[2.5rem]">{item.value}</span>
+            {item.unit && <span className="text-lg text-zinc-400">{item.unit}</span>}
+          </dd>
           <dt className="mt-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">{item.label}</dt>
         </div>
       ))}
     </dl>
+  );
+}
+
+/** La serie più pesante, in una riga discreta */
+function TopSetLine({ stats }: { stats: WorkoutShareStats }) {
+  if (!stats.topSet) return null;
+  return (
+    <p className="flex items-baseline gap-2 text-sm">
+      <Label className="shrink-0">Serie top</Label>
+      <span className="whitespace-nowrap font-display text-xl font-bold text-zinc-50">
+        {formatKg(stats.topSet.weight)} × {stats.topSet.reps}
+      </span>
+      <span className="truncate text-xs font-medium text-zinc-400">{stats.topSet.exerciseName}</span>
+    </p>
   );
 }
 
@@ -265,10 +222,10 @@ export function WorkoutSummaryCard({ workout, dayName, celebrate = false, onClos
       </motion.header>
 
       <motion.div variants={item} className="mt-6">
-        <Hero stats={stats} celebrate={animate} />
+        <Metrics stats={stats} />
       </motion.div>
       <motion.div variants={item} className="mt-5">
-        <StatsRow stats={stats} />
+        <TopSetLine stats={stats} />
       </motion.div>
       {stats.muscles.length > 0 && (
         <motion.div variants={item} className="mt-5">

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@jest/globals";
 import {
+  countAwakenings,
   dailyRestingHr,
   dailySleeps,
   localParts,
@@ -185,5 +186,23 @@ describe("riepiloghi giornalieri Mi Fitness", () => {
   it("FC a riposo da avg_rhr, sul giorno locale della riga", () => {
     const days = dailyRestingHr([row({ avg_hr: 70, avg_rhr: 49.6 }), { time: DAY_KEY - 86_400, value: JSON.stringify({ avg_rhr: 0 }) }]);
     expect([...days]).toEqual([["2026-10-24", 50]]);
+  });
+});
+
+describe("risvegli dall'ipnogramma", () => {
+  it("conta i tratti svegli tra due fasi di sonno, non quelli agli estremi", () => {
+    const seg = (stage: "deep" | "light" | "rem" | "awake", start: number, end: number) => ({ stage, start, end });
+    const stages = [
+      seg("awake", 0, 5),
+      seg("light", 5, 60),
+      seg("awake", 60, 62),
+      seg("awake", 62, 64), // stesso risveglio spezzato in due
+      seg("deep", 64, 120),
+      seg("awake", 120, 125),
+      seg("rem", 125, 180),
+      seg("awake", 180, 190),
+    ];
+    expect(countAwakenings(stages)).toBe(2);
+    expect(countAwakenings([])).toBe(0);
   });
 });

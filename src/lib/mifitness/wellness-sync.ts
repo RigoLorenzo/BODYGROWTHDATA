@@ -131,7 +131,10 @@ async function lightUnit(ctx: Ctx, unit: Unit) {
 
   // Prima i riepiloghi, poi i dati grezzi: hanno l'ipnogramma e completano la notte
   const raw = (data.sleep ?? []).map(mapSleepRecord).filter((s): s is SleepInput => s != null);
-  for (const sleep of [...dailySleeps(dailySleep), ...raw]) {
+  // Prima i dati grezzi (portano l'ipnogramma), poi il riepilogo dell'app
+  // Mi Fitness: i suoi totali, risvegli e punteggio sono quelli che vedi
+  // nell'app Xiaomi e restano gli ultimi salvati. L'ipnogramma non si perde.
+  for (const sleep of [...raw, ...dailySleeps(dailySleep)]) {
     if (keep(sleep.date)) await saveSleepSession(ctx.userId, SOURCE, sleep);
   }
   return saved;
