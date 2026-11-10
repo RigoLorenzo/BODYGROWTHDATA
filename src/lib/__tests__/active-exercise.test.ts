@@ -11,18 +11,19 @@ describe("buildActiveExercise", () => {
     expect(ex.lastSets).toBeUndefined();
   });
 
-  it("con storico precompila le serie come proposta (da confermare)", () => {
+  it("con storico ripropone i numeri dell'ultima volta, senza consigli di carico", () => {
     const ex = buildActiveExercise(seed, {
       date: "2026-10-10",
       sets: [
         { weight: 100, reps: 8 },
         { weight: 100, reps: 8 },
-        { weight: 100, reps: 8 },
+        { weight: 97.5, reps: 7 },
       ],
     });
-    expect(ex.progression).toEqual({ increase: true, previousTop: 100 });
     expect(ex.lastDate).toBe("2026-10-10");
-    expect(ex.sets[0]).toMatchObject({ weight: 102.5, reps: 5, prefilled: true, completed: false });
+    // Anche con tutte le ripetizioni chiuse resta lo stesso peso: decidi tu
+    expect(ex.sets.map((s) => [s.weight, s.reps])).toEqual([[100, 8], [100, 8], [97.5, 7]]);
+    expect(ex.sets[0]).toMatchObject({ prefilled: true, completed: false });
   });
 
   it("per un esercizio fuori piano riprende il numero di serie dell'ultima volta", () => {

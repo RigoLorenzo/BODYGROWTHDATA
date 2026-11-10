@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { withProgramDayNames } from "@/lib/program-day-names";
@@ -6,8 +5,6 @@ import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { TodayHero } from "@/components/dashboard/today-hero";
 import { WeekCard } from "@/components/dashboard/week-card";
 import { RecentWorkouts } from "@/components/dashboard/recent-workouts";
-import { InsightCard } from "@/components/analytics/insight-card";
-import { Skeleton } from "@/components/ui/skeleton";
 import { startOfWeek, endOfWeek, format } from "date-fns";
 import { weekOverview } from "@/lib/overview";
 
@@ -73,10 +70,6 @@ export default async function DashboardPage() {
         initialOverview={statsData ?? undefined}
         initialDays={Object.keys(heatmapData).length ? heatmapData : undefined}
       />
-
-      <Suspense fallback={<Skeleton className="h-24 rounded-3xl" />}>
-        <InsightCard />
-      </Suspense>
 
       <RecentWorkouts initialData={recentWorkouts ?? undefined} />
     </div>

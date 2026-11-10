@@ -1,4 +1,4 @@
-import { suggestProgression, type LoggedSet } from "./progression";
+import type { LoggedSet } from "./progression";
 import type { ActiveExercise, ActiveSet } from "@/types";
 
 export type ExerciseHistory = Record<
@@ -44,17 +44,18 @@ export async function fetchExerciseHistory(ids: string[], programDayId?: string)
 }
 
 /**
- * Esercizio pronto per l'allenamento: le serie sono già compilate con la
- * proposta (numeri dell'ultima volta o aumento di carico), in grigio finché
- * non le confermi.
+ * Esercizio pronto per l'allenamento: le serie sono già compilate con i
+ * numeri dell'ultima volta, serie per serie, in grigio finché non le
+ * confermi. Nessun consiglio di carico: decidi tu.
  */
 export function buildActiveExercise(seed: ExerciseSeed, history?: ExerciseHistory[string]): ActiveExercise {
   const last = history?.sets ?? [];
   const count = Math.max(1, seed.sets ?? last.length ?? 1);
-  const suggestion = suggestProgression(last, { repsMin: seed.repsMin, repsMax: seed.repsMax }, count);
+  const logged = last.filter((s): s is { weight: number; reps: number } => (s.weight ?? 0) > 0 && (s.reps ?? 0) > 0);
 
   const sets: ActiveSet[] = Array.from({ length: count }, (_, i) => {
-    const proposal = suggestion?.sets[i];
+    // Oltre le serie dell'ultima volta si ripete l'ultima
+    const proposal = logged.length ? logged[Math.min(i, logged.length - 1)] : null;
     return {
       setNumber: i + 1,
       type: "WORKING",
@@ -79,7 +80,6 @@ export function buildActiveExercise(seed: ExerciseSeed, history?: ExerciseHistor
     lastSets: last.length ? last : undefined,
     lastDate: last.length ? history?.date : undefined,
     lastSameDay: last.length ? history?.sameDay : undefined,
-    progression: suggestion ? { increase: suggestion.increase, previousTop: suggestion.previousTop } : undefined,
     sets,
   };
 }

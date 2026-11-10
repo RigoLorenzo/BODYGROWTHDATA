@@ -9,6 +9,7 @@ import { formatKm } from "@/lib/run/format";
 import { useHeatmapData } from "@/hooks/use-workout-session";
 import { useActiveProgram } from "@/hooks/use-active-program";
 import { cn, formatVolume } from "@/lib/utils";
+import { DayLegend, DayMark, describeDay, type DayParts } from "@/components/analytics/frequency";
 import type { AnalyticsOverview } from "@/types";
 import { FITNESS_PATH, RUN_HOME } from "@/lib/routes";
 
@@ -50,16 +51,16 @@ export function WeekCard({ initialOverview, initialDays }: Props) {
   const { data: currentYear } = useHeatmapData(today.getFullYear());
   const { data: plan } = useActiveProgram();
 
-  /** Cosa è stato fatto in un giorno: palestra, corsa o entrambe */
-  const dayInfo = (day: Date) => {
+  /** Cosa è stato fatto in un giorno: palestra, corsa o entrambe (doppio allenamento) */
+  const dayInfo = (day: Date): DayParts => {
     const key = format(day, "yyyy-MM-dd");
     const loaded = startYear || currentYear;
     const entry = (loaded ? startYear?.[key] ?? currentYear?.[key] : initialDays?.[key]) as
       | { count?: number; runs?: number }
       | undefined;
-    if (!entry) return { gym: false, run: false };
+    if (!entry) return { gym: 0, run: 0, other: 0 };
     const runs = entry.runs ?? 0;
-    return { gym: (entry.count ?? 1) > runs, run: runs > 0 };
+    return { gym: Math.max(0, (entry.count ?? 1) - runs), run: runs, other: 0 };
   };
 
   // Le "sedute" sono quelle del piano in palestra; le corse si contano a parte
@@ -83,37 +84,26 @@ export function WeekCard({ initialOverview, initialDays }: Props) {
 
       <div className="mt-4 grid grid-cols-7 gap-1.5">
         {days.map((day) => {
-          const { gym, run } = dayInfo(day);
-          const done = gym || run;
+          const parts = dayInfo(day);
           const isToday = isSameDay(day, today);
           return (
             <div key={day.toISOString()} className="flex flex-col items-center gap-1.5">
-              <span
-                className={cn(
-                  "text-[11px] font-medium uppercase",
-                  isToday ? "text-foreground" : "text-muted-foreground"
-                )}
-              >
+              <span className={cn("text-[11px] font-medium uppercase", isToday ? "text-foreground" : "text-muted-foreground")}>
                 {format(day, "EEEEE", { locale: it })}
               </span>
-              <span
-                className={cn(
-                  "flex h-9 w-9 items-center justify-center rounded-full font-display text-base font-bold tabular-nums",
-                  done && "bg-foreground text-background",
-                  !done && isToday && "ring-2 ring-foreground",
-                  !done && !isToday && (isFuture(day) ? "text-muted-foreground/50" : "bg-muted text-muted-foreground")
-                )}
-              >
-                {format(day, "d")}
-              </span>
-              <span
-                className={cn("h-1.5 w-1.5 rounded-full", run ? "bg-lime-500" : "bg-transparent")}
-                aria-label={run ? "Corsa" : undefined}
+              <DayMark
+                parts={parts}
+                label={format(day, "d")}
+                className={cn("h-9 w-9 rounded-full font-display text-base font-bold tabular-nums", isToday && "ring-2 ring-foreground ring-offset-2 ring-offset-card")}
+                empty={isFuture(day) ? "text-muted-foreground/50" : "bg-muted text-muted-foreground"}
               />
+              <span className="sr-only">{describeDay(parts)}</span>
             </div>
           );
         })}
       </div>
+
+      <DayLegend days={days.map(dayInfo)} className="mt-3 justify-center" />
 
       <div className="mt-5 grid grid-cols-3 divide-x divide-border/60 border-t border-border/60 pt-4">
         <Metric label="Sedute">
