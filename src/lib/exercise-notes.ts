@@ -5,7 +5,8 @@
 
 export const NOTE_MAX = 300;
 
-export const NOTE_TAGS = ["Superset", "Drop set", "Rest-pause", "Fino a cedimento"] as const;
+/** Etichette rapide; il superset ha un pulsante suo nella scheda dell'esercizio */
+export const NOTE_TAGS = ["Drop set", "Rest-pause", "Fino a cedimento"] as const;
 
 const SEPARATOR = " · ";
 

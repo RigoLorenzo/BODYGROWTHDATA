@@ -156,22 +156,30 @@ describe("battiti e prontezza", () => {
 });
 
 describe("punteggio sonno", () => {
+  it("usa il punteggio dell'orologio quando c'è (lo stesso dell'app Xiaomi)", () => {
+    const watch = sleepScore(night(0, { score: 64 }));
+    expect(watch).toMatchObject({ score: 64, source: "watch", label: "Discreto" });
+    // I fattori spiegano comunque la notte
+    expect(watch.factors.map((f) => f.key)).toEqual(["duration", "efficiency", "stages", "calm"]);
+    expect(sleepScore(night(0, { score: null })).source).toBe("app");
+  });
+
   it("0 senza sonno, alto con 8 ore piene e continue", () => {
-    expect(sleepScore(night(0, { asleep: 0, deep: 0, light: 0, rem: 0 })).score).toBe(0);
-    const full = sleepScore(night(0, { asleep: 480, deep: 100, light: 270, rem: 110, awake: 5, awakeCount: 1 }));
+    expect(sleepScore(night(0, { asleep: 0, deep: 0, light: 0, rem: 0, score: null })).score).toBe(0);
+    const full = sleepScore(night(0, { asleep: 480, deep: 100, light: 270, rem: 110, awake: 5, awakeCount: 1, score: null }));
     expect(full.score).toBeGreaterThanOrEqual(95);
     expect(full.label).toBe("Ottimo");
   });
 
   it("la durata limita il totale: 3 ore perfette restano scarse", () => {
-    const short = sleepScore(night(0, { asleep: 180, deep: 50, light: 80, rem: 50, awake: 0, awakeCount: 0 }));
+    const short = sleepScore(night(0, { asleep: 180, deep: 50, light: 80, rem: 50, awake: 0, awakeCount: 0, score: null }));
     expect(short.score).toBeLessThanOrEqual(37);
     expect(short.label).toBe("Scarso");
   });
 
   it("più risvegli e meno profondo abbassano il punteggio a parità di durata", () => {
-    const calm = sleepScore(night(0));
-    const restless = sleepScore(night(0, { deep: 30, light: 360, rem: 60, awake: 70, awakeCount: 8 }));
+    const calm = sleepScore(night(0, { score: null }));
+    const restless = sleepScore(night(0, { deep: 30, light: 360, rem: 60, awake: 70, awakeCount: 8, score: null }));
     expect(restless.score).toBeLessThan(calm.score);
     expect(restless.factors.map((f) => f.key)).toEqual(["duration", "efficiency", "stages", "calm"]);
   });

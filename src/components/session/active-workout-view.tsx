@@ -11,6 +11,8 @@ import { useOnline } from "@/hooks/use-online";
 import { readKeepAwake, useWakeLock } from "@/hooks/use-wake-lock";
 import { Button } from "@/components/ui/button";
 import { ExerciseCard } from "./exercise-card";
+import { SupersetCard } from "./superset-card";
+import { groupExercises } from "@/lib/superset";
 import { ExerciseSelector } from "./exercise-selector";
 import { formatVolume } from "@/lib/utils";
 import { calculateSessionVolume } from "@/lib/volume-calculator";
@@ -57,8 +59,12 @@ function useExpandedExercises() {
 
   const openNextAfter = useCallback((id: string) => {
     const exercises = useSessionStore.getState().activeSession?.exercises ?? [];
-    const next = nextPendingExercise(exercises, id);
-    if (!next) return;
+    const found = nextPendingExercise(exercises, id);
+    if (!found) return;
+    // Un superset si apre dal suo primo esercizio, anche se è il secondo ad avere serie da fare
+    const partner = found.supersetWith ? exercises.find((ex) => ex.id === found.supersetWith) : undefined;
+    const next = partner && exercises.indexOf(partner) < exercises.indexOf(found) ? partner : found;
+    if (next.id === id || next.supersetWith === id) return;
     setExpanded((prev) => new Set(prev).add(next.id));
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     setTimeout(() => {
@@ -220,15 +226,29 @@ export function ActiveWorkoutView({ session, onCompleted }: Props) {
 
       {/* Exercise list */}
       <div className="container max-w-2xl mx-auto px-3 py-3 space-y-3">
-        {session.exercises.map((exercise) => (
-          <ExerciseCard
-            key={exercise.id}
-            exercise={exercise}
-            expanded={expanded.has(exercise.id)}
-            onToggle={toggleExercise}
-            onFinished={openNextAfter}
-          />
-        ))}
+        {/* Le coppie in superset sono un blocco solo, con le serie alternate */}
+        {groupExercises(session.exercises).map((group, i, groups) =>
+          group.kind === "superset" ? (
+            <SupersetCard
+              key={group.first.id}
+              first={group.first}
+              second={group.second}
+              expanded={expanded.has(group.first.id)}
+              onToggle={toggleExercise}
+              onFinished={openNextAfter}
+            />
+          ) : (
+            <ExerciseCard
+              key={group.exercise.id}
+              exercise={group.exercise}
+              expanded={expanded.has(group.exercise.id)}
+              onToggle={toggleExercise}
+              onFinished={openNextAfter}
+              // Si può fare superset con il successivo se quello non è già in coppia
+              canLinkNext={groups[i + 1]?.kind === "single"}
+            />
+          )
+        )}
 
         {session.exercises.length === 0 && (
           <div className="text-center py-16 text-muted-foreground">

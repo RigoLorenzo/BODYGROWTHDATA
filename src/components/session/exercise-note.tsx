@@ -7,11 +7,12 @@ import { useSessionStore } from "@/store/session-store";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { NOTE_MAX, NOTE_TAGS, cleanNote, noteHasTag, toggleNoteTag } from "@/lib/exercise-notes";
+import { SUPERSET_TAG, withSupersetTag } from "@/lib/superset";
 import { cn } from "@/lib/utils";
 import type { ActiveExercise } from "@/types";
 
 /** Salva la nota sul giorno del piano; false se l'esercizio non è nel giorno */
-async function saveToPlan(dayId: string, exerciseId: string, notes: string | null): Promise<boolean> {
+export async function saveToPlan(dayId: string, exerciseId: string, notes: string | null): Promise<boolean> {
   const res = await fetch(`/api/programs/days/${dayId}/notes`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -32,11 +33,13 @@ export function ExerciseNote({ exercise }: { exercise: ActiveExercise }) {
   const programDayId = useSessionStore((s) => s.activeSession?.programDayId);
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<string | null>(null);
-  const note = exercise.notes?.trim() ?? "";
+  // L'etichetta del superset vive nella nota ma non si mostra: c'è il blocco superset
+  const tagged = noteHasTag(exercise.notes ?? "", SUPERSET_TAG);
+  const note = withSupersetTag(exercise.notes, false).trim();
   const editing = draft != null;
 
   const save = async () => {
-    const notes = cleanNote(draft);
+    const notes = cleanNote(tagged ? withSupersetTag(draft ?? "", true) : draft);
     setExerciseNotes(exercise.id, notes ?? "");
     setDraft(null);
     if (!programDayId) return;

@@ -25,6 +25,8 @@ interface IncomingExercise {
   restAfterSeconds?: number;
   workSeconds?: number;
   notes?: string | null;
+  /** esercizio del catalogo con cui era in superset */
+  supersetWith?: string | null;
   sets: IncomingSet[];
 }
 
@@ -63,6 +65,7 @@ export async function POST(req: Request, { params }: Params) {
               restAfterSeconds: ex.restAfterSeconds ?? null,
               workSeconds: ex.workSeconds ?? null,
               notes: typeof ex.notes === "string" ? cleanNote(ex.notes) : null,
+              supersetWith: typeof ex.supersetWith === "string" ? ex.supersetWith.slice(0, 60) : null,
             },
           });
 

@@ -29,6 +29,7 @@ const draftExerciseSchema = z.object({
   lastDate: z.string().max(40).optional(),
   lastSameDay: z.boolean().optional(),
   progression: z.object({ increase: z.boolean(), previousTop: num }).optional(),
+  supersetWith: z.string().max(120).optional(),
   sets: z.array(draftSetSchema).max(30),
 });
 

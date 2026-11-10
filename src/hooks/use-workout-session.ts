@@ -9,6 +9,7 @@ import { useUIStore } from "@/store/ui-store";
 import { useRouter } from "next/navigation";
 import { toast } from "@/hooks/use-toast";
 import type { ActiveExercise, ActiveSession, ServerActiveSession } from "@/types";
+import { pairFromNotes } from "@/lib/superset";
 
 /** Il server ha già un allenamento aperto: non è un errore, è una scelta da fare */
 class ActiveWorkoutConflict extends Error {
@@ -130,7 +131,8 @@ export function useWorkoutSession() {
       startSession({
         id: session.id,
         startedAt: new Date(session.startedAt),
-        exercises,
+        // "Superset" nella nota del piano: la coppia è già pronta
+        exercises: pairFromNotes(exercises),
         programDayId: variables.programDayId,
         programDayName: variables.programDayName,
       });
@@ -168,6 +170,8 @@ export function useWorkoutSession() {
           orderIndex: ex.orderIndex ?? idx,
           restTimerSeconds: ex.restTimerSeconds,
           notes: ex.notes,
+          // Si registra con quale esercizio (del catalogo) era in superset
+          supersetWith: activeSession?.exercises.find((other) => other.id === ex.supersetWith)?.exerciseId,
           sets: ex.sets
             .filter((s) => s.completed)
             .map((s, setIndex) => ({

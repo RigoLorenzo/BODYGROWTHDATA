@@ -9,13 +9,14 @@ import { formatLoggedSets } from "@/lib/progression";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SetRow } from "./set-row";
-import { Plus, ChevronDown, ChevronUp, Trash2, TrendingUp, CheckCircle2, History, Repeat } from "lucide-react";
+import { Plus, ChevronDown, ChevronUp, Trash2, TrendingUp, CheckCircle2, History, Repeat, Link2 } from "lucide-react";
 import { ExerciseSelector } from "./exercise-selector";
 import { ExerciseNote } from "./exercise-note";
 import { buildActiveExercise, fetchExerciseHistory } from "@/lib/active-exercise";
 import { calculateExerciseVolume } from "@/lib/volume-calculator";
 import { formatVolume, cn } from "@/lib/utils";
-import type { ActiveExercise } from "@/types";
+import type { ActiveExercise, ActiveSet } from "@/types";
+import { useSuperset } from "@/hooks/use-superset";
 
 interface Props {
   exercise: ActiveExercise;
@@ -24,24 +25,41 @@ interface Props {
   onToggle: (exerciseId: string) => void;
   /** Chiamata quando l'ultima serie viene spuntata */
   onFinished?: (exerciseId: string) => void;
+  /** C'è un esercizio dopo: si può fare superset con quello */
+  canLinkNext?: boolean;
 }
 
-const formatKg = (kg?: number) => (kg == null ? "" : String(kg).replace(".", ","));
+/** Nuova serie: riparte dall'ultima con dei dati, con valori solo proposti */
+export function newSetFor(exercise: ActiveExercise): ActiveSet {
+  const reference = [...exercise.sets].reverse().find((s) => s.weight != null || s.reps != null);
+  return {
+    setNumber: exercise.sets.length + 1,
+    type: reference?.type === "WARMUP" ? "WORKING" : reference?.type ?? "WORKING",
+    weight: reference?.weight,
+    reps: reference?.reps,
+    // Valori proposti: diventano "inseriti" appena li tocchi o li confermi
+    prefilled: reference != null,
+    completed: false,
+  };
+}
 
 /** "stesso giorno · 12 ott" oppure "12 ott" */
-function lastTimeLabel(exercise: ActiveExercise): string {
+export function lastTimeLabel(exercise: ActiveExercise): string {
   const date = exercise.lastDate ? new Date(exercise.lastDate) : null;
   const day = date && !Number.isNaN(date.getTime()) ? format(date, "d MMM", { locale: it }) : null;
   return [exercise.lastSameDay ? "stesso giorno" : null, day].filter(Boolean).join(" · ");
 }
 
-function ExerciseCardComponent({ exercise, expanded, onToggle, onFinished }: Props) {
+const formatKg = (kg?: number) => (kg == null ? "" : String(kg).replace(".", ","));
+
+function ExerciseCardComponent({ exercise, expanded, onToggle, onFinished, canLinkNext }: Props) {
   const addSet = useSessionStore((s) => s.addSet);
   const removeSet = useSessionStore((s) => s.removeSet);
   const removeExercise = useSessionStore((s) => s.removeExercise);
   const replaceExercise = useSessionStore((s) => s.replaceExercise);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [replacing, setReplacing] = useState(false);
+  const { linkNext } = useSuperset();
 
   const completedSets = exercise.sets.filter((s) => s.completed);
   const allDone = exercise.sets.length > 0 && completedSets.length === exercise.sets.length;
@@ -92,19 +110,7 @@ function ExerciseCardComponent({ exercise, expanded, onToggle, onFinished }: Pro
 
   const handleRemoveSet = useCallback((index: number) => removeSet(exercise.id, index), [removeSet, exercise.id]);
 
-  const handleAddSet = () => {
-    // Riparte dall'ultima serie con dei dati, non dall'ultima in assoluto
-    const reference = [...exercise.sets].reverse().find((s) => s.weight != null || s.reps != null);
-    addSet(exercise.id, {
-      setNumber: exercise.sets.length + 1,
-      type: reference?.type === "WARMUP" ? "WORKING" : reference?.type ?? "WORKING",
-      weight: reference?.weight,
-      reps: reference?.reps,
-      // Valori proposti: diventano "inseriti" appena li tocchi o li confermi
-      prefilled: reference != null,
-      completed: false,
-    });
-  };
+  const handleAddSet = () => addSet(exercise.id, newSetFor(exercise));
 
   return (
     <div data-exercise-card={exercise.id} data-done={allDone} className="scroll-mt-20">
@@ -195,6 +201,15 @@ function ExerciseCardComponent({ exercise, expanded, onToggle, onFinished }: Pro
 
         {expanded && (
           <CardContent id={`sets-${exercise.id}`} className="p-3 pt-2 space-y-1">
+            {canLinkNext && (
+              <button
+                type="button"
+                onClick={() => linkNext(exercise.id)}
+                className="flex h-8 items-center gap-1.5 rounded-full bg-muted px-3 text-xs font-medium active:bg-muted/70"
+              >
+                <Link2 className="h-3.5 w-3.5" aria-hidden /> Superset con il prossimo
+              </button>
+            )}
             <ExerciseNote exercise={exercise} />
 
             {exercise.lastSets && (

@@ -4,18 +4,16 @@
  */
 
 import type { ShareExercise, ShareMuscle, WorkoutShareStats } from "@/lib/workout-share";
-import { formatKg, formatNumberIt, formatShareDuration } from "@/lib/workout-share";
+import { formatKg } from "@/lib/workout-share";
 import {
   BODY,
   DISPLAY,
   PALETTES,
   SHARE_FORMATS,
   SectionLabel,
-  TrophyIcon,
   WorkoutDate,
-  heroMetric,
   hiddenExercisesText,
-  recordCountText,
+  shareMetrics,
   type Palette,
   type ShareFormat,
 } from "./share-image-kit";
@@ -24,8 +22,6 @@ interface Layout {
   pad: number;
   meta: number;
   title: [number, number, number];
-  hero: number;
-  heroUnit: number;
   stat: number;
   statLabel: number;
   rowName: number;
@@ -43,9 +39,7 @@ const LAYOUTS: Record<ShareFormat, Layout> = {
     pad: 80,
     meta: 30,
     title: [128, 104, 86],
-    hero: 270,
-    heroUnit: 110,
-    stat: 84,
+    stat: 120,
     statLabel: 22,
     rowName: 32,
     rowValue: 34,
@@ -59,9 +53,7 @@ const LAYOUTS: Record<ShareFormat, Layout> = {
     pad: 64,
     meta: 24,
     title: [100, 84, 70],
-    hero: 190,
-    heroUnit: 80,
-    stat: 64,
+    stat: 92,
     statLabel: 18,
     rowName: 28,
     rowValue: 30,
@@ -144,132 +136,36 @@ function TitleBlock({
   );
 }
 
-function TopSet({ layout, p, topSet }: Ctx & { topSet: NonNullable<WorkoutShareStats["topSet"]> }) {
+/**
+ * I quattro numeri in una griglia 2×2, tutti uguali: durata, volume,
+ * serie e ripetizioni. Nessuno fa da copertina.
+ */
+function Metrics({ layout, p, stats }: Ctx & { stats: WorkoutShareStats }) {
+  const items = shareMetrics(stats);
+  const line = `2px solid ${p.line}`;
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "flex-end",
-        gap: layout.statLabel * 0.4,
-        flexShrink: 0,
-        maxWidth: 420,
-        paddingBottom: layout.hero * 0.04,
-      }}
-    >
-      <SectionLabel size={layout.statLabel} color={p.faint}>Serie top</SectionLabel>
-      <div
-        style={{
-          display: "flex",
-          fontFamily: DISPLAY,
-          fontWeight: 800,
-          fontSize: layout.stat * 0.85,
-          lineHeight: 1,
-          color: p.text,
-          whiteSpace: "nowrap",
-        }}
-      >
-        {`${formatKg(topSet.weight)} × ${topSet.reps}`}
-      </div>
-      <div
-        style={{
-          display: "flex",
-          fontFamily: BODY,
-          fontWeight: 600,
-          fontSize: layout.statLabel * 1.15,
-          color: p.muted,
-          maxWidth: 420,
-          overflow: "hidden",
-          whiteSpace: "nowrap",
-          textOverflow: "ellipsis",
-        }}
-      >
-        {topSet.exerciseName}
-      </div>
-    </div>
-  );
-}
-
-function Hero({ layout, p, stats }: Ctx & { stats: WorkoutShareStats }) {
-  const { label, value, unit } = heroMetric(stats);
-  return (
-    <div style={{ display: "flex", flexDirection: "column" }}>
-      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 24 }}>
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          <SectionLabel size={layout.statLabel} color={p.faint}>{label}</SectionLabel>
-          <div style={{ display: "flex", alignItems: "flex-end", gap: layout.heroUnit * 0.15 }}>
-            <div
-              style={{
-                display: "flex",
-                fontFamily: DISPLAY,
-                fontWeight: 800,
-                fontSize: layout.hero,
-                lineHeight: 0.9,
-                letterSpacing: -layout.hero * 0.01,
-                color: p.hero,
-              }}
-            >
-              {value}
-            </div>
-            <div
-              style={{
-                display: "flex",
-                fontFamily: DISPLAY,
-                fontWeight: 700,
-                fontSize: layout.heroUnit,
-                lineHeight: 1.1,
-                color: p.text,
-              }}
-            >
-              {unit}
-            </div>
-          </div>
-        </div>
-        {stats.topSet && <TopSet layout={layout} p={p} topSet={stats.topSet} />}
-      </div>
-    </div>
-  );
-}
-
-function StatsGrid({ layout, p, stats }: Ctx & { stats: WorkoutShareStats }) {
-  const items = [
-    { label: "Durata", value: stats.durationSeconds ? formatShareDuration(stats.durationSeconds) : "—" },
-    { label: "Serie", value: formatNumberIt(stats.workingSets) },
-    { label: "Ripetizioni", value: formatNumberIt(stats.reps) },
-    { label: "Esercizi", value: formatNumberIt(stats.exerciseCount) },
-  ];
-  return (
-    <div
-      style={{
-        display: "flex",
-        borderTop: `2px solid ${p.line}`,
-        borderBottom: `2px solid ${p.line}`,
-        padding: `${layout.stat * 0.32}px 0`,
-      }}
-    >
+    <div style={{ display: "flex", flexWrap: "wrap", borderTop: line }}>
       {items.map((item, index) => (
         <div
           key={item.label}
           style={{
             display: "flex",
             flexDirection: "column",
-            // La durata ("1h 13m") è il valore più largo
-            flex: index === 0 ? 1.35 : 1,
-            paddingLeft: index === 0 ? 0 : layout.stat * 0.3,
-            borderLeft: index === 0 ? "none" : `2px solid ${p.line}`,
+            width: "50%",
+            padding: `${layout.stat * 0.22}px ${index % 2 === 0 ? layout.stat * 0.25 : 0}px ${layout.stat * 0.22}px ${index % 2 === 0 ? 0 : layout.stat * 0.25}px`,
+            borderBottom: line,
+            borderLeft: index % 2 === 0 ? "none" : line,
           }}
         >
-          <div
-            style={{
-              display: "flex",
-              fontFamily: DISPLAY,
-              fontWeight: 700,
-              fontSize: layout.stat,
-              lineHeight: 1,
-              color: p.text,
-            }}
-          >
-            {item.value}
+          <div style={{ display: "flex", alignItems: "flex-end", gap: layout.stat * 0.08 }}>
+            <div style={{ display: "flex", fontFamily: DISPLAY, fontWeight: 800, fontSize: layout.stat, lineHeight: 1, color: p.text }}>
+              {item.value}
+            </div>
+            {item.unit && (
+              <div style={{ display: "flex", fontFamily: DISPLAY, fontWeight: 700, fontSize: layout.stat * 0.45, lineHeight: 1.3, color: p.muted }}>
+                {item.unit}
+              </div>
+            )}
           </div>
           <div
             style={{
@@ -287,6 +183,32 @@ function StatsGrid({ layout, p, stats }: Ctx & { stats: WorkoutShareStats }) {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+/** La serie più pesante, in una riga discreta */
+function TopSetLine({ layout, p, topSet }: Ctx & { topSet: NonNullable<WorkoutShareStats["topSet"]> }) {
+  return (
+    <div style={{ display: "flex", alignItems: "baseline", gap: layout.statLabel * 0.8 }}>
+      <SectionLabel size={layout.statLabel} color={p.faint}>Serie top</SectionLabel>
+      <div style={{ display: "flex", fontFamily: DISPLAY, fontWeight: 700, fontSize: layout.rowValue * 1.15, color: p.text, whiteSpace: "nowrap" }}>
+        {`${formatKg(topSet.weight)} × ${topSet.reps}`}
+      </div>
+      <div
+        style={{
+          display: "flex",
+          fontFamily: BODY,
+          fontWeight: 600,
+          fontSize: layout.rowName * 0.85,
+          color: p.muted,
+          overflow: "hidden",
+          whiteSpace: "nowrap",
+          textOverflow: "ellipsis",
+        }}
+      >
+        {topSet.exerciseName}
+      </div>
     </div>
   );
 }
@@ -355,31 +277,11 @@ function ExerciseRow({ layout, p, exercise }: Ctx & { exercise: ShareExercise })
             overflow: "hidden",
             whiteSpace: "nowrap",
             textOverflow: "ellipsis",
-            maxWidth: exercise.pr ? "62%" : "100%",
+            maxWidth: "100%",
           }}
         >
           {exercise.name}
         </div>
-        {exercise.pr && (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              background: p.pillBg,
-              color: p.pillText,
-              borderRadius: 999,
-              padding: `${layout.rowName * 0.12}px ${layout.rowName * 0.4}px`,
-              fontFamily: BODY,
-              fontWeight: 700,
-              fontSize: layout.rowName * 0.6,
-              letterSpacing: 1,
-            }}
-          >
-            <TrophyIcon size={layout.rowName * 0.62} color={p.pillText} />
-            {`PR ${exercise.pr}`}
-          </div>
-        )}
       </div>
       <div
         style={{
@@ -404,24 +306,6 @@ function ExerciseList({ layout, p, stats, maxRows }: Ctx & { stats: WorkoutShare
     <div style={{ display: "flex", flexDirection: "column", gap: layout.rowGap }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <SectionLabel size={layout.statLabel} color={p.faint}>Esercizi</SectionLabel>
-        {stats.records.length > 0 && (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              fontFamily: BODY,
-              fontWeight: 700,
-              fontSize: layout.statLabel,
-              letterSpacing: layout.statLabel * 0.12,
-              textTransform: "uppercase",
-              color: p.accent,
-            }}
-          >
-            <TrophyIcon size={layout.statLabel * 1.2} color={p.accent} />
-            {recordCountText(stats.records.length)}
-          </div>
-        )}
       </div>
       {visible.map((exercise, index) => (
         <ExerciseRow key={`${exercise.name}-${index}`} layout={layout} p={p} exercise={exercise} />
@@ -478,8 +362,8 @@ export function WorkoutShareImage(props: WorkoutShareImageProps) {
         }}
       >
         <TitleBlock {...ctx} title={title} dateLabel={dateLabel} timeLabel={timeLabel} athlete={athlete} />
-        <Hero {...ctx} stats={stats} />
-        <StatsGrid {...ctx} stats={stats} />
+        <Metrics {...ctx} stats={stats} />
+        {stats.topSet && <TopSetLine {...ctx} topSet={stats.topSet} />}
         {stats.muscles.length > 0 && <MuscleBar {...ctx} muscles={stats.muscles} />}
         {stats.exercises.length > 0 && <ExerciseList {...ctx} stats={stats} maxRows={maxRows} />}
       </div>

@@ -5,19 +5,9 @@
  */
 
 import type { WorkoutShareStats } from "@/lib/workout-share";
-import { formatKg, formatNumberIt, formatShareDuration } from "@/lib/workout-share";
-import {
-  BODY,
-  DISPLAY,
-  STICKER_SIZE,
-  SectionLabel,
-  TrophyIcon,
-  WorkoutDate,
-  heroMetric,
-  hiddenExercisesText,
-} from "./share-image-kit";
+import { formatKg } from "@/lib/workout-share";
+import { BODY, DISPLAY, STICKER_SIZE, SectionLabel, WorkoutDate, hiddenExercisesText, shareMetrics } from "./share-image-kit";
 
-const LIME = "#d4ff3a";
 const INK = "#09090b";
 
 /** Testo bianco per foto scure, nero per foto chiare */
@@ -26,25 +16,19 @@ export type StickerInk = "light" | "dark";
 interface StickerColors {
   text: string;
   soft: string;
-  hero: string;
   shadow: string;
-  heroShadow: string;
 }
 
 const INKS: Record<StickerInk, StickerColors> = {
   light: {
     text: "#ffffff",
     soft: "rgba(255,255,255,0.82)",
-    hero: LIME,
     shadow: "0 2px 14px rgba(0,0,0,0.55)",
-    heroShadow: "0 4px 24px rgba(0,0,0,0.45)",
   },
   dark: {
     text: INK,
     soft: "rgba(9,9,11,0.72)",
-    hero: INK,
     shadow: "0 1px 12px rgba(255,255,255,0.55)",
-    heroShadow: "0 4px 24px rgba(255,255,255,0.5)",
   },
 };
 const MAX_EXERCISES = 7;
@@ -58,21 +42,18 @@ export interface WorkoutShareStickerProps {
   timeLabel: string;
 }
 
-function Stat({ c, label, value }: { c: StickerColors; label: string; value: string }) {
+function Stat({ c, label, value, unit, grow = 1 }: { c: StickerColors; label: string; value: string; unit?: string; grow?: number }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: 1 }}>
-      <div
-        style={{
-          display: "flex",
-          fontFamily: DISPLAY,
-          fontWeight: 800,
-          fontSize: 84,
-          lineHeight: 1,
-          color: c.text,
-          textShadow: c.shadow,
-        }}
-      >
-        {value}
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: grow }}>
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 6 }}>
+        <div style={{ display: "flex", fontFamily: DISPLAY, fontWeight: 800, fontSize: 84, lineHeight: 1, whiteSpace: "nowrap", color: c.text, textShadow: c.shadow }}>
+          {value}
+        </div>
+        {unit && (
+          <div style={{ display: "flex", fontFamily: DISPLAY, fontWeight: 700, fontSize: 40, lineHeight: 1.25, color: c.soft, textShadow: c.shadow }}>
+            {unit}
+          </div>
+        )}
       </div>
       <div
         style={{
@@ -88,43 +69,6 @@ function Stat({ c, label, value }: { c: StickerColors; label: string; value: str
         }}
       >
         {label}
-      </div>
-    </div>
-  );
-}
-
-function Hero({ c, stats }: { c: StickerColors; stats: WorkoutShareStats }) {
-  const { label, value, unit } = heroMetric(stats);
-  return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-      <SectionLabel size={24} color={c.soft} shadow={c.shadow}>{label}</SectionLabel>
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 18 }}>
-        <div
-          style={{
-            display: "flex",
-            fontFamily: DISPLAY,
-            fontWeight: 800,
-            fontSize: 250,
-            lineHeight: 0.92,
-            color: c.hero,
-            textShadow: c.heroShadow,
-          }}
-        >
-          {value}
-        </div>
-        <div
-          style={{
-            display: "flex",
-            fontFamily: DISPLAY,
-            fontWeight: 800,
-            fontSize: 100,
-            lineHeight: 1.15,
-            color: c.text,
-            textShadow: c.shadow,
-          }}
-        >
-          {unit}
-        </div>
       </div>
     </div>
   );
@@ -149,31 +93,11 @@ function Exercises({ c, stats }: { c: StickerColors; stats: WorkoutShareStats })
                 overflow: "hidden",
                 whiteSpace: "nowrap",
                 textOverflow: "ellipsis",
-                maxWidth: exercise.pr ? "64%" : "100%",
+                maxWidth: "100%",
               }}
             >
               {exercise.name}
             </div>
-            {exercise.pr && (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  background: LIME,
-                  color: INK,
-                  borderRadius: 999,
-                  padding: "4px 12px",
-                  fontFamily: BODY,
-                  fontWeight: 800,
-                  fontSize: 18,
-                  letterSpacing: 1,
-                }}
-              >
-                <TrophyIcon size={19} color={INK} />
-                PR
-              </div>
-            )}
           </div>
           <div
             style={{
@@ -246,13 +170,12 @@ export function WorkoutShareSticker({ ink, stats, title, dateLabel, timeLabel }:
         </div>
       </div>
 
-      <Hero c={c} stats={stats} />
-
+      {/* Quattro numeri alla pari: nessuno fa da copertina */}
       <div style={{ display: "flex", width: CONTENT_WIDTH }}>
-        <Stat c={c} label="Durata" value={stats.durationSeconds ? formatShareDuration(stats.durationSeconds) : "—"} />
-        <Stat c={c} label="Serie" value={formatNumberIt(stats.workingSets)} />
-        <Stat c={c} label="Ripetizioni" value={formatNumberIt(stats.reps)} />
-        <Stat c={c} label="Esercizi" value={formatNumberIt(stats.exerciseCount)} />
+        {shareMetrics(stats).map((m, i) => (
+          // La durata ("1h 27m") è il valore più largo
+          <Stat key={m.label} c={c} label={m.label} value={m.value} unit={m.unit} grow={i === 0 ? 1.35 : 1} />
+        ))}
       </div>
 
       {top && (
@@ -263,8 +186,8 @@ export function WorkoutShareSticker({ ink, stats, title, dateLabel, timeLabel }:
               display: "flex",
               fontFamily: DISPLAY,
               fontWeight: 800,
-              fontSize: 52,
-              color: c.hero,
+              fontSize: 44,
+              color: c.text,
               whiteSpace: "nowrap",
               textShadow: c.shadow,
             }}

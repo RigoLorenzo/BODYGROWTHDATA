@@ -264,6 +264,8 @@ export interface SleepScore {
   score: number;
   label: string;
   tone: Tone;
+  /** watch: il punteggio dell'orologio (lo stesso dell'app Xiaomi/Garmin); app: calcolato qui */
+  source: "watch" | "app";
   factors: ScoreFactor<"duration" | "efficiency" | "stages" | "calm">[];
 }
 
@@ -281,9 +283,11 @@ const weighted = <K extends string>(factors: ScoreFactor<K>[], weights: Record<K
   factors.reduce((s, f) => s + f.score * weights[f.key], 0) / factors.reduce((s, f) => s + weights[f.key], 0);
 
 /**
- * Quanto hai dormito bene (0-100): durata, efficienza, profondo e REM,
- * continuità. 0 è non aver dormito, 100 un riposo completo. Pesa solo ciò
- * che l'orologio ha misurato; la durata limita il totale.
+ * Quanto hai dormito bene (0-100). Se l'orologio dà il suo punteggio si usa
+ * quello: è lo stesso dell'app del produttore e nasce da dati che qui non
+ * arrivano (battito notturno, variabilità, movimenti). Altrimenti si calcola:
+ * durata, efficienza, profondo e REM, continuità; la durata limita il totale.
+ * I fattori spiegano la notte in entrambi i casi.
  */
 export function sleepScore(night: SleepJson): SleepScore {
   const duration = clamp(((night.asleep - SLEEP_FLOOR_MIN) / (SLEEP_FULL_MIN - SLEEP_FLOOR_MIN)) * 100);
@@ -320,10 +324,12 @@ export function sleepScore(night: SleepJson): SleepScore {
     });
   }
 
-  const score = night.asleep > 0 ? Math.round(Math.min(weighted(factors, SLEEP_WEIGHTS), duration + DURATION_CAP_MARGIN)) : 0;
+  const watch = night.score != null && night.score >= 1 && night.score <= 100 ? Math.round(night.score) : null;
+  const computed = night.asleep > 0 ? Math.round(Math.min(weighted(factors, SLEEP_WEIGHTS), duration + DURATION_CAP_MARGIN)) : 0;
+  const score = watch ?? computed;
   const [label, tone]: [string, Tone] =
     score >= 85 ? ["Ottimo", "good"] : score >= 70 ? ["Buono", "neutral"] : score >= 50 ? ["Discreto", "warn"] : ["Scarso", "bad"];
-  return { score, label, tone, factors: factors.map((f) => ({ ...f, score: Math.round(f.score) })) };
+  return { score, label, tone, source: watch != null ? "watch" : "app", factors: factors.map((f) => ({ ...f, score: Math.round(f.score) })) };
 }
 
 // ─── Prontezza ────────────────────────────────────────────────────────────────

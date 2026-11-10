@@ -76,6 +76,8 @@ export interface ActiveExercise {
   lastSameDay?: boolean;
   /** Proposta di oggi: aumento di carico o stessi numeri da battere */
   progression?: { increase: boolean; previousTop: number };
+  /** In superset con questo esercizio (id della sessione): serie alternate */
+  supersetWith?: string;
   sets: ActiveSet[];
 }
 
