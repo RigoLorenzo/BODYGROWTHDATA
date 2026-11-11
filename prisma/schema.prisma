@@ -229,22 +229,24 @@ model User {
 }
 
 model Profile {
-  id               String          @id @default(cuid())
-  userId           String          @unique
-  bio              String?         @db.Text
-  avatarUrl        String?
-  weight           Float?
-  height           Float?
-  birthDate        DateTime?
-  experienceLevel  ExperienceLevel @default(BEGINNER)
-  preferredUnits   String          @default("kg")
+  id                 String          @id @default(cuid())
+  userId             String          @unique
+  bio                String?         @db.Text
+  avatarUrl          String?
+  weight             Float?
+  height             Float?
+  birthDate          DateTime?
+  experienceLevel    ExperienceLevel @default(BEGINNER)
+  preferredUnits     String          @default("kg")
   /// Corsa: frequenze cardiache per il carico di allenamento e obiettivo settimanale
-  maxHeartRate     Int?
-  restingHeartRate Int?
-  weeklyRunKmGoal  Float?
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
-  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  maxHeartRate       Int?
+  restingHeartRate   Int?
+  weeklyRunKmGoal    Float?
+  /// Allenamenti a settimana da fare (null: si usa la frequenza del piano attivo)
+  weeklySessionsGoal Int?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  user               User            @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Preferences {

@@ -98,10 +98,6 @@ export function SummaryTab() {
         <TrendChart items={items} now={now} selection={selection} metric={metric} empty={{ label: "Allenati oggi", href: "/dashboard" }} />
       </PeriodSwipe>
 
-      <Block title="Costanza">
-        <Frequency items={items} period={period} anchor={anchor} now={now} facts={facts} />
-      </Block>
-
       {best.length > 0 && (
         <Block
           title={period === "all" ? "Record" : "Migliori del periodo"}
@@ -114,6 +110,10 @@ export function SummaryTab() {
           <RecordList items={best} />
         </Block>
       )}
+
+      <Block title="Costanza">
+        <Frequency items={items} period={period} anchor={anchor} now={now} facts={facts} />
+      </Block>
 
       <Link
         href={historyHref(period, anchor, now)}

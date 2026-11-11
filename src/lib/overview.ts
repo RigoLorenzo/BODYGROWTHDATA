@@ -1,5 +1,6 @@
 import { endOfWeek, startOfWeek, subWeeks } from "date-fns";
 import { prisma } from "./prisma";
+import { weeklyGoalSummary } from "./weekly-goal-server";
 
 /**
  * Riepilogo settimanale per home e Analytics. Le corse sono sedute di tipo
@@ -14,13 +15,14 @@ export async function weekOverview(userId: string, now: Date = new Date()) {
   const completed = { userId, status: "COMPLETED" as const };
   const gym = { workoutType: { not: "CARDIO" as const } };
 
-  const [thisWeek, thisWeekGym, lastWeek, total, runsThisWeek, streak] = await Promise.all([
+  const [thisWeek, thisWeekGym, lastWeek, total, runsThisWeek, streak, goal] = await Promise.all([
     prisma.workoutSession.aggregate({ where: { ...completed, startedAt: { gte: weekStart, lte: weekEnd } }, _sum: { totalVolume: true }, _count: true }),
     prisma.workoutSession.count({ where: { ...completed, ...gym, startedAt: { gte: weekStart, lte: weekEnd } } }),
     prisma.workoutSession.aggregate({ where: { ...completed, startedAt: { gte: prevStart, lte: prevEnd } }, _sum: { totalVolume: true }, _count: true }),
     prisma.workoutSession.aggregate({ where: completed, _sum: { totalVolume: true }, _count: true }),
     prisma.runActivity.aggregate({ where: { userId, startedAt: { gte: weekStart, lte: weekEnd } }, _sum: { distance: true }, _count: true }),
     prisma.streak.findUnique({ where: { userId } }),
+    weeklyGoalSummary(userId, now),
   ]);
 
   const thisVolume = thisWeek._sum.totalVolume ?? 0;
@@ -38,5 +40,6 @@ export async function weekOverview(userId: string, now: Date = new Date()) {
     volumeChange: lastVolume ? Math.round(((thisVolume - lastVolume) / lastVolume) * 100) : 0,
     streak: streak?.currentStreak ?? 0,
     longestStreak: streak?.longestStreak ?? 0,
+    goal,
   };
 }

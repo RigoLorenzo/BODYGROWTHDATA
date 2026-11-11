@@ -119,6 +119,17 @@ nessuna uscita accidentale possibile senza conferma.
 **Verifica:** test sul calcolo di obiettivo e serie di settimane (settimane ISO, fuso di Roma); screenshot di Home
 e Fitness a inizio, metà e fine settimana.
 
+**Fatto (PR della Fase 3):**
+- Nuovo campo `Profile.weeklySessionsGoal` (`Goal.weeklyFrequency` è legato a un singolo obiettivo, non alla settimana).
+  Senza scelta vale la frequenza del piano attivo; per la corsa conta solo una scelta esplicita.
+- Logica pura in `lib/weekly-goal.ts` (con test): sedute (per corsa e ibrido contano anche le corse), km, serie di
+  settimane di fila (la settimana in corso conta solo se già raggiunta, altrimenti non interrompe la serie), proposta
+  basata sulla media delle ultime 8 settimane attive.
+- Home: anello per ogni obiettivo nella card "Questa settimana" e "N settimane di fila"; senza obiettivo, l'invito a
+  sceglierne uno. Impostazioni → "Obiettivo settimanale" (`/profile/settings/obiettivo`).
+- Riepilogo di fine seduta: riga con l'avanzamento della settimana. Fitness → Riepilogo: "Migliori del periodo" sopra "Costanza".
+- Rimandati: proposta dell'obiettivo all'ingresso (onboarding) e confronto con l'ultima seduta dello stesso giorno del piano.
+
 ### Fase 4 — Piani di corsa (2–3 settimane)
 
 Il miglioramento più grande: per chi corre, l'app dice **cosa fare oggi**, come Runna.
