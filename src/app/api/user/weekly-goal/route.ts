@@ -15,8 +15,8 @@ export async function GET() {
 const schema = z.object({
   /** null: si usa la frequenza del piano attivo */
   sessions: z.number().int().min(1).max(14).nullable(),
-  /** null: nessun obiettivo di km (stesso campo delle impostazioni Corsa) */
-  km: z.number().min(1).max(300).nullable(),
+  /** null o 0: nessun obiettivo di km (stesso campo e stessi limiti delle impostazioni Corsa) */
+  km: z.number().min(0).max(300).nullable(),
 });
 
 export async function PUT(req: Request) {

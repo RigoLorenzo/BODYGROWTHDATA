@@ -39,7 +39,9 @@ export function WeeklyGoalForm({ initial }: { initial: WeeklyGoalSummary }) {
   const [km, setKm] = useState<Choice>(initial.runsCount ? initial.chosen.km : null);
   const [saving, setSaving] = useState(false);
   const showKm = initial.runsCount;
-  const planLabel = initial.planFrequency ? `Come il piano (${initial.planFrequency})` : null;
+  // Per la corsa il piano in palestra non fa da obiettivo: "nessuna scelta" vale "Nessuno"
+  const planLabel =
+    initial.planFrequency && initial.style !== "RUNNING" ? `Come il piano (${initial.planFrequency})` : null;
 
   const save = async () => {
     setSaving(true);

@@ -1,5 +1,5 @@
-import { format, startOfWeek, subWeeks } from "date-fns";
 import { prisma } from "./prisma";
+import { localMidnight, weekKey } from "./coach/data/periods";
 import { isTrainingStyle } from "./training-style";
 import {
   goalsFor,
@@ -16,11 +16,23 @@ export type { WeeklyGoalSummary } from "./weekly-goal";
 /** Settimane lette per la serie di settimane raggiunte */
 const HISTORY_WEEKS = 26;
 
-const weekKey = (d: Date) => format(startOfWeek(d, { weekStartsOn: 1 }), "yyyy-MM-dd");
+/** Lunedì "yyyy-MM-dd" spostato di n settimane (aritmetica di calendario, senza fuso) */
+function shiftWeek(key: string, weeks: number): string {
+  const [y, m, d] = key.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + weeks * 7)).toISOString().slice(0, 10);
+}
+
+/** Mezzanotte di Roma del lunedì indicato */
+function weekStart(key: string): Date {
+  const [year, month, day] = key.split("-").map(Number);
+  return localMidnight({ year, month, day });
+}
 
 /** Obiettivo della settimana in corso, con avanzamento e settimane di fila */
+// Settimane da lunedì a domenica nel fuso di Roma: il server gira in UTC
 export async function weeklyGoalSummary(userId: string, now: Date = new Date()): Promise<WeeklyGoalSummary> {
-  const from = startOfWeek(subWeeks(now, HISTORY_WEEKS - 1), { weekStartsOn: 1 });
+  const currentWeek = weekKey(now);
+  const from = weekStart(shiftWeek(currentWeek, -(HISTORY_WEEKS - 1)));
   const [user, active, sessions, runs] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
@@ -37,7 +49,7 @@ export async function weeklyGoalSummary(userId: string, now: Date = new Date()):
   // Una riga per settimana, anche quelle vuote (contano per la serie)
   const weeks = new Map<string, WeekTotals>();
   for (let i = HISTORY_WEEKS - 1; i >= 0; i--) {
-    const key = weekKey(subWeeks(now, i));
+    const key = shiftWeek(currentWeek, -i);
     weeks.set(key, { week: key, gymSessions: 0, runs: 0, km: 0 });
   }
   for (const s of sessions) {
