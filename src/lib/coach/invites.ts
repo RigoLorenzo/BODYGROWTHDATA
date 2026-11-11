@@ -29,7 +29,14 @@ export async function redeemInvite(userId: string, rawCode: string): Promise<Red
   if ((await coachLevel(userId)) !== "none") return "already";
 
   return prisma.$transaction(async (tx) => {
-    // Un solo UPDATE condizionale: due richieste insieme non superano maxUses
+    // Le attivazioni dello stesso utente vanno in fila (doppio tocco, due schede):
+    // il blocco dura fino alla fine della transazione
+    await tx.$queryRaw`SELECT 1 FROM (SELECT pg_advisory_xact_lock(hashtext(${`coach-redeem:${userId}`}))) AS lock`;
+    // Ricontrollo dentro il blocco: se un'altra richiesta ha appena dato l'accesso, non si consuma un uso
+    const existing = await tx.coachAccess.findUnique({ where: { userId }, select: { revokedAt: true } });
+    if (existing && !existing.revokedAt) return "already";
+
+    // Un solo UPDATE condizionale: anche utenti diversi insieme non superano maxUses
     const used = await tx.$queryRaw<{ code: string }[]>`
       UPDATE "CoachInvite" SET "uses" = "uses" + 1
       WHERE "code" = ${code} AND "disabled" = false AND "uses" < "maxUses"
