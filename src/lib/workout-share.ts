@@ -24,7 +24,7 @@ export interface SharePersonalRecordLike {
   recordType: string;
   value: number;
   improvementPercent?: number | null;
-  exercise: { name: string } | null;
+  exercise: { name: string; nameIt?: string | null } | null;
 }
 
 export interface ShareWorkoutLike {
@@ -194,6 +194,11 @@ function recordLabel(record: SharePersonalRecordLike): string {
   }
 }
 
+/** Nome mostrato: italiano se c'è, come nel resto dell'app */
+const displayName = (exercise: { name: string; nameIt?: string | null } | null | undefined) =>
+  exercise?.nameIt || exercise?.name || "Esercizio";
+
+/** Record migliore per esercizio, indicizzato per nome inglese (identificativo stabile) */
 export function bestRecordsByExercise(records: SharePersonalRecordLike[]): Map<string, ShareRecord> {
   const rank = (type: string) => {
     const index = RECORD_PRIORITY.indexOf(type);
@@ -207,7 +212,7 @@ export function bestRecordsByExercise(records: SharePersonalRecordLike[]): Map<s
     if (!current || rank(record.recordType) < rank(current.recordType)) best.set(name, record);
   }
   return new Map(
-    Array.from(best.entries()).map(([name, record]) => [name, { exerciseName: name, label: recordLabel(record) }])
+    Array.from(best.entries()).map(([name, record]) => [name, { exerciseName: displayName(record.exercise), label: recordLabel(record) }])
   );
 }
 
@@ -231,7 +236,8 @@ export function buildWorkoutShareStats(workout: ShareWorkoutLike): WorkoutShareS
   const records = bestRecordsByExercise(workout.personalRecords ?? []);
   const performed = workout.exercises
     .map((ex) => ({
-      name: ex.exercise?.name ?? "Esercizio",
+      key: ex.exercise?.name ?? "Esercizio",
+      name: displayName(ex.exercise),
       muscle: ex.exercise?.primaryMuscle ?? "FULL_BODY",
       sets: ex.sets.filter(isWorking),
     }))
@@ -263,7 +269,7 @@ export function buildWorkoutShareStats(workout: ShareWorkoutLike): WorkoutShareS
       name: ex.name,
       color: getMuscleColor(ex.muscle),
       summary: summarizeSets(ex.sets),
-      pr: records.get(ex.name)?.label ?? null,
+      pr: records.get(ex.key)?.label ?? null,
     })),
     records: Array.from(records.values()),
   };

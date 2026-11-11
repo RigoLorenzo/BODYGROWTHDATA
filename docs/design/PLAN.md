@@ -97,6 +97,15 @@ Ispirata alla schermata di registrazione di Strava: durante la seduta c'è solo 
 **Verifica:** prova nel browser dell'intera seduta (avvio → serie → recupero → fine → riepilogo) in formato iPhone;
 nessuna uscita accidentale possibile senza conferma.
 
+**Fatto (PR della Fase 2), con due scelte già prese nel codice rispettate:**
+- Il **timer di recupero non torna**: era stato tolto di proposito a ottobre (commit `476edc1`, schermata più semplice e
+  niente ridisegno ogni secondo). L'intestazione mostra serie fatte, volume, minuti e ora una barra di avanzamento.
+- Gli esercizi restano **chiusi all'avvio** ("vedi la seduta a colpo d'occhio"), ma da chiusi mostrano già
+  "Scorsa: 80×8 · 80×8"; finito un esercizio si apre il successivo (come prima).
+- Barra in basso nascosta sul telefono durante la seduta; "Fine" secondario finché non hai finito, verde quando tutte
+  le serie sono fatte; riepilogo con i **nuovi record** in evidenza e nomi in italiano (anche nell'immagine condivisa).
+- Il confronto con l'ultima seduta dello stesso giorno e l'avanzamento della settimana passano alla Fase 3, insieme agli obiettivi.
+
 ### Fase 3 — Obiettivi e motivazione (3 giorni)
 
 | Intervento | Dettaglio |

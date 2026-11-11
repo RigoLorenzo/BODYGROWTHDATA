@@ -14,7 +14,7 @@ import { ExerciseCard } from "./exercise-card";
 import { SupersetCard } from "./superset-card";
 import { groupExercises } from "@/lib/superset";
 import { ExerciseSelector } from "./exercise-selector";
-import { formatVolume } from "@/lib/utils";
+import { cn, formatVolume } from "@/lib/utils";
 import { calculateSessionVolume } from "@/lib/volume-calculator";
 import { Plus, CheckCircle, X, WifiOff } from "lucide-react";
 import { dismissAllToasts, toast } from "@/hooks/use-toast";
@@ -174,6 +174,10 @@ export function ActiveWorkoutView({ session, onCompleted }: Props) {
   const savedSets = allSets.filter((s) => s.completed || isFilledUnconfirmed(s)).length;
   const pendingSets = allSets.length - savedSets;
 
+  // "Fine" diventa l'azione principale solo quando la seduta è davvero finita
+  const allDone = savedSets > 0 && pendingSets === 0;
+  const progress = allSets.length > 0 ? doneSets / allSets.length : 0;
+
   /** Chiusura in un tocco solo se è tutto fatto: niente fine allenamento per sbaglio */
   const handleFinish = () => {
     if (pendingSets > 0 || savedSets === 0) {
@@ -208,13 +212,28 @@ export function ActiveWorkoutView({ session, onCompleted }: Props) {
           </div>
           <Button
             size="sm"
-            className="bg-green-600 hover:bg-green-700 text-white h-11 px-4 shrink-0"
+            variant={allDone ? "default" : "outline"}
+            className={cn(
+              "h-11 px-4 shrink-0 transition-colors",
+              allDone ? "bg-green-600 hover:bg-green-700 text-white" : "text-muted-foreground"
+            )}
             onClick={handleFinish}
             disabled={isCompleting}
           >
-            <CheckCircle className="h-4 w-4 mr-1.5" />
+            {allDone && <CheckCircle className="h-4 w-4 mr-1.5" />}
             {isCompleting ? "Salvataggio..." : "Fine"}
           </Button>
+        </div>
+        {/* Avanzamento della seduta: si aggiorna solo quando spunti una serie */}
+        <div
+          className="h-1 bg-muted"
+          role="progressbar"
+          aria-label="Serie completate"
+          aria-valuemin={0}
+          aria-valuemax={allSets.length}
+          aria-valuenow={doneSets}
+        >
+          <div className="h-full bg-green-600 transition-[width] duration-300" style={{ width: `${progress * 100}%` }} />
         </div>
         {!online && (
           <p className="flex items-center justify-center gap-1.5 bg-amber-500/15 px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-400">

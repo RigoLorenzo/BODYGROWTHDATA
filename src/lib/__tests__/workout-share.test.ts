@@ -111,6 +111,17 @@ describe("buildWorkoutShareStats", () => {
     expect(stats.exercises[0].pr).toBe("100 kg");
   });
 
+  it("mostra i nomi in italiano e abbina il record per nome inglese", () => {
+    const italian = buildWorkoutShareStats({
+      ...workout,
+      exercises: [{ exercise: { name: "Bench Press", nameIt: "Panca piana", primaryMuscle: "CHEST" }, sets: [working(100, 6)] }],
+      personalRecords: [{ recordType: "WEIGHT", value: 100, exercise: { name: "Bench Press", nameIt: "Panca piana" } }],
+    });
+    expect(italian.exercises[0]).toMatchObject({ name: "Panca piana", pr: "100 kg" });
+    expect(italian.records).toEqual([{ exerciseName: "Panca piana", label: "100 kg" }]);
+    expect(italian.topSet?.exerciseName).toBe("Panca piana");
+  });
+
   it("calcola la durata dagli orari se manca quella salvata", () => {
     expect(stats.durationSeconds).toBe(70 * 60);
   });
