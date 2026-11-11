@@ -1,12 +1,14 @@
 "use client";
 
+import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { addDays, addMonths, addWeeks, addYears, format, max as latest, min as earliest, subDays } from "date-fns";
 import { it } from "date-fns/locale";
 import { periodSeries, periodWindow, type ActivityItem, type Bucket, type SeriesUnit, type Totals } from "@/lib/insights";
 import { cn } from "@/lib/utils";
 import { KIND_STYLE } from "./activity-kind";
 import { StackedBars } from "./bars";
-import { DiffBadge, type CompareContext } from "./compare";
+import { DiffBadge, diffTone, type CompareContext } from "./compare";
 import type { PeriodSelection } from "./period-bar";
 
 /**
@@ -67,6 +69,7 @@ export function MetricTiles({
         {metrics.map((m, i) => {
           const value = m.value(current);
           const before = previous ? m.value(previous) : 0;
+          const tone = showDiffs ? diffTone(value, before, { lowerIsBetter: m.lowerIsBetter, settling: ctx?.settling }) : null;
           const { value: text, unit } = m.display(value);
           const active = m.key === selected;
           const body = (
@@ -77,9 +80,7 @@ export function MetricTiles({
                 {unit && <span className="ml-0.5 text-sm font-semibold opacity-60">{unit}</span>}
               </span>
               <span className="mt-1.5 block min-h-4 text-xs">
-                {showDiffs && before > 0 && (
-                  <DiffBadge inverse={active} diff={value - before} format={m.diff} lowerIsBetter={m.lowerIsBetter} />
-                )}
+                {tone && <DiffBadge inverse={active} diff={value - before} format={m.diff} tone={tone} />}
               </span>
               {extra?.(m.key, active)}
             </>
@@ -139,11 +140,14 @@ export function TrendChart({
   now,
   selection,
   metric,
+  empty,
 }: {
   items: ActivityItem[];
   now: Date;
   selection: PeriodSelection;
   metric: PeriodMetric;
+  /** cosa proporre quando il periodo è vuoto, es. "Allenati oggi" */
+  empty?: { label: string; href: string };
 }) {
   const { period, anchor } = selection;
   const parts = metric.parts!;
@@ -179,7 +183,14 @@ export function TrendChart({
   return (
     <div className="mt-6">
       {!total ? (
-        <p className="flex h-[150px] items-center justify-center text-sm text-muted-foreground">Niente in questo periodo</p>
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-dashed border-border px-4 py-3">
+          <p className="text-sm text-muted-foreground">Niente in questo periodo</p>
+          {empty && span.isCurrent && (
+            <Link href={empty.href} className="flex min-h-11 shrink-0 items-center gap-0.5 text-sm font-semibold">
+              {empty.label} <ChevronRight className="h-4 w-4" aria-hidden />
+            </Link>
+          )}
+        </div>
       ) : (
         <StackedBars
           height={130}

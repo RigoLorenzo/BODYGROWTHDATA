@@ -53,33 +53,10 @@ export function CoachChat({ initialThreadId, isAdmin = false }: { initialThreadI
     <div className="container mx-auto flex min-h-[calc(100dvh-5rem)] max-w-2xl flex-col px-4 pt-3 md:min-h-dvh">
       <header className="flex items-center justify-between gap-2 pb-3">
         <h1 className="font-display text-3xl font-bold uppercase tracking-wide">Coach</h1>
-        <div className="flex items-center gap-1">
-          {isAdmin && (
-            <Link
-              href="/coach/admin"
-              aria-label="Gestione tester e inviti"
-              className="flex h-11 w-11 items-center justify-center rounded-full active:bg-muted"
-            >
-              <Users className="h-5 w-5" />
-            </Link>
-          )}
-          <button
-            type="button"
-            onClick={() => setHistoryOpen(true)}
-            aria-label="Conversazioni precedenti"
-            className="flex h-11 w-11 items-center justify-center rounded-full active:bg-muted"
-          >
-            <History className="h-5 w-5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => selectThread(null)}
-            disabled={chat.streaming}
-            aria-label="Nuova conversazione"
-            className="flex h-11 w-11 items-center justify-center rounded-full active:bg-muted disabled:opacity-40"
-          >
-            <Plus className="h-5 w-5" />
-          </button>
+        <div className="flex items-center">
+          {isAdmin && <HeaderAction href="/coach/admin" icon={Users} label="Tester" title="Gestione tester e inviti" />}
+          <HeaderAction onClick={() => setHistoryOpen(true)} icon={History} label="Storico" title="Conversazioni precedenti" />
+          <HeaderAction onClick={() => selectThread(null)} disabled={chat.streaming} icon={Plus} label="Nuova" title="Nuova conversazione" />
         </div>
       </header>
 
@@ -162,6 +139,41 @@ export function CoachChat({ initialThreadId, isAdmin = false }: { initialThreadI
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+/** Azione dell'intestazione: icona con il nome sotto, così si capisce cosa fa */
+function HeaderAction({
+  icon: Icon,
+  label,
+  title,
+  href,
+  onClick,
+  disabled,
+}: {
+  icon: typeof Users;
+  label: string;
+  title: string;
+  href?: string;
+  onClick?: () => void;
+  disabled?: boolean;
+}) {
+  const className =
+    "flex min-h-11 w-14 flex-col items-center justify-center gap-0.5 rounded-xl text-[11px] font-medium text-muted-foreground active:bg-muted disabled:opacity-40";
+  const body = (
+    <>
+      <Icon className="h-5 w-5 text-foreground" aria-hidden />
+      {label}
+    </>
+  );
+  return href ? (
+    <Link href={href} title={title} className={className}>
+      {body}
+    </Link>
+  ) : (
+    <button type="button" onClick={onClick} disabled={disabled} title={title} className={className}>
+      {body}
+    </button>
   );
 }
 
