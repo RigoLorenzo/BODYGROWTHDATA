@@ -63,9 +63,11 @@ export function BottomNav() {
                 )}
               >
                 {isActive && (
+                  // Centrata con i margini, non con translate: l'animazione di layoutId
+                  // riscrive transform e la sposterebbe di mezza larghezza
                   <motion.div
                     layoutId="nav-indicator"
-                    className="absolute -top-2 left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full bg-primary md:hidden"
+                    className="absolute inset-x-0 -top-2 mx-auto h-0.5 w-8 rounded-full bg-primary md:hidden"
                   />
                 )}
                 <item.icon className="h-5 w-5 shrink-0" />
