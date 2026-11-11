@@ -5,12 +5,16 @@ import Anthropic from "@anthropic-ai/sdk";
  * (ANTHROPIC_API_KEY su Vercel); il client si crea alla prima richiesta.
  */
 
-export const COACH_MODEL = "claude-opus-5-5";
+/** Sonnet 5.5: ottimo con i tool e costa la metà di Opus (2 $ / 10 $ per milione di token) */
+export const COACH_MODEL = "claude-sonnet-5-5";
 
 type Effort = "low" | "medium" | "high" | "xhigh" | "max";
 const EFFORTS: readonly Effort[] = ["low", "medium", "high", "xhigh", "max"];
 
-/** Su Opus 5.5 il default è "medium": lo si imposta comunque in modo esplicito */
+/**
+ * Su Sonnet 5.5 il default è "high": per un agente che usa più tool in sequenza
+ * "medium" è il punto di partenza consigliato (meno token, risposte più rapide).
+ */
 export function coachEffort(): Effort {
   const value = process.env.COACH_EFFORT as Effort | undefined;
   return value && EFFORTS.includes(value) ? value : "medium";

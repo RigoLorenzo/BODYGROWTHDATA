@@ -69,8 +69,8 @@ serie, range di ripetizioni, recuperi). Chi inizia abbandona prima di arrivare a
 | Componente | Scelta | Motivo |
 |---|---|---|
 | LLM | Claude API, SDK ufficiale `@anthropic-ai/sdk` | Tool use nativo, streaming, caching, web search server-side |
-| Modello | `claude-opus-5-5` | Miglior qualità di ragionamento per programmazione dell'allenamento; costo contenuto con caching |
-| Thinking / effort | adaptive (sempre attivo su Opus 5.5); `effort: "medium"` in chat, `"high"` per creare/ristrutturare un piano | Effort è l'unica leva su Opus 5.5 (default `medium`, va impostato esplicitamente) |
+| Modello | `claude-sonnet-5-5` | Ottimo con i tool e nel ragionamento sull'allenamento, a metà del costo di Opus (2 $ / 10 $ per milione di token) |
+| Thinking / effort | adaptive; `effort: "medium"` (configurabile con `COACH_EFFORT`) | Su Sonnet 5.5 il default è `high` e i livelli sono ricalibrati: `medium` è il punto di partenza consigliato per un agente con più tool |
 | Rifiuti | `fallbacks: "default"` (beta `server-side-fallback-2026-07-01`) | Se un classificatore blocca per falso positivo, la richiesta riparte su un modello di fallback |
 | Loop agente | Loop manuale lato server (max 8 iterazioni) | Serve emettere eventi SSE per ogni tool e intercettare `ask_user`/proposte |
 | Streaming | Route Handler Next.js → SSE (`text/event-stream`) | Vercel `maxDuration` 300 s, già usato nel progetto |
@@ -83,9 +83,10 @@ serie, range di ripetizioni, recuperi). Chi inizia abbandona prima di arrivare a
 | Gestione abbonamento | Stripe Customer Portal | Disdetta, cambio carta e ricevute già pronti |
 | IVA | Stripe Tax (IVA italiana e OSS per gli altri Paesi UE) | Prezzo mostrato IVA inclusa, come richiesto per i consumatori UE |
 
-**Dettagli Opus 5.5 da rispettare nel codice**
+**Dettagli Sonnet 5.5 da rispettare nel codice**
 
-- `tool_choice` forzato (`any`/`tool`) restituisce 400 → solo `auto`, con `strict: true` sugli schemi dei tool.
+- `tool_choice` forzato (`any`/`tool`) restituisce 400 → solo `auto`; ogni input dei tool è validato con Zod.
+- `thinking: {type: "disabled"}` restituisce 400: si usa il thinking adattivo e si regola l'effort.
 - Niente prefill dell'assistente; formato controllato via prompt/schema.
 - I blocchi `thinking` vanno salvati e reinviati **invariati**: lo storico della chat è append-only
   (si salva `response.content` completo in `CoachMessage.content`, mai solo il testo).
@@ -659,7 +660,7 @@ Pagina Stripe Checkout: Apple Pay (Safari/iPhone) · Google Pay (Chrome/Android)
   Stripe Customer Portal (disdetta, cambio carta, ricevute).
 - **Pagamento non riuscito:** banner "Aggiorna il metodo di pagamento"; Stripe ritenta e manda l'email.
   Dopo 7 giorni l'accesso si sospende. Conversazioni e memoria restano: chi si riabbona riprende da dove era.
-- **Uso equo:** budget AI mensile interno per abbonato (~8 €, circa 80 domande intense) per proteggere il margine. Oltre quel budget
+- **Uso equo:** budget AI mensile interno per abbonato (~4 €, circa 80 chiamate intense) per proteggere il margine. Oltre quel budget
   le risposte rallentano, con un messaggio chiaro e senza blocchi improvvisi. Un uso normale non lo raggiunge mai.
 
 ### 11.4 Dove si vede (per invogliare senza infastidire)
@@ -732,26 +733,26 @@ e intanto si misura l'interesse reale.
 ### 11.6 Conti per abbonato (stima mensile)
 
 **Costo AI per "chiamata"** (un tuo messaggio + la risposta completa del Coach, tool compresi).
-Opus 5.5: input 4 $/M token, output 20 $/M, lettura da cache 0,20 $/M, scrittura in cache 5 $/M. Cambio ipotizzato 1 $ ≈ 0,90 €.
+Sonnet 5.5: input 2 $/M token, output 10 $/M, lettura da cache 0,10 $/M, scrittura in cache 2,50 $/M. Cambio ipotizzato 1 $ ≈ 0,90 €.
 
 | Tipo di chiamata | Cosa succede | Costo |
 |---|---|---|
-| Domanda sui dati o consiglio | 2 richieste al modello (tool + risposta), ~1.200 token in uscita | ~0,05 $ |
-| Modifica del piano | 3–4 richieste, proposta + validazione | ~0,12 $ |
-| Creazione di un piano completo | 5–6 richieste, piano intero + correzioni | ~0,35 $ |
-| Prima domanda dopo una pausa | la cache è scaduta e va riscritta | +0,07 $ |
+| Domanda sui dati o consiglio | 2 richieste al modello (tool + risposta), ~1.200 token in uscita | ~0,025 $ |
+| Modifica del piano | 3–4 richieste, proposta + validazione | ~0,06 $ |
+| Creazione di un piano completo | 5–6 richieste, piano intero + correzioni | ~0,175 $ |
+| Prima domanda dopo una pausa | la cache è scaduta e va riscritta | +0,035 $ |
 
 **Utente intenso: 50 chiamate al mese** (40 domande, 8 modifiche, 2 piani nuovi, ~20 sessioni separate),
 più le funzioni automatiche (4 review settimanali, ~16 commenti dopo l'allenamento):
 
 | Voce | $ |
 |---|---|
-| 40 domande × 0,05 | 2,00 |
-| 8 modifiche × 0,12 | 0,96 |
-| 2 piani × 0,35 | 0,70 |
-| 20 ripartenze a cache fredda × 0,07 | 1,40 |
-| Review + commenti automatici | 0,48 |
-| **Totale** | **~5,50 $ ≈ 5 €** (prudenziale +30%: **~6,50 €**) |
+| 40 domande × 0,025 | 1,00 |
+| 8 modifiche × 0,06 | 0,48 |
+| 2 piani × 0,175 | 0,35 |
+| 20 ripartenze a cache fredda × 0,035 | 0,70 |
+| Review + commenti automatici | 0,24 |
+| **Totale** | **~2,77 $ ≈ 2,50 €** (prudenziale +30%: **~3,25 €**) |
 
 **Guadagno per abbonato (Italia)**
 
@@ -761,19 +762,19 @@ più le funzioni automatiche (4 review settimanali, ~16 commenti dopo l'allename
 | IVA 22% (allo Stato) | −3,30 | −3,30 |
 | **Ricavo** | **15,00** | **15,00** |
 | Stripe (carta EU 1,5% + 0,25 €, Billing 0,7%, Tax 0,5%) | −0,75 | −0,75 |
-| Costo AI | −5,00 (prudenziale −6,50) | −1,50 / −2,00 |
-| **Margine per utente** | **~9,25 €** (prudenziale **~7,75 €**) | **~12,25–12,75 €** |
-| Caso limite (budget di uso equo da 8 € esaurito) | ~6,25 € | — |
+| Costo AI | −2,50 (prudenziale −3,25) | −0,75 / −1,00 |
+| **Margine per utente** | **~11,75 €** (prudenziale **~11,00 €**) | **~13,25–13,50 €** |
+| Caso limite (budget di uso equo da 4 € esaurito) | ~10,25 € | — |
 
-Anche l'utente più intenso resta ampiamente in attivo: oltre il 50% del ricavo.
+Anche l'utente più intenso lascia quasi l'80% del ricavo come margine.
 
-**Proiezione** (mix 70% utenti tipici, 30% intensi ≈ 11,50 € di margine medio):
+**Proiezione** (mix 70% utenti tipici, 30% intensi ≈ 12,90 € di margine medio):
 
 | Abbonati | Margine mensile | Costi fissi | Netto mensile (prima delle imposte sul reddito) |
 |---|---|---|---|
-| 10 | ~115 € | ~40 € | ~75 € |
-| 100 | ~1.150 € | ~40 € | ~1.110 € |
-| 500 | ~5.750 € | ~80 € | ~5.670 € |
+| 10 | ~129 € | ~40 € | ~89 € |
+| 100 | ~1.290 € | ~40 € | ~1.250 € |
+| 500 | ~6.450 € | ~80 € | ~6.370 € |
 
 - **Costi fissi:** il piano Hobby di Vercel non permette l'uso commerciale. Per vendere serve **Vercel Pro**
   (~20 $/mese) e, con più utenti, un piano a pagamento di Neon (~19 $/mese).
@@ -829,13 +830,13 @@ Anche l'utente più intenso resta ampiamente in attivo: oltre il 50% del ricavo.
 - Export e cancellazione: aggiungere thread, brief e proposte a `/api/user/data` (export/eliminazione esistenti).
 - Disclaimer: il coach non sostituisce medico/fisioterapista.
 
-**Costi (ordine di grandezza, Opus 5.5: $4 / $20 per MTok, cache read $0,20)**
+**Costi (ordine di grandezza, Sonnet 5.5: $2 / $10 per MTok, cache read $0,10)**
 
 | Operazione | Stima |
 |---|---|
-| Messaggio di chat (system+tool in cache, 1–2 tool) | ~$0,05 (dettaglio al §11.6) |
-| Creazione piano completo (più tool + validazione) | ~$0,15–0,40 |
-| Review settimanale (prompt corto) | ~$0,02; ~$0,01 con Batch |
+| Messaggio di chat (system+tool in cache, 1–2 tool) | ~$0,025 (dettaglio al §11.6) |
+| Creazione piano completo (più tool + validazione) | ~$0,08–0,20 |
+| Review settimanale (prompt corto) | ~$0,01; ~$0,005 con Batch |
 
 Leve: prompt caching (fondamentale), snapshot compatto, effort `medium` in chat, Batch per i job.
 Ricavi e margine per abbonato: §11.6.
@@ -1016,7 +1017,7 @@ Playwright: pagina di vendita → Checkout di test → benvenuto → onboarding 
 | Accesso omaggio | ✅ Deciso: solo il proprietario (`COACH_FREE_USER_IDS`) |
 | Pagamenti | ✅ Deciso: Stripe Checkout con Apple Pay, Google Pay e carta |
 | Posizione | ✅ Deciso: quinta voce centrale "Coach ✦" + inviti contestuali (§11.4) |
-| Modello | Raccomandato: `claude-opus-5-5` ovunque; un modello più economico per le review solo dopo l'eval |
+| Modello | ✅ Deciso: `claude-sonnet-5-5` (metà del costo di Opus); valutare Haiku 5.5 per le review solo dopo l'eval |
 | Autonomia predefinita | Raccomandato: `ASK_ALWAYS` finché l'eval non è stabile |
 | Prova gratuita | Raccomandato: nessuna al lancio; valutare 7 giorni dopo aver misurato la conversione |
 | Piano annuale | Raccomandato: dopo il lancio (es. 96 €/anno, cioè 2 mesi in regalo) |
