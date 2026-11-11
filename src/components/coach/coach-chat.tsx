@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowUp, History, Loader2, Plus, Sparkles } from "lucide-react";
+import Link from "next/link";
+import { ArrowUp, History, Loader2, Plus, Sparkles, Users } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useCoachChat, useCoachThreads } from "@/hooks/use-coach-chat";
 import { cn } from "@/lib/utils";
@@ -21,7 +22,7 @@ const SUGGESTIONS = [
 const COACH_PATH = "/coach";
 
 /** Il Coach: chat in streaming con domande, proposte di piano e storico conversazioni */
-export function CoachChat({ initialThreadId }: { initialThreadId: string | null }) {
+export function CoachChat({ initialThreadId, isAdmin = false }: { initialThreadId: string | null; isAdmin?: boolean }) {
   const router = useRouter();
   const [threadId, setThreadId] = useState<string | null>(initialThreadId);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -53,6 +54,15 @@ export function CoachChat({ initialThreadId }: { initialThreadId: string | null 
       <header className="flex items-center justify-between gap-2 pb-3">
         <h1 className="font-display text-3xl font-bold uppercase tracking-wide">Coach</h1>
         <div className="flex items-center gap-1">
+          {isAdmin && (
+            <Link
+              href="/coach/admin"
+              aria-label="Gestione tester e inviti"
+              className="flex h-11 w-11 items-center justify-center rounded-full active:bg-muted"
+            >
+              <Users className="h-5 w-5" />
+            </Link>
+          )}
           <button
             type="button"
             onClick={() => setHistoryOpen(true)}

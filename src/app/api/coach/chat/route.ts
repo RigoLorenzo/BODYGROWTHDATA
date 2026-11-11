@@ -19,7 +19,7 @@ const bodySchema = z.object({
 export async function POST(req: Request) {
   const guard = await coachUser();
   if ("response" in guard) return guard.response;
-  const { userId } = guard;
+  const { userId, level } = guard;
 
   if (!isCoachConfigured()) {
     return NextResponse.json({ error: "Il Coach non è configurato: manca ANTHROPIC_API_KEY sul server." }, { status: 503 });
@@ -29,7 +29,7 @@ export async function POST(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: "Messaggio non valido" }, { status: 400 });
 
   const now = new Date();
-  if ((await userMessagesToday(userId, now)) >= dailyMessageLimit()) {
+  if ((await userMessagesToday(userId, now)) >= dailyMessageLimit(level)) {
     return NextResponse.json({ error: "Hai raggiunto il limite di messaggi di oggi. Riprova domani." }, { status: 429 });
   }
 

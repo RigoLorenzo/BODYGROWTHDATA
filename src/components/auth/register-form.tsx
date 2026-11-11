@@ -24,7 +24,9 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
-export function RegisterForm() {
+/** `invite`: codice d'invito al Coach da riprendere dopo il benvenuto (già validato) */
+export function RegisterForm({ invite = null }: { invite?: string | null }) {
+  const welcome = invite ? `/welcome?invito=${invite}` : "/welcome";
   const [showPassword, setShowPassword] = useState(false);
   const [isOAuthLoading, setIsOAuthLoading] = useState<string | null>(null);
 
@@ -49,13 +51,13 @@ export function RegisterForm() {
       email: data.email,
       password: data.password,
       // Prima cosa dopo la registrazione: che tipo di allenamento fai
-      callbackUrl: "/welcome",
+      callbackUrl: welcome,
     });
   };
 
   const handleOAuth = async (provider: string) => {
     setIsOAuthLoading(provider);
-    await signIn(provider, { callbackUrl: "/welcome" });
+    await signIn(provider, { callbackUrl: welcome });
     setIsOAuthLoading(null);
   };
 
@@ -135,7 +137,7 @@ export function RegisterForm() {
 
         <p className="text-center text-sm text-muted-foreground">
           Hai già un account?{" "}
-          <Link href="/login" className="text-primary hover:underline font-medium">Accedi</Link>
+          <Link href={invite ? `/login?invito=${invite}` : "/login"} className="text-primary hover:underline font-medium">Accedi</Link>
         </p>
       </CardContent>
     </Card>

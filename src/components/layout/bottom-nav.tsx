@@ -3,16 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { useQuery } from "@tanstack/react-query";
 import { BarChart3, ClipboardList, HeartPulse, LayoutDashboard, Sparkles } from "lucide-react";
 import { FITNESS_PATH, PLAN_PATH } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 /**
- * Quattro sezioni: Home (si avvia l'allenamento), Fitness (palestra, corsa e
- * riepilogo), Piano (il programma completo) e Benessere. `also`: pagine
- * interne che appartengono alla sezione. Il Coach compare al centro solo
- * per chi può usarlo.
+ * Cinque sezioni: Home (si avvia l'allenamento), Fitness (palestra, corsa e
+ * riepilogo), Coach, Piano (il programma completo) e Benessere. `also`: pagine
+ * interne che appartengono alla sezione. Il Coach sta al centro.
  */
 interface NavItem {
   href: string;
@@ -28,19 +26,8 @@ const baseItems: NavItem[] = [
   { href: "/wellness", icon: HeartPulse, label: "Benessere" },
 ];
 
-const coachItem: NavItem = { href: "/coach", icon: Sparkles, label: "Coach" };
-
-function useCoachAccess() {
-  const { data } = useQuery<{ access: boolean }>({
-    queryKey: ["coach", "access"],
-    queryFn: async () => {
-      const res = await fetch("/api/coach/access");
-      return res.ok ? res.json() : { access: false };
-    },
-    staleTime: 10 * 60_000,
-  });
-  return Boolean(data?.access);
-}
+/** Il Coach è visibile a tutti: chi non ha accesso trova la lista d'attesa */
+const navItems: NavItem[] = [...baseItems.slice(0, 2), { href: "/coach", icon: Sparkles, label: "Coach" }, ...baseItems.slice(2)];
 
 const matches = (pathname: string, href: string) => pathname === href || pathname.startsWith(href + "/");
 
@@ -50,8 +37,6 @@ const matches = (pathname: string, href: string) => pathname === href || pathnam
  */
 export function BottomNav() {
   const pathname = usePathname();
-  const coach = useCoachAccess();
-  const navItems = coach ? [...baseItems.slice(0, 2), coachItem, ...baseItems.slice(2)] : baseItems;
 
   return (
     <nav
@@ -62,10 +47,7 @@ export function BottomNav() {
         <p className="hidden px-3 pb-6 font-display text-2xl font-extrabold uppercase tracking-tight md:block">BodyGrowth</p>
         {/* Colonne uguali: ogni voce è centrata nella sua, qualunque sia la lunghezza dell'etichetta */}
         <div
-          className={cn(
-            "grid items-center px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 md:flex md:flex-col md:items-stretch md:gap-1 md:p-0",
-            coach ? "grid-cols-5" : "grid-cols-4"
-          )}
+          className="grid grid-cols-5 items-center px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 md:flex md:flex-col md:items-stretch md:gap-1 md:p-0"
         >
           {navItems.map((item) => {
             const isActive = matches(pathname, item.href) || !!item.also?.some((h) => matches(pathname, h));

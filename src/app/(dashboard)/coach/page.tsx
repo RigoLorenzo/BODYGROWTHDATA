@@ -1,6 +1,8 @@
 import { auth } from "@/lib/auth";
-import { hasCoachAccess, isCoachConfigured } from "@/lib/coach/access";
+import { coachLevel, isCoachAdmin, isCoachConfigured } from "@/lib/coach/access";
+import { waitlistEntry } from "@/lib/coach/invites";
 import { CoachChat } from "@/components/coach/coach-chat";
+import { CoachWaitlist } from "@/components/coach/coach-waitlist";
 
 export const metadata = { title: "Coach" };
 
@@ -22,12 +24,22 @@ function Unavailable({ title, text }: { title: string; text: string }) {
 
 export default async function CoachPage({ searchParams }: Props) {
   const session = await auth().catch(() => null);
-  if (!hasCoachAccess(session?.user?.id)) {
-    return <Unavailable title="Il Coach arriva presto" text="Il tuo personal trainer, dentro BodyGrowth. Ti avviseremo quando sarà disponibile." />;
+  const userId = session?.user?.id;
+  const level = await coachLevel(userId);
+  const admin = isCoachAdmin(userId);
+
+  // Senza accesso: presentazione del Coach, lista d'attesa e codice d'invito
+  if (level === "none") {
+    const entry = userId ? await waitlistEntry(userId) : null;
+    return <CoachWaitlist waitlisted={Boolean(entry)} />;
   }
   if (!isCoachConfigured()) {
-    return <Unavailable title="Coach non configurato" text="Manca la chiave ANTHROPIC_API_KEY nelle variabili d'ambiente del server." />;
+    return admin ? (
+      <Unavailable title="Coach non configurato" text="Manca la chiave ANTHROPIC_API_KEY nelle variabili d'ambiente del server." />
+    ) : (
+      <Unavailable title="Coach momentaneamente non disponibile" text="Riprova più tardi." />
+    );
   }
   const { t } = await searchParams;
-  return <CoachChat initialThreadId={t ?? null} />;
+  return <CoachChat initialThreadId={t ?? null} isAdmin={admin} />;
 }

@@ -19,7 +19,9 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
-export function LoginForm() {
+/** `invite`: codice d'invito al Coach da riprendere dopo l'accesso (già validato) */
+export function LoginForm({ invite = null }: { invite?: string | null }) {
+  const next = invite ? `/invito/${invite}` : "/dashboard";
   const [showPassword, setShowPassword] = useState(false);
   const [isOAuthLoading, setIsOAuthLoading] = useState<string | null>(null);
 
@@ -37,13 +39,13 @@ export function LoginForm() {
     if (result?.error) {
       toast({ title: "Accesso negato", description: "Email o password non corretti", variant: "destructive" });
     } else {
-      window.location.href = "/dashboard";
+      window.location.href = next;
     }
   };
 
   const handleOAuth = async (provider: string) => {
     setIsOAuthLoading(provider);
-    await signIn(provider, { callbackUrl: "/dashboard" });
+    await signIn(provider, { callbackUrl: next });
     setIsOAuthLoading(null);
   };
 
@@ -123,7 +125,7 @@ export function LoginForm() {
 
         <p className="text-center text-sm text-muted-foreground">
           Non hai un account?{" "}
-          <Link href="/register" className="text-primary hover:underline font-medium">
+          <Link href={invite ? `/register?invito=${invite}` : "/register"} className="text-primary hover:underline font-medium">
             Registrati gratis
           </Link>
         </p>
