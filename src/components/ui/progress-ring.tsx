@@ -36,10 +36,10 @@ export function ProgressRing({
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={circumference * (1 - clamped)}
-          className="stroke-lime-500 transition-[stroke-dashoffset] duration-500"
+          className="stroke-brand transition-[stroke-dashoffset] duration-500"
         />
       </svg>
-      {done && <Check className="absolute h-1/2 w-1/2 text-lime-600 dark:text-lime-400" aria-hidden />}
+      {done && <Check className="absolute h-1/2 w-1/2 text-brand-strong" aria-hidden />}
     </span>
   );
 }

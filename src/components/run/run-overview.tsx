@@ -79,7 +79,7 @@ export function RunOverview() {
     <div className="space-y-6">
       <DeviceExpiredBanner />
       {!hasRuns && (
-        <p className="rounded-3xl border border-dashed border-border/60 p-5 text-center text-sm text-muted-foreground">
+        <p className="rounded-2xl border border-dashed border-border px-4 py-3 text-center text-sm text-muted-foreground">
           Nessuna corsa ancora.{" "}
           <Link href={DEVICES_PATH} className="font-medium text-foreground underline underline-offset-2">
             Collega uno smartwatch

@@ -24,6 +24,23 @@
     --input: 240 5.9% 90%;
     --ring: 240 10% 3.9%;
     --radius: 0.5rem;
+
+    /* Colori con un significato: vedi docs/design/SYSTEM.md */
+    /* brand (lime): l'azione "allenati adesso" e il progresso verso un obiettivo */
+    --brand: 84 81% 44%;
+    --brand-foreground: 240 10% 4%;
+    /* testo lime su pagina e card (contrasto >= 4,5:1) */
+    --brand-strong: 86 78% 27%;
+    /* lime acceso sulle superfici sempre scure (card di Oggi, riepilogo, profilo) */
+    --brand-bright: 83 78% 55%;
+    /* success: completato, record, obiettivo raggiunto, andamento positivo */
+    --success: 142 72% 29%;
+    --success-foreground: 0 0% 100%;
+    /* testo positivo sulle superfici invertite (bg-foreground) */
+    --success-inverse: 142 69% 58%;
+    /* corsa: colore della categoria nei grafici e nel calendario */
+    --run: var(--brand);
+    --run-strong: var(--brand-strong);
   }
 
   .dark {
@@ -46,6 +63,12 @@
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
     --ring: 240 4.9% 83.9%;
+
+    --brand: 83 78% 55%;
+    --brand-strong: 83 78% 55%;
+    --success: 142 71% 45%;
+    --success-foreground: 240 10% 4%;
+    --success-inverse: 142 72% 29%;
   }
 }
 

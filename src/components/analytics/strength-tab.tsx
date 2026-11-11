@@ -144,7 +144,7 @@ function Recency({ freq }: { freq?: MuscleFreq }) {
     days == null
       ? "text-muted-foreground"
       : days <= 2
-        ? "text-lime-700 dark:text-lime-400"
+        ? "text-success"
         : days <= 5
           ? "text-amber-600 dark:text-amber-400"
           : "text-red-600 dark:text-red-400";
@@ -162,7 +162,7 @@ function MuscleWeeks({ muscle, weekly }: { muscle: string; weekly?: WeeklyAnalyt
       <div className="flex h-14 items-end gap-1.5">
         {values.map((v, i) => (
           <div key={weekly.weeks[i].weekStart} className="flex h-full flex-1 flex-col items-center justify-end">
-            <span className="mb-0.5 text-[9px] tabular-nums text-muted-foreground">{v ? formatDecimal(v) : ""}</span>
+            <span className="mb-0.5 text-[11px] tabular-nums text-muted-foreground">{v ? formatDecimal(v) : ""}</span>
             <div
               className="w-full rounded-t"
               style={{ height: v ? `${(v / max) * 100}%` : 3, background: v ? color : "hsl(var(--muted))", opacity: i === values.length - 1 ? 1 : 0.6 }}
@@ -170,7 +170,7 @@ function MuscleWeeks({ muscle, weekly }: { muscle: string; weekly?: WeeklyAnalyt
           </div>
         ))}
       </div>
-      <div className="mt-1 flex gap-1.5 text-[9px] text-muted-foreground">
+      <div className="mt-1 flex gap-1.5 text-[11px] text-muted-foreground">
         {weekly.weeks.map((w, i) => (
           <span key={w.weekStart} className="flex-1 text-center">
             {i % 2 === 1 ? w.label : ""}
@@ -217,7 +217,7 @@ function Muscles({ from, to, weekly }: { from: Date | null; to: Date | null; wee
                 >
                   <span className="w-24 shrink-0">
                     <span className="block truncate text-sm font-medium">{getMuscleLabel(muscle)}</span>
-                    {behind && <span className="block text-[10px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">Indietro</span>}
+                    {behind && <span className="block text-[11px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">Indietro</span>}
                   </span>
                   <span className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
                     <span className="block h-full rounded-full" style={{ width: `${(value / max) * 100}%`, background: getMuscleColor(muscle) }} />

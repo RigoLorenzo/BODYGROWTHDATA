@@ -37,7 +37,7 @@ export interface ImportedActivity {
 const slabStyle: React.CSSProperties = {
   backgroundImage: [
     "radial-gradient(circle at 100% 0%, rgba(56,189,248,0.22) 0%, transparent 45%)",
-    "radial-gradient(circle at 0% 100%, rgba(212,255,58,0.12) 0%, transparent 50%)",
+    "radial-gradient(circle at 0% 100%, rgba(163,230,53,0.12) 0%, transparent 50%)",
   ].join(","),
 };
 
@@ -96,7 +96,7 @@ export function ImportedActivityCard({ activity }: { activity: ImportedActivity 
               {item.value}
               {item.unit && <span className="ml-0.5 text-xs font-semibold text-zinc-500">{item.unit}</span>}
             </dd>
-            <dt className="mt-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">{item.label}</dt>
+            <dt className="mt-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">{item.label}</dt>
           </div>
         ))}
       </dl>

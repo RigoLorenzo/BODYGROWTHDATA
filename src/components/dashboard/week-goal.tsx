@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ChevronRight, Target } from "lucide-react";
 import { ProgressRing } from "@/components/ui/progress-ring";
 import { goalText, type WeeklyGoalSummary } from "@/lib/weekly-goal";
+import { cn } from "@/lib/utils";
 
 export const WEEKLY_GOAL_PATH = "/profile/settings/obiettivo";
 
@@ -17,16 +18,16 @@ function remaining(item: WeeklyGoalSummary["items"][number]): string {
  * Obiettivo della settimana in Home: un anello per ogni obiettivo e le
  * settimane di fila raggiunte. Senza obiettivo, l'invito a sceglierne uno.
  */
-export function WeekGoal({ goal }: { goal: WeeklyGoalSummary | undefined }) {
+export function WeekGoal({ goal, className }: { goal: WeeklyGoalSummary | undefined; className?: string }) {
   if (!goal) return null;
 
   if (goal.items.length === 0) {
     return (
       <Link
         href={WEEKLY_GOAL_PATH}
-        className="mt-4 flex min-h-12 items-center gap-3 rounded-2xl bg-muted/60 px-4 py-3 text-sm active:bg-muted"
+        className={cn("mt-4 flex min-h-12 items-center gap-3 rounded-2xl bg-muted/60 px-4 py-3 text-sm active:bg-muted", className)}
       >
-        <Target className="h-5 w-5 shrink-0 text-lime-600 dark:text-lime-400" aria-hidden />
+        <Target className="h-5 w-5 shrink-0 text-brand-strong" aria-hidden />
         <span className="flex-1">
           <span className="font-semibold">Scegli un obiettivo settimanale</span>
           <span className="block text-xs text-muted-foreground">Ti mostriamo a che punto sei ogni settimana</span>
@@ -37,7 +38,7 @@ export function WeekGoal({ goal }: { goal: WeeklyGoalSummary | undefined }) {
   }
 
   return (
-    <Link href={WEEKLY_GOAL_PATH} className="mt-4 block rounded-2xl bg-muted/60 p-3 active:bg-muted" aria-label="Obiettivo settimanale: modifica">
+    <Link href={WEEKLY_GOAL_PATH} className={cn("mt-4 block rounded-2xl bg-muted/60 p-3 active:bg-muted", className)} aria-label="Obiettivo settimanale: modifica">
       <div className="flex items-center gap-3">
         {goal.items.map((item) => (
           <div key={item.kind} className="flex min-w-0 flex-1 items-center gap-2.5">

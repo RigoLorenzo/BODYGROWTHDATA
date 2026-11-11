@@ -13,6 +13,7 @@ import { DayLegend, DayMark, describeDay, type DayParts } from "@/components/ana
 import type { AnalyticsOverview } from "@/types";
 import { FITNESS_PATH, RUN_HOME } from "@/lib/routes";
 import { WeekGoal } from "./week-goal";
+import { StatTile } from "@/components/ui/stat-tile";
 
 interface Props {
   initialOverview?: AnalyticsOverview;
@@ -20,14 +21,7 @@ interface Props {
 }
 
 function Metric({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="min-w-0 px-3 first:pl-0 last:pr-0">
-      <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
-      <div className="mt-0.5 flex items-baseline gap-1 font-display text-2xl font-bold tabular-nums leading-tight">
-        {children}
-      </div>
-    </div>
-  );
+  return <StatTile label={label} value={children} className="px-3 first:pl-0 last:pr-0" />;
 }
 
 /** La settimana in corso: sedute fatte rispetto al piano, volume e costanza */
@@ -128,7 +122,7 @@ export function WeekCard({ initialOverview, initialDays }: Props) {
         href={RUN_HOME}
         className="-mx-2 mt-4 flex items-center gap-2 rounded-xl px-2 py-2 text-sm active:bg-muted/60"
       >
-        <span className="h-2 w-2 shrink-0 rounded-full bg-lime-500" aria-hidden />
+        <span className="h-2 w-2 shrink-0 rounded-full bg-run" aria-hidden />
         <span className="flex-1 text-muted-foreground">
           {runs > 0 ? (
             <>

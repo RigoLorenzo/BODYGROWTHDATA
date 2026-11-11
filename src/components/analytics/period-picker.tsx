@@ -64,10 +64,10 @@ function sessionsByMonth(items: ActivityItem[]) {
 function intensity(sessions: number, max: number) {
   if (!sessions) return "bg-muted/60 text-muted-foreground";
   const r = sessions / Math.max(1, max);
-  if (r > 0.75) return "bg-lime-400 text-zinc-950";
-  if (r > 0.5) return "bg-lime-400/70 text-zinc-950";
-  if (r > 0.25) return "bg-lime-400/40";
-  return "bg-lime-400/20";
+  if (r > 0.75) return "bg-brand text-brand-foreground";
+  if (r > 0.5) return "bg-brand/70 text-brand-foreground";
+  if (r > 0.25) return "bg-brand/40";
+  return "bg-brand/20";
 }
 
 interface PickerProps {
@@ -185,7 +185,7 @@ export function PeriodPickerDialog({ open, onOpenChange, period, anchor, now, fi
                   aria-pressed={selected}
                   className={cn(
                     "flex h-[68px] flex-col items-center justify-center rounded-2xl bg-muted/60 active:scale-95",
-                    selected && "bg-lime-400 text-zinc-950"
+                    selected && "bg-brand text-brand-foreground"
                   )}
                 >
                   <span className="font-display text-xl font-bold tabular-nums">{y}</span>

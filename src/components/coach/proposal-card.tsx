@@ -131,7 +131,7 @@ export function ProposalCard({ proposal, onChange }: Props) {
         )}
         {proposal.status === "applied" && (
           <div className="flex items-center justify-between gap-3">
-            <span className="flex items-center gap-2 text-sm font-semibold text-green-600">
+            <span className="flex items-center gap-2 text-sm font-semibold text-success">
               <Check className="h-4 w-4" aria-hidden /> Piano attivo
             </span>
             <Link href={PLAN_PATH} className="text-sm font-semibold text-primary">

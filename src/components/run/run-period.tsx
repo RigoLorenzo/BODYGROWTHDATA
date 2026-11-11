@@ -76,9 +76,9 @@ const METRICS = [{ ...KM, label: "Km" }, RUNS, RUN_TIME, PACE];
 /** Nel calendario: più è acceso il verde, più km quel giorno */
 const runDayTone: DayTone = (sessions) => {
   const km = sessions.reduce((s, r) => s + r.distance, 0) / 1000;
-  if (km < 5) return { className: "bg-lime-500/40 text-foreground" };
-  if (km < 10) return { className: "bg-lime-500/70 text-zinc-950" };
-  return { className: "bg-lime-500 text-zinc-950" };
+  if (km < 5) return { className: "bg-run/40 text-foreground" };
+  if (km < 10) return { className: "bg-run/70 text-brand-foreground" };
+  return { className: "bg-run text-brand-foreground" };
 };
 
 /** Avanzamento verso l'obiettivo della settimana, dentro il riquadro dei km */
@@ -94,7 +94,7 @@ function GoalBar({ distance, goal, active }: { distance: number; goal: number; a
         aria-valuemax={100}
         aria-valuenow={Math.round(progress * 100)}
       >
-        <span className="block h-full rounded-full bg-lime-500" style={{ width: `${progress * 100}%` }} />
+        <span className="block h-full rounded-full bg-run" style={{ width: `${progress * 100}%` }} />
       </span>
       <span className={cn("mt-1 block text-[11px]", active ? "text-background/70" : "text-muted-foreground")}>
         {progress >= 1 ? "obiettivo raggiunto" : `obiettivo ${formatKm(goal)} km`}
@@ -159,7 +159,7 @@ export function RunProgress({ stats, runs, now, selection }: { stats: RunStats; 
       </PeriodSwipe>
 
       <Block title="Costanza">
-        <Frequency items={items} period={period} anchor={anchor} now={now} tone={runDayTone} weekClass="bg-lime-500" facts={frequencyFacts} />
+        <Frequency items={items} period={period} anchor={anchor} now={now} tone={runDayTone} weekClass="bg-run" facts={frequencyFacts} />
       </Block>
     </>
   );

@@ -77,9 +77,9 @@ function NightDetail({ night }: { night: SleepJson }) {
           ] as const
         ).map(([label, minutes]) => (
           <div key={label} className="rounded-xl bg-muted/50 px-1 py-2">
-            <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</dt>
+            <dt className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</dt>
             <dd className="text-sm font-semibold tabular-nums">{minutes != null ? formatMinutes(minutes) : "—"}</dd>
-            <dd className="text-[10px] text-muted-foreground">{label === "Sveglio" ? "" : pct(minutes, night.asleep)}</dd>
+            <dd className="text-[11px] text-muted-foreground">{label === "Sveglio" ? "" : pct(minutes, night.asleep)}</dd>
           </div>
         ))}
       </dl>

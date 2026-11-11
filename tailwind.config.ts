@@ -49,6 +49,21 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        brand: {
+          DEFAULT: "hsl(var(--brand))",
+          foreground: "hsl(var(--brand-foreground))",
+          strong: "hsl(var(--brand-strong))",
+          bright: "hsl(var(--brand-bright))",
+        },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
+          inverse: "hsl(var(--success-inverse))",
+        },
+        run: {
+          DEFAULT: "hsl(var(--run))",
+          strong: "hsl(var(--run-strong))",
+        },
         muscle: {
           chest: "#ef4444",
           back: "#3b82f6",

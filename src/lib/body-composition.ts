@@ -53,7 +53,7 @@ export interface BodyCompositionAnalysis {
 /** Categoria BMI standard OMS — invariata */
 export function getBMICategory(bmi: number): { label: string; color: string } {
   if (bmi < 18.5) return { label: "Sottopeso", color: "text-blue-400" };
-  if (bmi < 25) return { label: "Normopeso", color: "text-green-400" };
+  if (bmi < 25) return { label: "Normopeso", color: "text-success" };
   if (bmi < 30) return { label: "Sovrappeso", color: "text-yellow-400" };
   return { label: "Obesità", color: "text-red-400" };
 }

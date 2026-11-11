@@ -52,7 +52,7 @@ export function AchievementsGrid() {
               title={ach.name}
             >
               <span className="text-2xl">{ach.iconEmoji}</span>
-              <span className="text-[9px] leading-tight font-medium line-clamp-2">{ach.name}</span>
+              <span className="text-[11px] leading-tight font-medium line-clamp-2">{ach.name}</span>
             </div>
           ))}
         </div>

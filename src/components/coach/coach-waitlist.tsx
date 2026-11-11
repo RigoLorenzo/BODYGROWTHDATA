@@ -93,7 +93,7 @@ export function CoachWaitlist({ waitlisted: initial }: { waitlisted: boolean }) 
         {waitlisted ? (
           <>
             <p className="flex items-center gap-2 font-semibold">
-              <Check className="h-5 w-5 text-green-600" aria-hidden /> Sei nella lista d&apos;attesa
+              <Check className="h-5 w-5 text-success" aria-hidden /> Sei nella lista d&apos;attesa
             </p>
             <p className="text-sm text-muted-foreground">
               Quando ti diamo l&apos;accesso, il Coach si attiva da solo qui. Non devi fare altro.

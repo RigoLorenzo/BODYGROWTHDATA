@@ -17,7 +17,7 @@ export function FindingList({ findings }: { findings: Finding[] }) {
               aria-label={LABEL[f.tone]}
               className={cn(
                 "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full",
-                f.tone === "good" && "bg-lime-500/15 text-lime-700 dark:text-lime-400",
+                f.tone === "good" && "bg-success/15 text-success",
                 f.tone === "bad" && "bg-amber-500/15 text-amber-700 dark:text-amber-400",
                 f.tone === "neutral" && "bg-muted text-muted-foreground"
               )}

@@ -61,7 +61,7 @@ function SyncStatusLine({ sync, syncing }: { sync: ReturnType<typeof useDevicesS
       : sync.state === "disconnected"
         ? { dot: "bg-muted-foreground/50", text: "Nessuno smartwatch collegato" }
         : {
-            dot: sync.expired.length ? "bg-amber-500" : "bg-lime-500",
+            dot: sync.expired.length ? "bg-amber-500" : "bg-success",
             text: syncing
               ? `${names(sync.healthy)} · sincronizzazione…`
               : `${names(sync.healthy)} · ${sync.lastSyncAt ? `aggiornato ${ago(sync.lastSyncAt)}` : "collegato"}`,

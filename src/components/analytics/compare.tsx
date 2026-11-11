@@ -6,7 +6,7 @@ import type { DiffTone } from "@/lib/compare";
 export { compareContext, diffTone, type CompareContext, type DiffTone } from "@/lib/compare";
 
 const TONE: Record<DiffTone, { inverse: string; card: string }> = {
-  good: { inverse: "text-lime-400 dark:text-lime-600", card: "text-lime-700 dark:text-lime-400" },
+  good: { inverse: "text-success-inverse", card: "text-success" },
   bad: { inverse: "text-red-300 dark:text-red-600", card: "text-red-600 dark:text-red-400" },
   // Calo a inizio periodo: si vede, ma senza allarme
   soft: { inverse: "text-background/60", card: "text-muted-foreground" },

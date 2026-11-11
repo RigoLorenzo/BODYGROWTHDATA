@@ -6,3 +6,6 @@ export const FITNESS_PATH = "/fitness";
 export const RUN_HOME = "/fitness?tab=corsa";
 /** Il piano di allenamento attivo, completo */
 export const PLAN_PATH = "/plan";
+
+/** Secondo passo del benvenuto: proposta dell'obiettivo settimanale */
+export const WELCOME_GOAL_PATH = "/welcome/obiettivo";

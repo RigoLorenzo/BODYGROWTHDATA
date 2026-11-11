@@ -113,7 +113,7 @@ function ExerciseCardComponent({ exercise, expanded, onToggle, onFinished, canLi
 
   return (
     <div data-exercise-card={exercise.id} data-done={allDone} className="scroll-mt-20">
-      <Card className={cn("border-border/40", allDone && "border-green-500/40")}>
+      <Card className={cn("border-border/40", allDone && "border-success/40")}>
         <CardHeader className="p-3 pb-0">
           <div className="flex items-start justify-between gap-2">
             <button
@@ -124,7 +124,7 @@ function ExerciseCardComponent({ exercise, expanded, onToggle, onFinished, canLi
               onClick={toggle}
             >
               <div className="flex items-center gap-1.5">
-                {allDone && <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />}
+                {allDone && <CheckCircle2 className="h-4 w-4 text-success shrink-0" />}
                 {/* Nome italiano prima, come in Home e Piano; l'inglese resta sotto come aiuto */}
                 <h3 className="font-semibold text-sm leading-tight tracking-tight truncate">
                   {exercise.exerciseNameIt || exercise.exerciseName}
@@ -134,7 +134,7 @@ function ExerciseCardComponent({ exercise, expanded, onToggle, onFinished, canLi
                 <p className="text-xs text-muted-foreground/80 leading-tight truncate">{exercise.exerciseName}</p>
               )}
               <p className="text-xs text-muted-foreground mt-0.5">
-                <span className={cn("font-semibold tabular-nums", allDone ? "text-green-500" : "text-foreground")}>
+                <span className={cn("font-semibold tabular-nums", allDone ? "text-success" : "text-foreground")}>
                   {completedSets.length}/{exercise.sets.length}
                 </span>{" "}
                 serie
@@ -231,7 +231,7 @@ function ExerciseCardComponent({ exercise, expanded, onToggle, onFinished, canLi
               </div>
             )}
 
-            <div className="grid grid-cols-[1.25rem_minmax(0,1fr)_3.5rem_2.5rem_1.25rem] gap-1.5 px-1 pt-1 text-[10px] text-muted-foreground font-medium">
+            <div className="grid grid-cols-[1.25rem_minmax(0,1fr)_3.5rem_2.5rem_1.25rem] gap-1.5 px-1 pt-1 text-[11px] text-muted-foreground font-medium">
               <span className="text-center">#</span>
               <span className="text-center">Peso (kg)</span>
               <span className="text-center">Reps</span>

@@ -13,6 +13,7 @@ import { cn, getMuscleColor, getMuscleLabel } from "@/lib/utils";
 import { repsLabel, setsByMuscle, splitDayName } from "@/lib/plan-format";
 import type { ActiveProgramResponse } from "@/types";
 import { PLAN_PATH } from "@/lib/routes";
+import { primaryActionClass } from "@/components/ui/primary-action";
 
 /* ─── Superficie "lavagna": scura in entrambi i temi, il punto focale della home ─── */
 
@@ -38,8 +39,7 @@ const Eyebrow = ({ children }: { children: React.ReactNode }) => (
   <p className="shrink-0 whitespace-nowrap font-display text-[13px] font-semibold uppercase tracking-[0.18em] text-zinc-400">{children}</p>
 );
 
-const ctaClass =
-  "flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-lime-400 font-display text-xl font-bold uppercase tracking-wide text-zinc-950 shadow-[0_8px_30px_-8px_rgba(163,230,53,0.6)] transition-transform active:scale-[0.98] disabled:opacity-60 touch-manipulation";
+const ctaClass = primaryActionClass("brand");
 
 /* ─── Stati della card ─── */
 
@@ -56,14 +56,14 @@ function ActiveWorkoutSlab() {
     <Slab className="p-5">
       <div className="flex items-center gap-2">
         <span className="relative flex h-2.5 w-2.5">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-lime-400 opacity-60" />
-          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-lime-400" />
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-bright opacity-60" />
+          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-brand-bright" />
         </span>
         <Eyebrow>Allenamento in corso</Eyebrow>
       </div>
       <div className="mt-3 flex items-end gap-3">
         {code && (
-          <span className="font-display text-6xl font-extrabold uppercase leading-[0.8] text-lime-400">{code}</span>
+          <span className="font-display text-6xl font-extrabold uppercase leading-[0.8] text-brand-bright">{code}</span>
         )}
         <h2 className="min-w-0 font-display text-xl font-bold uppercase leading-tight">{title}</h2>
       </div>
@@ -75,7 +75,7 @@ function ActiveWorkoutSlab() {
         <p className="pb-1 text-sm text-zinc-400">serie fatte</p>
       </div>
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
-        <div className="h-full rounded-full bg-lime-400 transition-[width]" style={{ width: `${pct}%` }} />
+        <div className="h-full rounded-full bg-brand-bright transition-[width]" style={{ width: `${pct}%` }} />
       </div>
       <Link href="/workout/active" className={cn(ctaClass, "mt-5")}>
         Riprendi <ArrowRight className="h-5 w-5" />
@@ -186,7 +186,7 @@ function PlanSlab({ active }: { active: ActiveProgramResponse }) {
                   <span
                     className={cn(
                       "absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full",
-                      isSelected ? "bg-lime-500" : "bg-lime-400"
+                      isSelected ? "bg-zinc-950" : "bg-brand-bright"
                     )}
                     aria-label="Prossimo"
                   />
@@ -197,12 +197,12 @@ function PlanSlab({ active }: { active: ActiveProgramResponse }) {
         </div>
 
         <div className="mt-5 flex items-end gap-3">
-          <span className="font-display text-7xl font-extrabold uppercase leading-[0.8] tracking-tight text-lime-400">
+          <span className="font-display text-7xl font-extrabold uppercase leading-[0.8] tracking-tight text-brand-bright">
             {code}
           </span>
           <div className="min-w-0 pb-0.5">
             {index === suggested && (
-              <span className="mb-1 inline-block rounded-full bg-lime-400/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-lime-400">
+              <span className="mb-1 inline-block rounded-full bg-brand-bright/15 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-brand-bright">
                 Prossimo
               </span>
             )}

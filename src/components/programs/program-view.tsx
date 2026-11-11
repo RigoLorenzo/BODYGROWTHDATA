@@ -61,7 +61,7 @@ function WeeklyVolume({ program }: { program: ProgramDetail }) {
             <span className="text-right leading-none">
               <span className="font-display text-lg font-bold tabular-nums">{fmtSets(weighted)}</span>
               {weighted !== direct && (
-                <span className="block text-[10px] tabular-nums text-muted-foreground">{direct} dirette</span>
+                <span className="block text-[11px] tabular-nums text-muted-foreground">{direct} dirette</span>
               )}
             </span>
           </li>
@@ -179,7 +179,7 @@ export function ProgramView({
               <ChevronLeft className="h-5 w-5" /> Piani
             </Link>
             {program.isActive && (
-              <span className="rounded-full bg-lime-400/20 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-lime-700 dark:text-lime-400">
+              <span className="rounded-full bg-brand/20 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-brand-strong">
                 Piano attivo
               </span>
             )}
@@ -239,7 +239,7 @@ export function ProgramView({
               <span className="font-display text-5xl font-extrabold uppercase leading-[0.8]">{code}</span>
               <div className="min-w-0">
                 {index === nextDayIndex && (
-                  <span className="mb-1 inline-block rounded-full bg-lime-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-lime-700 dark:text-lime-400">
+                  <span className="mb-1 inline-block rounded-full bg-brand/20 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-brand-strong">
                     Prossimo
                   </span>
                 )}

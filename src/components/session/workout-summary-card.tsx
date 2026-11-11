@@ -21,6 +21,8 @@ import {
 import { hiddenExercisesText, recordCountText, shareMetrics } from "./share/share-image-kit";
 import { ShareWorkoutDialog } from "./share/share-workout-dialog";
 import { SOURCE_NAME } from "./imported-activity-card";
+import { primaryActionClass } from "@/components/ui/primary-action";
+import { compareSessions, sessionTotals, type SessionTotals } from "@/lib/session-compare";
 
 type WorkoutDetail = Prisma.WorkoutSessionGetPayload<{
   include: {
@@ -44,13 +46,13 @@ const VISIBLE_EXERCISES = 6;
 /* Stessa lastra della scheda condivisa: scura in entrambi i temi, alone lime e blu */
 const slabStyle: React.CSSProperties = {
   backgroundImage: [
-    "radial-gradient(circle at 100% 0%, rgba(212,255,58,0.20) 0%, transparent 45%)",
+    "radial-gradient(circle at 100% 0%, rgba(163,230,53,0.20) 0%, transparent 45%)",
     "radial-gradient(circle at 0% 100%, rgba(59,130,246,0.16) 0%, transparent 50%)",
   ].join(","),
 };
 
-const Label = ({ children, className }: { children: React.ReactNode; className?: string }) => (
-  <p className={cn("text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500", className)}>{children}</p>
+const Label = ({ children, className, as: Tag = "p" }: { children: React.ReactNode; className?: string; as?: "p" | "span" }) => (
+  <Tag className={cn("text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500", className)}>{children}</Tag>
 );
 
 /** I quattro numeri della seduta, tutti allo stesso livello (come nell'immagine condivisa) */
@@ -63,7 +65,7 @@ function Metrics({ stats }: { stats: WorkoutShareStats }) {
             <span className="truncate text-[2.5rem]">{item.value}</span>
             {item.unit && <span className="text-lg text-zinc-400">{item.unit}</span>}
           </dd>
-          <dt className="mt-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">{item.label}</dt>
+          <dt className="mt-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">{item.label}</dt>
         </div>
       ))}
     </dl>
@@ -73,15 +75,15 @@ function Metrics({ stats }: { stats: WorkoutShareStats }) {
 /** A fine seduta i record sono la notizia: uno per riga, in evidenza */
 function NewRecords({ stats }: { stats: WorkoutShareStats }) {
   return (
-    <div className="rounded-2xl bg-[#d4ff3a]/10 p-4 ring-1 ring-[#d4ff3a]/30">
-      <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[#d4ff3a]">
+    <div className="rounded-2xl bg-brand-bright/10 p-4 ring-1 ring-brand-bright/30">
+      <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-brand-bright">
         <Trophy className="h-4 w-4" aria-hidden /> {stats.records.length === 1 ? "Nuovo record" : `${stats.records.length} nuovi record`}
       </p>
       <ul className="mt-2 space-y-1.5">
         {stats.records.map((record) => (
           <li key={record.exerciseName} className="flex items-baseline justify-between gap-3">
             <span className="truncate text-sm font-semibold text-zinc-50">{record.exerciseName}</span>
-            <span className="shrink-0 font-display text-xl font-bold tabular-nums text-[#d4ff3a]">{record.label}</span>
+            <span className="shrink-0 font-display text-xl font-bold tabular-nums text-brand-bright">{record.label}</span>
           </li>
         ))}
       </ul>
@@ -118,11 +120,45 @@ function WeekGoalLine() {
 }
 
 /** La serie più pesante, in una riga discreta */
+/** Rispetto all'ultima volta dello stesso giorno del piano: in lime ciò che cresce */
+function PreviousLine({ workout, stats }: { workout: WorkoutDetail; stats: WorkoutShareStats }) {
+  const { data: previous } = useQuery<SessionTotals | null>({
+    queryKey: ["session", workout.id, "previous"],
+    queryFn: async () => {
+      const res = await fetch(`/api/sessions/${workout.id}/previous`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!workout.programDayId,
+    staleTime: 5 * 60 * 1000,
+  });
+  if (!previous) return null;
+  const diffs = compareSessions(sessionTotals(workout.startedAt, stats), previous);
+  const when = new Date(previous.startedAt).toLocaleDateString("it-IT", { day: "numeric", month: "short" });
+  return (
+    <div className="rounded-2xl bg-white/5 p-3">
+      <p suppressHydrationWarning className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+        Rispetto all&apos;ultima volta · {when}
+      </p>
+      <dl className="mt-2 grid grid-cols-3 gap-2">
+        {diffs.map((d) => (
+          <div key={d.key} className="min-w-0">
+            <dd className={cn("truncate font-display text-lg font-bold tabular-nums leading-tight", d.diff > 0 ? "text-brand-bright" : "text-zinc-300")}>
+              {d.text}
+            </dd>
+            <dt className="text-[11px] text-zinc-500">{d.label}</dt>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
+
 function TopSetLine({ stats }: { stats: WorkoutShareStats }) {
   if (!stats.topSet) return null;
   return (
     <p className="flex items-baseline gap-2 text-sm">
-      <Label className="shrink-0">Serie top</Label>
+      <Label as="span" className="shrink-0">Serie top</Label>
       <span className="whitespace-nowrap font-display text-xl font-bold text-zinc-50">
         {formatKg(stats.topSet.weight)} × {stats.topSet.reps}
       </span>
@@ -159,7 +195,7 @@ function ExerciseRow({ exercise }: { exercise: ShareExercise }) {
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold text-zinc-50">{exercise.name}</p>
         {exercise.pr && (
-          <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-[#d4ff3a] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-zinc-950">
+          <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-brand-bright px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-zinc-950">
             <Trophy className="h-3 w-3" aria-hidden /> PR {exercise.pr}
           </span>
         )}
@@ -178,7 +214,7 @@ function ExerciseList({ stats }: { stats: WorkoutShareStats }) {
       <div className="flex items-center justify-between gap-3">
         <Label>Esercizi</Label>
         {stats.records.length > 0 && (
-          <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-[#d4ff3a]">
+          <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-brand-bright">
             <Trophy className="h-3.5 w-3.5" aria-hidden /> {recordCountText(stats.records.length)}
           </p>
         )}
@@ -238,8 +274,8 @@ export function WorkoutSummaryCard({ workout, dayName, celebrate = false, onClos
       <motion.header variants={item} className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           {celebrate && (
-            <p className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[#d4ff3a]">
-              <span className="h-2 w-2 rounded-full bg-[#d4ff3a]" aria-hidden /> Allenamento completato
+            <p className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-brand-bright">
+              <span className="h-2 w-2 rounded-full bg-brand-bright" aria-hidden /> Allenamento completato
             </p>
           )}
           {/* Ora locale del telefono: il server può essere in un altro fuso */}
@@ -254,7 +290,7 @@ export function WorkoutSummaryCard({ workout, dayName, celebrate = false, onClos
             </p>
           )}
           <h2 className="mt-2 flex items-end gap-2.5 font-display font-extrabold uppercase leading-[0.9]">
-            {day?.code && <span className="text-5xl text-[#d4ff3a]">{day.code}</span>}
+            {day?.code && <span className="text-5xl text-brand-bright">{day.code}</span>}
             <span suppressHydrationWarning className={cn("min-w-0 break-words", title.length > 18 ? "text-3xl" : "text-4xl")}>
               {title}
             </span>
@@ -285,6 +321,11 @@ export function WorkoutSummaryCard({ workout, dayName, celebrate = false, onClos
       <motion.div variants={item} className="mt-6">
         <Metrics stats={stats} />
       </motion.div>
+      {workout.programDayId && (
+        <motion.div variants={item} className="mt-4">
+          <PreviousLine workout={workout} stats={stats} />
+        </motion.div>
+      )}
       <motion.div variants={item} className="mt-5">
         <TopSetLine stats={stats} />
       </motion.div>
@@ -303,7 +344,7 @@ export function WorkoutSummaryCard({ workout, dayName, celebrate = false, onClos
         <button
           type="button"
           onClick={() => setShareOpen(true)}
-          className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#d4ff3a] font-display text-xl font-bold uppercase tracking-wide text-zinc-950 shadow-[0_8px_30px_-8px_rgba(212,255,58,0.55)] transition-transform active:scale-[0.98]"
+          className={primaryActionClass("brand")}
         >
           <Share2 className="h-5 w-5" aria-hidden /> Condividi
         </button>

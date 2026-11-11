@@ -143,7 +143,7 @@ export default function ProgramsPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <p className="font-semibold text-sm truncate">{program.name}</p>
-                      {isActive && <Badge className="text-[10px] bg-primary/20 text-primary border-primary/30">Attivo</Badge>}
+                      {isActive && <Badge className="text-[11px] bg-primary/20 text-primary border-primary/30">Attivo</Badge>}
                     </div>
                     {program.description && (
                       <p className="text-xs text-muted-foreground line-clamp-1 mb-2">{program.description}</p>
@@ -158,7 +158,7 @@ export default function ProgramsPage() {
                     {program.days.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-2">
                         {program.days.map((d) => (
-                          <span key={d.id} className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted/50 text-muted-foreground">
+                          <span key={d.id} className="text-[11px] px-1.5 py-0.5 rounded-full bg-muted/50 text-muted-foreground">
                             {d.name}
                           </span>
                         ))}

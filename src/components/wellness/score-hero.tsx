@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import type { ScoreFactor, Tone } from "@/lib/wellness/insights";
 
 const TONE: Record<Tone, string> = {
-  good: "text-lime-400 dark:text-lime-600",
+  good: "text-success-inverse",
   neutral: "text-background",
   warn: "text-amber-300 dark:text-amber-600",
   bad: "text-red-300 dark:text-red-600",

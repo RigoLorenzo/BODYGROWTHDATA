@@ -19,14 +19,14 @@ const ZONES: { tone: FormTone; label: string; from: number; to: number; classNam
   { tone: "overreach", label: "Stanco", from: -40, to: -30, className: "bg-red-500" },
   { tone: "tired", label: "In carico", from: -30, to: -10, className: "bg-amber-400" },
   { tone: "neutral", label: "Equilibrato", from: -10, to: 5, className: "bg-muted-foreground/40" },
-  { tone: "fresh", label: "Fresco", from: 5, to: 20, className: "bg-lime-500" },
+  { tone: "fresh", label: "Fresco", from: 5, to: 20, className: "bg-success" },
 ];
 const MIN = ZONES[0].from;
 const MAX = ZONES.at(-1)!.to;
 const position = (form: number) => ((Math.min(MAX, Math.max(MIN, form)) - MIN) / (MAX - MIN)) * 100;
 
 const TONE_TEXT: Record<FormTone, string> = {
-  fresh: "text-lime-700 dark:text-lime-400",
+  fresh: "text-success",
   neutral: "text-foreground",
   tired: "text-amber-600 dark:text-amber-400",
   overreach: "text-red-600 dark:text-red-400",
@@ -48,7 +48,7 @@ function FormGauge({ form }: { form: number }) {
           ))}
         </div>
       </div>
-      <div className="mt-1.5 flex text-[10px] text-muted-foreground" aria-hidden>
+      <div className="mt-1.5 flex text-[11px] text-muted-foreground" aria-hidden>
         {ZONES.map((z) => (
           <span key={z.tone} className="min-w-0 truncate text-center" style={{ flexGrow: z.to - z.from, flexBasis: 0 }}>
             {z.label}
@@ -74,7 +74,7 @@ function FitnessTrend({ series }: { series: RunStats["fitness"]["series"] }) {
         <path d={`${line}L${W} ${H}L0 ${H}Z`} className="fill-sky-500/15" />
         <path d={line} fill="none" className="stroke-sky-500" strokeWidth={2.5} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
       </svg>
-      <div className="mt-1 flex justify-between text-[10px] text-muted-foreground" aria-hidden>
+      <div className="mt-1 flex justify-between text-[11px] text-muted-foreground" aria-hidden>
         <span>90 giorni fa</span>
         <span>oggi</span>
       </div>
@@ -86,7 +86,7 @@ function FitnessTrend({ series }: { series: RunStats["fitness"]["series"] }) {
 function buildTrend(now: number, monthAgo: number | undefined) {
   if (monthAgo == null || monthAgo <= 0) return { text: "in costruzione", className: "text-foreground" };
   const change = (now - monthAgo) / monthAgo;
-  if (change > 0.05) return { text: "in crescita", className: "text-lime-700 dark:text-lime-400" };
+  if (change > 0.05) return { text: "in crescita", className: "text-success" };
   if (change < -0.05) return { text: "in calo", className: "text-red-600 dark:text-red-400" };
   return { text: "stabile", className: "text-foreground" };
 }
@@ -95,7 +95,7 @@ function buildTrend(now: number, monthAgo: number | undefined) {
 function tirednessLevel(fatigue: number, fitness: number) {
   const ratio = fitness > 0 ? fatigue / fitness : fatigue > 0 ? 2 : 0;
   if (ratio > 1.3) return { text: "alta", className: "text-amber-600 dark:text-amber-400" };
-  if (ratio < 0.8) return { text: "bassa", className: "text-lime-700 dark:text-lime-400" };
+  if (ratio < 0.8) return { text: "bassa", className: "text-success" };
   return { text: "nella norma", className: "text-foreground" };
 }
 

@@ -1,7 +1,5 @@
 "use client";
 
-import Link from "next/link";
-import { ChevronRight } from "lucide-react";
 import { addDays, addMonths, addWeeks, addYears, format, max as latest, min as earliest, subDays } from "date-fns";
 import { it } from "date-fns/locale";
 import { periodSeries, periodWindow, type ActivityItem, type Bucket, type SeriesUnit, type Totals } from "@/lib/insights";
@@ -10,6 +8,7 @@ import { KIND_STYLE } from "./activity-kind";
 import { StackedBars } from "./bars";
 import { DiffBadge, diffTone, type CompareContext } from "./compare";
 import type { PeriodSelection } from "./period-bar";
+import { EmptyState } from "@/components/ui/empty-state";
 
 /**
  * Una metrica del periodo, definita una volta sola: dà il valore al suo
@@ -183,14 +182,7 @@ export function TrendChart({
   return (
     <div className="mt-6">
       {!total ? (
-        <div className="flex items-center justify-between gap-3 rounded-2xl border border-dashed border-border px-4 py-3">
-          <p className="text-sm text-muted-foreground">Niente in questo periodo</p>
-          {empty && span.isCurrent && (
-            <Link href={empty.href} className="flex min-h-11 shrink-0 items-center gap-0.5 text-sm font-semibold">
-              {empty.label} <ChevronRight className="h-4 w-4" aria-hidden />
-            </Link>
-          )}
-        </div>
+        <EmptyState action={empty && span.isCurrent ? empty : undefined}>Niente in questo periodo</EmptyState>
       ) : (
         <StackedBars
           height={130}

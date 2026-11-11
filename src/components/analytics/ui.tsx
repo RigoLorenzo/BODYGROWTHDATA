@@ -1,3 +1,4 @@
+import { SectionHeader } from "@/components/ui/section-header";
 import { cn } from "@/lib/utils";
 
 /** Blocco della pagina con titolo nello stile del cruscotto */
@@ -28,31 +29,8 @@ export function Section({
   );
 }
 
-/** Valore con etichetta piccola sopra */
-export function Stat({
-  label,
-  value,
-  unit,
-  detail,
-  className,
-}: {
-  label: string;
-  value: React.ReactNode;
-  unit?: string;
-  detail?: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={cn("min-w-0", className)}>
-      <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className="font-display text-2xl font-bold tabular-nums leading-tight">
-        {value}
-        {unit && <span className="ml-0.5 text-xs font-medium text-muted-foreground">{unit}</span>}
-      </p>
-      {detail && <p className="text-xs text-muted-foreground">{detail}</p>}
-    </div>
-  );
-}
+/** Valore con etichetta piccola sopra (alias storico di StatTile) */
+export { StatTile as Stat } from "@/components/ui/stat-tile";
 
 /** Selettore a pillole (periodo, metrica) */
 export function Segmented<T extends string>({
@@ -97,7 +75,7 @@ export function ActivityLegend({ className, other = false }: { className?: strin
         <span className="h-2.5 w-2.5 rounded-full bg-foreground" /> Palestra
       </span>
       <span className="flex items-center gap-1.5">
-        <span className="h-2.5 w-2.5 rounded-full bg-lime-500" /> Corsa
+        <span className="h-2.5 w-2.5 rounded-full bg-run" /> Corsa
       </span>
       {other && (
         <span className="flex items-center gap-1.5">
@@ -108,13 +86,7 @@ export function ActivityLegend({ className, other = false }: { className?: strin
   );
 }
 
-export function EmptyState({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="rounded-3xl border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">
-      {children}
-    </p>
-  );
-}
+export { EmptyState } from "@/components/ui/empty-state";
 
 /**
  * Blocco della pagina senza riquadro: una linea sottile sopra, un'etichetta
@@ -133,12 +105,7 @@ export function Block({
 }) {
   return (
     <section className={cn("border-t border-border/60 pt-6", className)}>
-      {(title || action) && (
-        <div className="mb-4 flex min-h-8 items-center justify-between gap-3">
-          {title && <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">{title}</h2>}
-          {action}
-        </div>
-      )}
+      {(title || action) && <SectionHeader title={title} action={action} className="mb-4" />}
       {children}
     </section>
   );

@@ -143,7 +143,7 @@ export function TrendLine({
           />
         )}
       </div>
-      <div className="mt-1.5 flex justify-between text-[10px] text-muted-foreground">
+      <div className="mt-1.5 flex justify-between text-[11px] text-muted-foreground">
         <span>{points[0].label}</span>
         <span>{points[points.length - 1].label}</span>
       </div>
@@ -159,7 +159,7 @@ export function Hypnogram({ stages, start, end }: { stages: SleepSegment[]; star
   return (
     <div>
       <div className="flex gap-2">
-        <div className="flex w-16 shrink-0 flex-col justify-between py-0.5 text-[10px] text-muted-foreground">
+        <div className="flex w-16 shrink-0 flex-col justify-between py-0.5 text-[11px] text-muted-foreground">
           {STAGE_ORDER.map((s) => (
             <span key={s} className="h-5 leading-5">
               {STAGE_STYLE[s].label}
@@ -184,7 +184,7 @@ export function Hypnogram({ stages, start, end }: { stages: SleepSegment[]; star
           })}
         </div>
       </div>
-      <div className="ml-[72px] mt-1.5 flex justify-between text-[10px] text-muted-foreground">
+      <div className="ml-[72px] mt-1.5 flex justify-between text-[11px] text-muted-foreground">
         <span>{clock(start)}</span>
         <span>{clock(end)}</span>
       </div>
@@ -266,7 +266,7 @@ export function NightBars({ nights, target, labelEvery = 5 }: { nights: NightBar
           );
         })}
       </div>
-      <div className="mt-1.5 flex gap-[2px] text-[10px] text-muted-foreground">
+      <div className="mt-1.5 flex gap-[2px] text-[11px] text-muted-foreground">
         {nights.map((n, i) => (
           <span key={n.key} className="min-w-0 flex-1 whitespace-nowrap text-center">
             {(last - i) % labelEvery === 0 ? n.label : ""}
@@ -328,7 +328,7 @@ export function DayBars({
           </button>
         ))}
       </div>
-      <div className="mt-1.5 flex gap-[2px] text-[10px] text-muted-foreground">
+      <div className="mt-1.5 flex gap-[2px] text-[11px] text-muted-foreground">
         {bars.map((b, i) => (
           <span key={b.key} className="min-w-0 flex-1 whitespace-nowrap text-center">
             {(last - i) % labelEvery === 0 ? b.label : ""}

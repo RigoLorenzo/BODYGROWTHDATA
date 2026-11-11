@@ -46,7 +46,7 @@ export function ProfileLinks() {
             className="group flex min-h-[132px] flex-col justify-between rounded-3xl border border-border/60 bg-card p-4 transition-transform active:scale-[0.98]"
           >
             <span className="flex items-center justify-between">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-lime-400/15 text-lime-700 dark:text-[#d4ff3a]">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand/15 text-brand-strong">
                 <Icon className="h-[18px] w-[18px]" />
               </span>
               <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-active:translate-x-0.5" />

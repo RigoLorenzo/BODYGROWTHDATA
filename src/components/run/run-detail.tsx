@@ -75,7 +75,7 @@ function Splits({ splits }: { splits: RunSplit[] }) {
               <span className="w-14 font-semibold">{formatPace(pace)}</span>
               <span className="flex-1 pr-2">
                 <span
-                  className={pace === best ? "block h-2.5 rounded-full bg-lime-500" : "block h-2.5 rounded-full bg-foreground/25"}
+                  className={pace === best ? "block h-2.5 rounded-full bg-run" : "block h-2.5 rounded-full bg-foreground/25"}
                   style={{ width: `${width}%` }}
                 />
               </span>
