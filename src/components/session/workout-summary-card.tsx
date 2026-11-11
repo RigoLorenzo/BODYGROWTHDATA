@@ -66,6 +66,25 @@ function Metrics({ stats }: { stats: WorkoutShareStats }) {
   );
 }
 
+/** A fine seduta i record sono la notizia: uno per riga, in evidenza */
+function NewRecords({ stats }: { stats: WorkoutShareStats }) {
+  return (
+    <div className="rounded-2xl bg-[#d4ff3a]/10 p-4 ring-1 ring-[#d4ff3a]/30">
+      <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[#d4ff3a]">
+        <Trophy className="h-4 w-4" aria-hidden /> {stats.records.length === 1 ? "Nuovo record" : `${stats.records.length} nuovi record`}
+      </p>
+      <ul className="mt-2 space-y-1.5">
+        {stats.records.map((record) => (
+          <li key={record.exerciseName} className="flex items-baseline justify-between gap-3">
+            <span className="truncate text-sm font-semibold text-zinc-50">{record.exerciseName}</span>
+            <span className="shrink-0 font-display text-xl font-bold tabular-nums text-[#d4ff3a]">{record.label}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 /** La serie più pesante, in una riga discreta */
 function TopSetLine({ stats }: { stats: WorkoutShareStats }) {
   if (!stats.topSet) return null;
@@ -221,6 +240,11 @@ export function WorkoutSummaryCard({ workout, dayName, celebrate = false, onClos
         )}
       </motion.header>
 
+      {celebrate && stats.records.length > 0 && (
+        <motion.div variants={item} className="mt-5">
+          <NewRecords stats={stats} />
+        </motion.div>
+      )}
       <motion.div variants={item} className="mt-6">
         <Metrics stats={stats} />
       </motion.div>

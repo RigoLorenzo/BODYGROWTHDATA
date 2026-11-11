@@ -37,11 +37,16 @@ const matches = (pathname: string, href: string) => pathname === href || pathnam
  */
 export function BottomNav() {
   const pathname = usePathname();
+  // Durante l'allenamento sul telefono c'è solo la seduta: niente uscite per sbaglio
+  const focus = pathname.startsWith("/workout/active");
 
   return (
     <nav
       aria-label="Navigazione principale"
-      className="fixed bottom-0 left-0 right-0 z-40 md:inset-y-0 md:right-auto md:w-64 md:border-r md:border-border/60 md:bg-background"
+      className={cn(
+        "fixed bottom-0 left-0 right-0 z-40 md:inset-y-0 md:right-auto md:w-64 md:border-r md:border-border/60 md:bg-background",
+        focus && "hidden md:block"
+      )}
     >
       <div className="border-t border-border/50 bg-background md:border-0 md:px-4 md:pt-8">
         <p className="hidden px-3 pb-6 font-display text-2xl font-extrabold uppercase tracking-tight md:block">BodyGrowth</p>

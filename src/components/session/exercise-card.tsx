@@ -141,6 +141,14 @@ function ExerciseCardComponent({ exercise, expanded, onToggle, onFinished, canLi
                 {target ? ` · piano ${target}` : ""}
                 {volume > 0 ? ` · ${formatVolume(volume)}` : ""}
               </p>
+              {!expanded && completedSets.length === 0 && exercise.lastSets && formatLoggedSets(exercise.lastSets) && (
+                <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                  <History className="h-3 w-3 shrink-0 text-primary/70" aria-hidden />
+                  <span className="truncate">
+                    Scorsa: <span className="font-semibold text-foreground/80">{formatLoggedSets(exercise.lastSets)}</span>
+                  </span>
+                </p>
+              )}
             </button>
             <div className="flex items-center">
               {completedSets.length === 0 && (
