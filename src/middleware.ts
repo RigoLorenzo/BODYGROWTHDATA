@@ -13,5 +13,6 @@ export const config = {
     "/workout/:path*",
     "/run/:path*",
     "/wellness/:path*",
+    "/coach/:path*",
   ],
 };
