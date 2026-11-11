@@ -277,7 +277,7 @@ export function StrengthTab({ style }: { style?: TrainingStyle | null } = {}) {
           selected={metric.key}
           onSelect={setMetricKey}
         />
-        <TrendChart items={gym} now={now} selection={selection} metric={metric} />
+        <TrendChart items={gym} now={now} selection={selection} metric={metric} empty={{ label: "Allenati oggi", href: "/dashboard" }} />
       </PeriodSwipe>
 
       <Muscles from={span.from} to={span.to} weekly={weekly} />

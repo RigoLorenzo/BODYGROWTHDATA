@@ -8,6 +8,8 @@ export interface CompareContext {
   against: string;
   /** il periodo è appena iniziato: il confronto non direbbe ancora nulla */
   early: boolean;
+  /** periodo in corso, nella prima metà: un calo non è ancora un calo (niente rosso) */
+  settling: boolean;
   /** "La settimana", "Il mese", "L'anno" */
   name: string;
 }
@@ -32,9 +34,36 @@ export function compareContext(period: Period, anchor: Date, now: Date): Compare
         ? withPreposition(format(previous, "MMMM", { locale: it }))
         : `al ${format(previous, "yyyy")}`;
   const sameTime = span.isCurrent ? (period === "year" ? ", alla stessa data" : ", allo stesso giorno") : "";
+  const elapsed = span.isCurrent ? (now.getTime() - span.from!.getTime()) / (span.to!.getTime() - span.from!.getTime()) : 1;
   return {
     against: `rispetto ${target}${sameTime}`,
     early: span.isCurrent && differenceInCalendarDays(now, span.from!) < MIN_DAYS[period],
+    settling: elapsed < 0.5,
     name: NAME[period],
   };
+}
+
+/** Come mostrare il confronto: null = non mostrarlo */
+export type DiffTone = "good" | "bad" | "soft" | "same";
+
+/**
+ * Regola unica dei confronti fra periodi:
+ * - senza dati nel periodo prima non si confronta;
+ * - per le metriche in cui meno è meglio (il passo) senza dati adesso non si
+ *   confronta: "nessuna corsa" varrebbe 0, cioè un passo velocissimo;
+ * - nella prima metà di un periodo in corso un peggioramento è grigio, non
+ *   rosso: il periodo non è finito e il rosso scoraggia.
+ */
+export function diffTone(
+  value: number,
+  before: number,
+  { lowerIsBetter = false, settling = false }: { lowerIsBetter?: boolean; settling?: boolean } = {}
+): DiffTone | null {
+  if (!(before > 0)) return null;
+  if (lowerIsBetter && !(value > 0)) return null;
+  const diff = value - before;
+  if (Math.abs(diff) < 1e-9) return "same";
+  const better = diff > 0 !== lowerIsBetter;
+  if (better) return "good";
+  return settling ? "soft" : "bad";
 }

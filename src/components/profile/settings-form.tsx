@@ -154,7 +154,7 @@ export function SettingsForm({ user, trainingStyle }: Props) {
         </div>
       </Group>
 
-      <Group title="Allenamento">
+      <Group title="Durante l'allenamento">
         <label className="flex min-h-16 cursor-pointer items-center gap-3 px-4 py-3">
           <RowIcon icon={Lightbulb} />
           <span className="min-w-0 flex-1">

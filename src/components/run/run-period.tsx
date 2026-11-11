@@ -150,7 +150,7 @@ export function RunProgress({ stats, runs, now, selection }: { stats: RunStats; 
           onSelect={setMetricKey}
           extra={(key, active) => (key === KM.key && goalThisWeek ? <GoalBar distance={current.distance} goal={goal} active={active} /> : null)}
         />
-        <TrendChart items={items} now={now} selection={selection} metric={metric} />
+        <TrendChart items={items} now={now} selection={selection} metric={metric} empty={{ label: "Aggiungi una corsa", href: "/run/new" }} />
         {runFacts.length > 0 && (
           <div className="mt-6">
             <Facts facts={runFacts} />

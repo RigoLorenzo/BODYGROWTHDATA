@@ -71,7 +71,7 @@ export function BottomNav() {
                   />
                 )}
                 <item.icon className="h-5 w-5 shrink-0" />
-                <span className="max-w-full truncate text-[10px] font-medium md:text-sm">{item.label}</span>
+                <span className="max-w-full truncate text-[11px] font-medium md:text-sm">{item.label}</span>
               </Link>
             );
           })}

@@ -95,7 +95,7 @@ export function SummaryTab() {
           selected={metric.key}
           onSelect={setMetricKey}
         />
-        <TrendChart items={items} now={now} selection={selection} metric={metric} />
+        <TrendChart items={items} now={now} selection={selection} metric={metric} empty={{ label: "Allenati oggi", href: "/dashboard" }} />
       </PeriodSwipe>
 
       <Block title="Costanza">

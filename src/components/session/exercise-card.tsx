@@ -125,12 +125,13 @@ function ExerciseCardComponent({ exercise, expanded, onToggle, onFinished, canLi
             >
               <div className="flex items-center gap-1.5">
                 {allDone && <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />}
+                {/* Nome italiano prima, come in Home e Piano; l'inglese resta sotto come aiuto */}
                 <h3 className="font-semibold text-sm leading-tight tracking-tight truncate">
-                  {exercise.exerciseName}
+                  {exercise.exerciseNameIt || exercise.exerciseName}
                 </h3>
               </div>
-              {exercise.exerciseNameIt && (
-                <p className="text-xs text-muted-foreground/80 leading-tight truncate">{exercise.exerciseNameIt}</p>
+              {exercise.exerciseNameIt && exercise.exerciseNameIt !== exercise.exerciseName && (
+                <p className="text-xs text-muted-foreground/80 leading-tight truncate">{exercise.exerciseName}</p>
               )}
               <p className="text-xs text-muted-foreground mt-0.5">
                 <span className={cn("font-semibold tabular-nums", allDone ? "text-green-500" : "text-foreground")}>

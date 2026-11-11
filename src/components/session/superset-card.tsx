@@ -42,7 +42,7 @@ function ExerciseContext({ exercise, which }: { exercise: ActiveExercise; which:
   return (
     <div className="space-y-0.5 border-l-2 border-border/60 pl-2">
       <p className="flex items-center gap-1.5 text-xs font-semibold">
-        <Letter which={which} /> <span className="truncate">{exercise.exerciseName}</span>
+        <Letter which={which} /> <span className="truncate">{exercise.exerciseNameIt || exercise.exerciseName}</span>
       </p>
       <ExerciseNote exercise={exercise} />
       {exercise.lastSets && (
@@ -109,7 +109,7 @@ function SupersetCardComponent({ first, second, expanded, onToggle, onFinished }
               {pair.map((ex, i) => (
                 <span key={ex.id} className="flex items-center gap-1.5">
                   <Letter which={i as 0 | 1} />
-                  <span className="truncate text-sm font-semibold leading-tight">{ex.exerciseName}</span>
+                  <span className="truncate text-sm font-semibold leading-tight">{ex.exerciseNameIt || ex.exerciseName}</span>
                   {target(ex) && <span className="shrink-0 text-xs text-muted-foreground">{target(ex)}</span>}
                 </span>
               ))}
