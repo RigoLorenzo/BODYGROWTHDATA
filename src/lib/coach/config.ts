@@ -32,10 +32,17 @@ export const COACH_BETAS = ["server-side-fallback-2026-07-01", "mid-conversation
 export const MAX_OUTPUT_TOKENS = 32_000;
 export const MAX_TOOL_ROUNDS = 10;
 
-/** Messaggi al giorno per utente: protegge dai costi imprevisti */
-export function dailyMessageLimit(): number {
-  const value = Number(process.env.COACH_DAILY_LIMIT);
-  return Number.isFinite(value) && value > 0 ? value : 150;
+const positive = (raw: string | undefined, fallback: number) => {
+  const value = Number(raw);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+};
+
+/**
+ * Messaggi al giorno per utente: protegge dai costi imprevisti. I tester
+ * (pagati dal proprietario) hanno un limite più basso.
+ */
+export function dailyMessageLimit(level: "owner" | "tester"): number {
+  return level === "owner" ? positive(process.env.COACH_DAILY_LIMIT, 150) : positive(process.env.COACH_TESTER_DAILY_LIMIT, 30);
 }
 
 let client: Anthropic | null = null;

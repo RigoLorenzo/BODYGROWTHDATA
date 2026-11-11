@@ -7,8 +7,8 @@ import { toast } from "@/hooks/use-toast";
 import type { TrainingStyle } from "@/lib/training-style";
 import { TrainingStylePicker, saveTrainingStyle } from "./training-style-picker";
 
-/** Benvenuto: si sceglie lo stile, poi si entra nell'app */
-export function WelcomeStyle({ name }: { name: string | null }) {
+/** Benvenuto: si sceglie lo stile, poi si entra nell'app (o si torna all'invito) */
+export function WelcomeStyle({ name, next = "/dashboard" }: { name: string | null; next?: string }) {
   const router = useRouter();
   const [style, setStyle] = useState<TrainingStyle | null>(null);
   const [saving, setSaving] = useState(false);
@@ -18,7 +18,7 @@ export function WelcomeStyle({ name }: { name: string | null }) {
     setSaving(true);
     try {
       await saveTrainingStyle(style);
-      router.replace("/dashboard");
+      router.replace(next);
       router.refresh();
     } catch {
       toast({ title: "Non salvato", description: "Controlla la connessione e riprova.", variant: "destructive" });

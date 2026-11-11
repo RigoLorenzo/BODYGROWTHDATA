@@ -22,6 +22,9 @@ export async function DELETE() {
     // Dati salute dello smartwatch: sensibili, vanno via con il resto
     prisma.wellnessDay.deleteMany({ where: { userId } }),
     prisma.sleepSession.deleteMany({ where: { userId } }),
+    // Conversazioni con il Coach (con messaggi e proposte) e la sua memoria dell'atleta
+    prisma.coachThread.deleteMany({ where: { userId } }),
+    prisma.athleteBrief.deleteMany({ where: { userId } }),
     prisma.miFitnessConnection.updateMany({
       where: { userId },
       data: { wellnessSyncedUntil: null, wellnessSyncedFrom: null, wellnessHrFrom: null, wellnessHrUntil: null },

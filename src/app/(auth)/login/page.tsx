@@ -1,10 +1,16 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { LoginForm } from "@/components/auth/login-form";
+import { invitePath, normalizeInviteCode } from "@/lib/coach/invite-code";
 
-export default async function LoginPage() {
+interface Props {
+  searchParams: Promise<{ invito?: string }>;
+}
+
+export default async function LoginPage({ searchParams }: Props) {
+  const invite = normalizeInviteCode((await searchParams).invito);
   const session = await auth();
-  if (session) redirect("/dashboard");
+  if (session) redirect(invite ? invitePath(invite) : "/dashboard");
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -13,7 +19,7 @@ export default async function LoginPage() {
           <h1 className="text-4xl font-bold tracking-tight">BodyGrowth</h1>
           <p className="mt-2 text-muted-foreground">Elite Fitness Tracker</p>
         </div>
-        <LoginForm />
+        <LoginForm invite={invite} />
       </div>
     </div>
   );

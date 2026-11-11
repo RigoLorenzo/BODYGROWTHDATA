@@ -219,6 +219,8 @@ model User {
   coachThreads        CoachThread[]
   coachProposals      CoachProposal[]
   athleteBrief        AthleteBrief?
+  coachAccess         CoachAccess?
+  coachWaitlist       CoachWaitlist?
 
   following Follows[] @relation("Following")
   followers Follows[] @relation("Followers")
@@ -919,4 +921,40 @@ model CoachProposal {
   thread CoachThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
 
   @@index([userId, status])
+}
+
+/// Accesso al Coach dato dal proprietario a un tester (invito o lista d'attesa).
+/// Il proprietario ha accesso dalla variabile COACH_FREE_USER_IDS, non da qui.
+model CoachAccess {
+  userId     String    @id
+  /// invite | waitlist | admin
+  source     String
+  inviteCode String?
+  grantedAt  DateTime  @default(now())
+  /// Accesso tolto: la riga resta per lo storico
+  revokedAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// Chi vuole provare il Coach e aspetta l'accesso
+model CoachWaitlist {
+  userId    String   @id
+  /// Cosa vorrebbe dal Coach (facoltativo)
+  note      String?  @db.Text
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// Codice d'invito: chi lo usa riceve l'accesso al Coach finché ci sono usi disponibili
+model CoachInvite {
+  code      String    @id
+  /// Per chi è, es. "Amici palestra"
+  label     String
+  maxUses   Int       @default(1)
+  uses      Int       @default(0)
+  expiresAt DateTime?
+  disabled  Boolean   @default(false)
+  createdAt DateTime  @default(now())
 }
