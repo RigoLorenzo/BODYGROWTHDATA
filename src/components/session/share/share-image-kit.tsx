@@ -42,7 +42,7 @@ export const PALETTES: Record<"dark" | "light", Palette> = {
   dark: {
     bg: INK,
     bgImage:
-      "radial-gradient(circle at 92% 4%, rgba(212,255,58,0.20) 0%, rgba(9,9,11,0) 42%), radial-gradient(circle at 0% 100%, rgba(59,130,246,0.16) 0%, rgba(9,9,11,0) 48%)",
+      "radial-gradient(circle at 92% 4%, rgba(163,230,53,0.20) 0%, rgba(9,9,11,0) 42%), radial-gradient(circle at 0% 100%, rgba(59,130,246,0.16) 0%, rgba(9,9,11,0) 48%)",
     text: "#fafafa",
     muted: "rgba(250,250,250,0.6)",
     faint: "rgba(250,250,250,0.38)",

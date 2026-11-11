@@ -7,6 +7,7 @@ import { it } from "date-fns/locale";
 import { ChevronRight, Star } from "lucide-react";
 import { formatVolume } from "@/lib/utils";
 import { formatKm, formatPace, paceSecondsPerKm } from "@/lib/run/format";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface WorkoutListItem {
   id: string;
@@ -57,9 +58,7 @@ export function RecentWorkouts({ initialData }: Props) {
       </div>
 
       {!workouts?.length ? (
-        <p className="rounded-3xl border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">
-          Ancora nessun allenamento.
-        </p>
+        <EmptyState>Ancora nessun allenamento.</EmptyState>
       ) : (
         <ul className="overflow-hidden rounded-3xl border border-border/60 bg-card">
           {workouts.slice(0, 5).map((workout) => {
@@ -75,7 +74,7 @@ export function RecentWorkouts({ initialData }: Props) {
                 >
                   <div className="w-10 shrink-0 text-center">
                     <p className="font-display text-2xl font-bold leading-none tabular-nums">{format(date, "d")}</p>
-                    <p className="text-[10px] font-medium uppercase text-muted-foreground">
+                    <p className="text-[11px] font-medium uppercase text-muted-foreground">
                       {format(date, "MMM", { locale: it })}
                     </p>
                   </div>
@@ -83,7 +82,7 @@ export function RecentWorkouts({ initialData }: Props) {
                     <p className="flex items-center gap-1.5 truncate text-sm font-semibold">
                       <span className="truncate">{workoutTitle(workout)}</span>
                       {prs > 0 && (
-                        <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                        <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-bold text-amber-600 dark:text-amber-400">
                           <Star className="h-2.5 w-2.5 fill-current" />
                           {prs} PR
                         </span>

@@ -46,7 +46,7 @@ function ExerciseSets({ exercise }: { exercise: ExerciseDetail }) {
       </div>
       <table className="mt-2 w-full text-sm">
         <thead>
-          <tr className="text-left text-[10px] uppercase tracking-wider text-muted-foreground">
+          <tr className="text-left text-[11px] uppercase tracking-wider text-muted-foreground">
             <th className="w-10 pb-1 font-medium">#</th>
             <th className="pb-1 font-medium">Serie</th>
             <th className="pb-1 text-right font-medium">Volume</th>
@@ -62,7 +62,7 @@ function ExerciseSets({ exercise }: { exercise: ExerciseDetail }) {
                 <td className="py-2">
                   <span className="font-display text-base font-semibold tabular-nums">{load}</span>
                   {set.type !== "WORKING" && (
-                    <span className="ml-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                    <span className="ml-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                       {setTypeLabel[set.type] ?? set.type}
                     </span>
                   )}

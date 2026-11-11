@@ -18,6 +18,7 @@ import { usePeriodSelection } from "./period-picker";
 import { RecordList } from "./record-list";
 import { Block, EmptyState } from "./ui";
 import { useActivity } from "./use-activity";
+import { WeekGoal } from "@/components/dashboard/week-goal";
 
 /** Giorni passati del periodo (fino a oggi): "16 su 31" */
 function elapsedDays(period: Period, anchor: Date, now: Date) {
@@ -81,10 +82,14 @@ export function SummaryTab() {
     { label: "Di fila", value: streak, detail: `record ${overview?.longestStreak ?? 0}` },
   ];
   const best = bestOfPeriod(inPeriod, period);
+  // Settimana in corso: prima di tutto l'avanzamento verso l'obiettivo
+  const span = periodWindow(period, anchor, now);
+  const currentWeek = period === "week" && !!span.from && !!span.to && now >= span.from && now < span.to;
 
   return (
     <div className="space-y-6">
       <PeriodBar selection={selection} now={now} first={first} pickerItems={items} />
+      {currentWeek && <WeekGoal goal={overview?.goal} className="mt-0" />}
 
       <PeriodSwipe selection={selection} now={now} first={first}>
         <MetricTiles

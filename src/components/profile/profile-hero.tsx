@@ -42,16 +42,16 @@ export const useUserProfile = () =>
 /* Lastra scura in entrambi i temi, come la home e il riepilogo dell'allenamento */
 const slabStyle: React.CSSProperties = {
   backgroundImage: [
-    "radial-gradient(120% 80% at 100% 0%, rgba(212,255,58,0.18), transparent 55%)",
+    "radial-gradient(120% 80% at 100% 0%, rgba(163,230,53,0.18), transparent 55%)",
     "radial-gradient(90% 70% at 0% 100%, rgba(59,130,246,0.14), transparent 60%)",
     "repeating-linear-gradient(135deg, rgba(255,255,255,0.025) 0 2px, transparent 2px 11px)",
   ].join(","),
 };
 
-const LIME = "text-[#d4ff3a]";
+const LIME = "text-brand-bright";
 
 function Avatar({ name, image }: { name?: string | null; image?: string | null }) {
-  const ring = "h-[72px] w-[72px] shrink-0 rounded-full ring-2 ring-[#d4ff3a] ring-offset-4 ring-offset-zinc-950";
+  const ring = "h-[72px] w-[72px] shrink-0 rounded-full ring-2 ring-brand-bright ring-offset-4 ring-offset-zinc-950";
   if (image) return <Image src={image} alt="" width={72} height={72} className={cn(ring, "object-cover")} />;
   return (
     <div className={cn(ring, "flex items-center justify-center bg-zinc-800 font-display text-4xl font-extrabold uppercase")}>
@@ -67,7 +67,7 @@ function Stat({ label, value, unit, first }: { label: string; value: React.React
         {value}
         {unit && <span className="ml-0.5 text-sm font-semibold text-zinc-500">{unit}</span>}
       </dd>
-      <dt className="mt-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">{label}</dt>
+      <dt className="mt-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">{label}</dt>
     </div>
   );
 }
@@ -101,7 +101,7 @@ export function ProfileHero({ user }: { user: { name?: string | null; email?: st
           <h2 className="truncate font-display text-3xl font-extrabold uppercase leading-none tracking-wide">{user.name ?? "Atleta"}</h2>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-zinc-400">
             {level && (
-              <span className="rounded-full bg-[#d4ff3a]/15 px-2.5 py-1 font-semibold uppercase tracking-wider text-[#d4ff3a]">{level}</span>
+              <span className="rounded-full bg-brand-bright/15 px-2.5 py-1 font-semibold uppercase tracking-wider text-brand-bright">{level}</span>
             )}
             <span className="truncate">{summary.since ? `Dal ${summary.since}` : user.email}</span>
           </div>

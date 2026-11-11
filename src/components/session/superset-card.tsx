@@ -27,7 +27,7 @@ function Letter({ which }: { which: 0 | 1 }) {
     <span
       className={cn(
         "flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[11px] font-bold",
-        which === 0 ? "bg-foreground text-background" : "bg-lime-400 text-zinc-950"
+        which === 0 ? "bg-foreground text-background" : "bg-brand text-brand-foreground"
       )}
       aria-hidden
     >
@@ -99,11 +99,11 @@ function SupersetCardComponent({ first, second, expanded, onToggle, onFinished }
 
   return (
     <div data-exercise-card={first.id} data-done={allDone} className="scroll-mt-20">
-      <Card className={cn("border-lime-500/40", allDone && "border-green-500/40")}>
+      <Card className={cn("border-brand/40", allDone && "border-success/40")}>
         <CardHeader className="p-3 pb-0">
           <div className="flex items-start justify-between gap-2">
             <button type="button" className="min-w-0 flex-1 space-y-1 text-left touch-manipulation" aria-expanded={expanded} onClick={toggle}>
-              <span className="inline-block rounded-full bg-lime-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-lime-700 dark:text-lime-400">
+              <span className="inline-block rounded-full bg-brand/20 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-brand-strong">
                 Superset
               </span>
               {pair.map((ex, i) => (
@@ -114,7 +114,7 @@ function SupersetCardComponent({ first, second, expanded, onToggle, onFinished }
                 </span>
               ))}
               <span className="block text-xs text-muted-foreground">
-                <span className={cn("font-semibold tabular-nums", allDone ? "text-green-500" : "text-foreground")}>
+                <span className={cn("font-semibold tabular-nums", allDone ? "text-success" : "text-foreground")}>
                   {done}/{all.length}
                 </span>{" "}
                 serie a giri alternati{volume > 0 ? ` · ${formatVolume(volume)}` : ""}
@@ -151,7 +151,7 @@ function SupersetCardComponent({ first, second, expanded, onToggle, onFinished }
               <ExerciseContext key={ex.id} exercise={ex} which={i as 0 | 1} />
             ))}
 
-            <div className={cn(setGrid(true), "px-1 pt-1 text-[10px] font-medium text-muted-foreground")}>
+            <div className={cn(setGrid(true), "px-1 pt-1 text-[11px] font-medium text-muted-foreground")}>
               <span className="text-center">#</span>
               <span className="text-center">Peso (kg)</span>
               <span className="text-center">Reps</span>

@@ -81,6 +81,18 @@ testo (15/13). Etichette mai sotto 11 px.
 **Verifica:** controllo automatico del contrasto sulle coppie di colori dei token; nessun `lime-`/`green-600`
 residuo nei componenti (grep in CI).
 
+**Fatto (PR della Fase 1, dopo la 2 e la 3):**
+- Regole scritte in `docs/design/SYSTEM.md`. Token `brand`, `brand-strong`, `brand-bright` (lime acceso sulle superfici
+  sempre scure), `success`, `success-inverse`, `run` in `globals.css` / `tailwind.config.ts`.
+- Scelte: "andamento positivo" (frecce dei confronti, Forma "Fresco", BMI normale) è `success`, non lime; la corsa ha un
+  token suo (`run`) che oggi coincide col lime: per cambiarle colore basta una riga. Il lime `#d4ff3a` è unificato nel
+  lime-400 della Home. "Nuovo" negli esercizi passa a `primary` (non è "allenati adesso").
+- Componenti `PrimaryAction`, `StatTile` (con `Stat` come alias), `SectionHeader` (dentro `Block`), `EmptyState`
+  compatto (una riga + azione), adottati in Home, benvenuto, obiettivo, riepilogo di fine seduta, stati vuoti.
+- Etichette da 9–10 px portate a 11 px ovunque.
+- Il controllo "grep in CI" è un test (`design-tokens.test.ts`): contrasto ≥ 4,5:1 delle coppie in chiaro e in scuro e
+  nessun `lime-*`/`green-*`/`#d4ff3a` o testo sotto gli 11 px nei componenti. Non c'è una CI su GitHub: gira con `npm test`.
+
 ### Fase 2 — Modalità allenamento (3–4 giorni)
 
 Ispirata alla schermata di registrazione di Strava: durante la seduta c'è solo la seduta.
@@ -128,7 +140,10 @@ e Fitness a inizio, metà e fine settimana.
 - Home: anello per ogni obiettivo nella card "Questa settimana" e "N settimane di fila"; senza obiettivo, l'invito a
   sceglierne uno. Impostazioni → "Obiettivo settimanale" (`/profile/settings/obiettivo`).
 - Riepilogo di fine seduta: riga con l'avanzamento della settimana. Fitness → Riepilogo: "Migliori del periodo" sopra "Costanza".
-- Rimandati: proposta dell'obiettivo all'ingresso (onboarding) e confronto con l'ultima seduta dello stesso giorno del piano.
+- Completati nella PR della Fase 1: **proposta dell'obiettivo all'ingresso** (`/welcome/obiettivo`, dopo lo stile:
+  valore suggerito dallo storico o 3, "Salta per ora"); **confronto con l'ultima seduta dello stesso giorno del piano**
+  nel riepilogo (volume, serie, ripetizioni; in lime ciò che cresce); **Fitness che incoraggia**: nella settimana in
+  corso, in cima, l'anello dell'obiettivo.
 
 ### Fase 4 — Piani di corsa (2–3 settimane)
 

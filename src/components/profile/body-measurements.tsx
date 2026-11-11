@@ -239,7 +239,7 @@ export function BodyMeasurements() {
                     value={form.waist}
                     onChange={(e) => setForm((f) => ({ ...f, waist: e.target.value }))}
                   />
-                  <p className="text-[10px] text-muted-foreground">
+                  <p className="text-[11px] text-muted-foreground">
                     Facoltativa: migliora la lettura del BMI nella scheda Corpo.
                   </p>
                 </div>

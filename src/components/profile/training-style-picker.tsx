@@ -69,7 +69,7 @@ export function TrainingStylePicker({ value, onChange }: { value: TrainingStyle 
                   <ul className="mt-2 space-y-2">
                     {info.indicators.map((indicator) => (
                       <li key={indicator.name} className="flex gap-2.5 text-sm">
-                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-lime-500" aria-hidden />
+                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-brand" aria-hidden />
                         <span>
                           <span className="font-semibold">{indicator.name}</span>
                           <span className="text-muted-foreground"> · {indicator.explain}</span>

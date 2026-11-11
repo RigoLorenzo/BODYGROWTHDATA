@@ -110,7 +110,7 @@ function NumberField({
 
   return (
     <label className="min-w-0">
-      <span className="block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
+      <span className="block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
       <input
         inputMode="decimal"
         value={text}

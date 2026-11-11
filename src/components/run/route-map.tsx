@@ -33,7 +33,7 @@ export function RouteMap({ polyline, className, strokeWidth = 3, showEnds = fals
   const points = polyline ? decodePolyline(polyline) : [];
   if (points.length < 2) {
     return (
-      <div className={cn("flex items-center justify-center bg-muted text-[10px] text-muted-foreground", className)}>
+      <div className={cn("flex items-center justify-center bg-muted text-[11px] text-muted-foreground", className)}>
         Senza GPS
       </div>
     );
@@ -47,7 +47,7 @@ export function RouteMap({ polyline, className, strokeWidth = 3, showEnds = fals
       <path
         d={d}
         fill="none"
-        className="stroke-lime-500"
+        className="stroke-run"
         strokeWidth={strokeWidth}
         strokeLinecap="round"
         strokeLinejoin="round"

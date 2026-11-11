@@ -62,7 +62,7 @@ function PreviousHint({ previous, weight }: { previous: LoggedSet; weight?: numb
         </span>
       )}
       {delta > 0 && (
-        <span className="inline-flex items-center font-semibold text-green-600 dark:text-green-400">
+        <span className="inline-flex items-center font-semibold text-success">
           <ArrowUp className="h-3 w-3" aria-hidden />
           {formatWeight(delta)} kg
           <span className="sr-only"> in più</span>
@@ -116,7 +116,7 @@ function SetRowComponent({ exerciseId, set, index, previous, onRemove, label }: 
       className={cn(
         setGrid(!!label),
         "items-center rounded-lg px-1 py-1",
-        set.completed && "bg-green-500/10"
+        set.completed && "bg-success/10"
       )}
     >
       <span
@@ -186,8 +186,8 @@ function SetRowComponent({ exerciseId, set, index, previous, onRemove, label }: 
         className={cn(
           "h-10 w-10 justify-self-center rounded-full flex items-center justify-center touch-manipulation transition-colors",
           set.completed
-            ? "bg-green-600 text-white"
-            : "border-2 border-border text-muted-foreground active:border-green-600"
+            ? "bg-success text-success-foreground"
+            : "border-2 border-border text-muted-foreground active:border-success"
         )}
       >
         <Check className="h-4 w-4" />

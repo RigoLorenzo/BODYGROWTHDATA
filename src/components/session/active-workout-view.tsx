@@ -215,7 +215,7 @@ export function ActiveWorkoutView({ session, onCompleted }: Props) {
             variant={allDone ? "default" : "outline"}
             className={cn(
               "h-11 px-4 shrink-0 transition-colors",
-              allDone ? "bg-green-600 hover:bg-green-700 text-white" : "text-muted-foreground"
+              allDone ? "bg-success text-success-foreground hover:bg-success/90" : "text-muted-foreground"
             )}
             onClick={handleFinish}
             disabled={isCompleting}
@@ -233,7 +233,7 @@ export function ActiveWorkoutView({ session, onCompleted }: Props) {
           aria-valuemax={allSets.length}
           aria-valuenow={doneSets}
         >
-          <div className="h-full bg-green-600 transition-[width] duration-300" style={{ width: `${progress * 100}%` }} />
+          <div className="h-full bg-brand transition-[width] duration-300" style={{ width: `${progress * 100}%` }} />
         </div>
         {!online && (
           <p className="flex items-center justify-center gap-1.5 bg-amber-500/15 px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-400">
@@ -324,7 +324,7 @@ export function ActiveWorkoutView({ session, onCompleted }: Props) {
                   Continua
                 </Button>
                 <Button
-                  className="h-12 flex-1 bg-green-600 text-white hover:bg-green-700"
+                  className="h-12 flex-1 bg-success text-success-foreground hover:bg-success/90"
                   onClick={() => {
                     setShowFinishConfirm(false);
                     doComplete();

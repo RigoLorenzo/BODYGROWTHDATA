@@ -37,7 +37,7 @@ const BMI_MIN = 15;
 const BMI_MAX = 35;
 const BMI_BANDS = [
   { to: 18.5, label: "Sotto", className: "bg-sky-400" },
-  { to: 25, label: "Normo", className: "bg-lime-400" },
+  { to: 25, label: "Normo", className: "bg-success" },
   { to: 30, label: "Sovrappeso", className: "bg-amber-400" },
   { to: BMI_MAX, label: "Obesità", className: "bg-red-400" },
 ];
@@ -61,7 +61,7 @@ function BmiScale({ bmi }: { bmi: number }) {
           })}
         </div>
       </div>
-      <div className="mt-1.5 flex justify-between text-[10px] font-medium tabular-nums text-muted-foreground">
+      <div className="mt-1.5 flex justify-between text-[11px] font-medium tabular-nums text-muted-foreground">
         <span>{BMI_MIN}</span>
         <span>18,5</span>
         <span>25</span>

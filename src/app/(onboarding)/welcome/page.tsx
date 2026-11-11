@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { readTrainingStyle } from "@/lib/training-style-server";
 import { WelcomeStyle } from "@/components/profile/welcome-style";
 import { invitePath, normalizeInviteCode } from "@/lib/coach/invite-code";
+import { WELCOME_GOAL_PATH } from "@/lib/routes";
 
 export const metadata = { title: "Benvenuto" };
 
@@ -19,5 +20,7 @@ export default async function WelcomePage({ searchParams }: Props) {
   const next = invite ? invitePath(invite) : "/dashboard";
   // Già scelto: si va dritti alla home (lo si cambia dalle Impostazioni)
   if (await readTrainingStyle(session.user.id)) redirect(next);
-  return <WelcomeStyle name={session.user.name?.split(" ")[0] ?? null} next={next} />;
+  // Dopo lo stile, la proposta dell'obiettivo settimanale (saltabile)
+  const goalStep = `${WELCOME_GOAL_PATH}${invite ? `?invito=${encodeURIComponent(invite)}` : ""}`;
+  return <WelcomeStyle name={session.user.name?.split(" ")[0] ?? null} next={goalStep} />;
 }

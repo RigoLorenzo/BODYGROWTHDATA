@@ -5,12 +5,12 @@ import Link from "next/link";
 import { AnimatePresence } from "framer-motion";
 import { useExerciseSearch } from "@/hooks/use-workout-session";
 import { CreateExerciseSheet } from "@/components/exercises/create-exercise-sheet";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChevronLeft, Plus, Search, Pencil, Dumbbell } from "lucide-react";
+import { ChevronLeft, Plus, Search, Pencil } from "lucide-react";
 import { getMuscleColor, getMuscleLabel, getEquipmentLabel, cn } from "@/lib/utils";
 import type { ExerciseSearchResult } from "@/types";
+import { EmptyState } from "@/components/ui/empty-state";
 
 const MUSCLES = [
   "CHEST", "BACK", "SHOULDERS", "BICEPS", "TRICEPS", "FOREARMS",
@@ -55,7 +55,7 @@ export default function ExercisesPage() {
         <button
           type="button"
           onClick={openCreate}
-          className="flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-lime-400 px-4 font-display text-base font-bold uppercase tracking-wide text-zinc-950 active:scale-95"
+          className="flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-primary px-4 font-display text-base font-bold uppercase tracking-wide text-primary-foreground active:scale-95"
         >
           <Plus className="h-4 w-4" /> Nuovo
         </button>
@@ -113,13 +113,7 @@ export default function ExercisesPage() {
       {isLoading ? (
         <Skeleton className="h-96 rounded-3xl" />
       ) : list.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-border/60 p-8 text-center">
-          <Dumbbell className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
-          <p className="mb-4 text-sm text-muted-foreground">Nessun esercizio trovato</p>
-          <Button size="sm" variant="outline" onClick={openCreate}>
-            <Plus className="mr-1.5 h-3.5 w-3.5" /> Crea esercizio
-          </Button>
-        </div>
+        <EmptyState action={{ onClick: openCreate, label: "Crea esercizio" }}>Nessun esercizio trovato</EmptyState>
       ) : (
         <ul className="divide-y divide-border/60 overflow-hidden rounded-3xl border border-border/60 bg-card">
           {list.map((ex: ExerciseSearchResult) => {
@@ -135,7 +129,7 @@ export default function ExercisesPage() {
                   <p className="flex items-center gap-2">
                     <span className="truncate text-sm font-semibold">{ex.nameIt ?? ex.name}</span>
                     {ex.isCustom && (
-                      <span className="shrink-0 rounded-full bg-lime-400/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-lime-700 dark:text-[#d4ff3a]">
+                      <span className="shrink-0 rounded-full bg-foreground/10 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-foreground">
                         Mio
                       </span>
                     )}

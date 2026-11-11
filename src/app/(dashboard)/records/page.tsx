@@ -31,7 +31,7 @@ interface ExerciseGroup {
 
 const TYPE_CONFIG: Record<string, { label: string; color: string; format: (v: number, r?: number | null, w?: number | null) => string }> = {
   WEIGHT:  { label: "Peso max",    color: "text-blue-600 dark:text-blue-400",   format: (v) => `${v}kg` },
-  REPS:    { label: "Ripetizioni max", color: "text-green-600 dark:text-green-400",  format: (v) => `${v} reps` },
+  REPS:    { label: "Ripetizioni max", color: "text-success",  format: (v) => `${v} reps` },
   VOLUME:  { label: "Volume max",  color: "text-purple-600 dark:text-purple-400", format: (v) => formatVolume(v) },
   ONE_RM:  { label: "1RM stimato", color: "text-orange-600 dark:text-orange-400", format: (v) => `${v}kg` },
 };
@@ -85,7 +85,7 @@ function RecordRow({ group }: { group: ExerciseGroup }) {
                 <p className="flex items-center justify-between text-xs text-muted-foreground">
                   {format(new Date(pr.dateAchieved), "d MMM yyyy", { locale: it })}
                   {pr.improvementPercent != null && pr.improvementPercent > 0 && (
-                    <span className="flex items-center gap-0.5 text-green-600 dark:text-green-400">
+                    <span className="flex items-center gap-0.5 text-success">
                       <TrendingUp className="h-3 w-3" />+{pr.improvementPercent.toFixed(1)}%
                     </span>
                   )}

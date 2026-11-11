@@ -70,6 +70,7 @@ export async function weeklyGoalSummary(userId: string, now: Date = new Date()):
   const history = Array.from(weeks.values());
   const current = history[history.length - 1];
   const progress = weekProgress(current, goals);
+  const pastSessions = history.slice(0, -1).map((w) => w.gymSessions + (goals.runsCount ? w.runs : 0));
 
   return {
     style,
@@ -81,6 +82,7 @@ export async function weeklyGoalSummary(userId: string, now: Date = new Date()):
     items: progress.items,
     reached: progress.reached,
     weeksInARow: hasGoals(goals) ? weeksInARow(history, goals) : 0,
-    suggestedSessions: suggestSessionsGoal(history.slice(0, -1).map((w) => w.gymSessions + (goals.runsCount ? w.runs : 0))),
+    suggestedSessions: suggestSessionsGoal(pastSessions),
+    suggestionFromHistory: pastSessions.some((n) => n > 0),
   };
 }

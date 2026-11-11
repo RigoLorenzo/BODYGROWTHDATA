@@ -85,14 +85,14 @@ export function StackedBars({
             return (
               <Column key={d.key} onClick={onSelect && !d.future ? () => onSelect(d.key) : undefined} title={`${d.label}: ${d.caption ?? sum}`}>
                 {d.caption && sum > 0 && (
-                  <span className={cn("mb-0.5 whitespace-nowrap rounded bg-background px-0.5 text-[10px] tabular-nums", d.highlight ? "font-bold text-foreground" : "text-muted-foreground")}>
+                  <span className={cn("mb-0.5 whitespace-nowrap rounded bg-background px-0.5 text-[11px] tabular-nums", d.highlight ? "font-bold text-foreground" : "text-muted-foreground")}>
                     {d.caption}
                   </span>
                 )}
                 {sum > 0 ? (
                   <div className="flex w-full max-w-[28px] flex-col gap-[2px]" style={{ height: Math.max(4, px(sum)) }}>
                     {!!d.tertiary && <div className="w-full rounded-[4px] bg-sky-500" style={{ flexGrow: d.tertiary }} />}
-                    {!!d.secondary && <div className="w-full rounded-[4px] bg-lime-500" style={{ flexGrow: d.secondary }} />}
+                    {!!d.secondary && <div className="w-full rounded-[4px] bg-run" style={{ flexGrow: d.secondary }} />}
                     {!!d.primary && <div className="w-full rounded-[4px] bg-foreground" style={{ flexGrow: d.primary }} />}
                   </div>
                 ) : (
@@ -103,7 +103,7 @@ export function StackedBars({
           })}
         </div>
       </div>
-      <div className="mt-1.5 flex gap-1.5 text-[10px]">
+      <div className="mt-1.5 flex gap-1.5 text-[11px]">
         {data.map((d, i) => (
           <span
             key={d.key}

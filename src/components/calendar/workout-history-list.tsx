@@ -10,6 +10,7 @@ import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import Link from "next/link";
 import { formatKm, formatPace, paceSecondsPerKm } from "@/lib/run/format";
+import { EmptyState } from "@/components/ui/empty-state";
 
 /** Bici, camminate… importate dall'orologio: distanza e tempo invece di volume e serie */
 const isImportedCardio = (w: WorkoutItem) => w.workoutType === "CARDIO" && !!w.sportType && !w.run;
@@ -108,14 +109,14 @@ function HistoryRow({ workout }: { workout: WorkoutItem }) {
       >
         <span className={cn("flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-xl leading-none", KIND_STYLE[kind].tile)}>
           <span className="font-display text-lg font-bold tabular-nums">{format(date, "d")}</span>
-          <span className="text-[9px] font-semibold uppercase">{format(date, "EEE", { locale: it })}</span>
+          <span className="text-[11px] font-semibold uppercase">{format(date, "EEE", { locale: it })}</span>
         </span>
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-1.5 text-sm font-semibold">
             <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
             <span className="truncate">{workoutTitle(workout)}</span>
             {prs > 0 && (
-              <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400">
+              <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-bold text-amber-600 dark:text-amber-400">
                 <Star className="h-2.5 w-2.5 fill-current" aria-hidden />
                 {prs} PR
               </span>
@@ -202,9 +203,9 @@ export function WorkoutHistoryList({ range }: { range?: { from: Date; to: Date }
           ))}
         </div>
       ) : !allWorkouts.length ? (
-        <p className="rounded-3xl border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">
+        <EmptyState>
           {activeMuscle ? `Nessun allenamento per ${getMuscleLabel(activeMuscle)}.` : "Nessun allenamento in questo periodo."}
-        </p>
+        </EmptyState>
       ) : (
         <div className="space-y-5">
           {groupByMonth(allWorkouts).map((group) => (

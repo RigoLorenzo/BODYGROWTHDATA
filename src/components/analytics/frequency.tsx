@@ -31,7 +31,7 @@ export const partsOf = (sessions: ActivityItem[]): DayParts => ({
 });
 
 /** Colori dei tipi: gli stessi di barre e legende */
-const KIND_FILL = { gym: "hsl(var(--foreground))", run: "#84cc16", other: "#0ea5e9" } as const;
+const KIND_FILL = { gym: "hsl(var(--foreground))", run: "hsl(var(--run))", other: "#0ea5e9" } as const;
 const KIND_TEXT = { gym: "text-background", run: "text-zinc-950", other: "text-white" } as const;
 const KIND_NAME = { gym: "palestra", run: "corsa", other: "altro" } as const;
 
@@ -81,7 +81,7 @@ export function DayMark({
       )}
       {count > 1 && (
         <span
-          className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-background px-0.5 text-[9px] font-bold text-foreground ring-1 ring-border"
+          className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-background px-0.5 text-[11px] font-bold text-foreground ring-1 ring-border"
           aria-hidden
         >
           {count}
@@ -131,12 +131,12 @@ function Week({ items, anchor, now, tone }: { items: ActivityItem[]; anchor: Dat
                 label={format(day, "d")}
                 className={cn(
                   "aspect-square w-full max-w-10 rounded-full text-xs font-semibold tabular-nums",
-                  isToday(day) && "ring-2 ring-lime-500 ring-offset-2 ring-offset-background"
+                  isToday(day) && "ring-2 ring-brand ring-offset-2 ring-offset-background"
                 )}
                 empty={future ? "border border-dashed border-border text-muted-foreground/60" : "bg-muted text-muted-foreground"}
               />
               <span className="sr-only">{describeDay(partsOf(sessions))}</span>
-              <span className="text-[10px] font-medium uppercase text-muted-foreground">{format(day, "EEEEE", { locale: it })}</span>
+              <span className="text-[11px] font-medium uppercase text-muted-foreground">{format(day, "EEEEE", { locale: it })}</span>
             </div>
           );
         }
@@ -147,14 +147,14 @@ function Week({ items, anchor, now, tone }: { items: ActivityItem[]; anchor: Dat
               className={cn(
                 "relative flex aspect-square w-full max-w-10 items-center justify-center overflow-hidden rounded-full text-xs font-semibold tabular-nums",
                 style?.className ?? (future ? "border border-dashed border-border text-muted-foreground/60" : "bg-muted text-muted-foreground"),
-                isToday(day) && "ring-2 ring-lime-500 ring-offset-2 ring-offset-background"
+                isToday(day) && "ring-2 ring-brand ring-offset-2 ring-offset-background"
               )}
               title={format(day, "EEEE d MMMM", { locale: it })}
             >
               {format(day, "d")}
               {style?.mark && <span className={cn("absolute bottom-0 left-0 h-1 w-full", style.mark)} aria-hidden />}
             </span>
-            <span className="text-[10px] font-medium uppercase text-muted-foreground">{format(day, "EEEEE", { locale: it })}</span>
+            <span className="text-[11px] font-medium uppercase text-muted-foreground">{format(day, "EEEEE", { locale: it })}</span>
           </div>
         );
       })}
@@ -168,7 +168,7 @@ function Month({ items, from, to, tone }: { items: ActivityItem[]; from: Date; t
   const pad = (getDay(from) + 6) % 7;
   return (
     <div>
-      <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-medium uppercase text-muted-foreground" aria-hidden>
+      <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-medium uppercase text-muted-foreground" aria-hidden>
         {["L", "M", "M", "G", "V", "S", "D"].map((d, i) => (
           <span key={i}>{d}</span>
         ))}
@@ -185,7 +185,7 @@ function Month({ items, from, to, tone }: { items: ActivityItem[]; from: Date; t
                 <DayMark
                   parts={partsOf(sessions)}
                   label={format(day, "d")}
-                  className={cn("aspect-square w-full rounded-lg text-[11px] font-semibold tabular-nums", isToday(day) && "ring-2 ring-inset ring-lime-500")}
+                  className={cn("aspect-square w-full rounded-lg text-[11px] font-semibold tabular-nums", isToday(day) && "ring-2 ring-inset ring-brand")}
                 />
               </span>
             );
@@ -198,7 +198,7 @@ function Month({ items, from, to, tone }: { items: ActivityItem[]; from: Date; t
               className={cn(
                 "relative flex aspect-square items-center justify-center overflow-hidden rounded-lg text-[11px] font-semibold tabular-nums",
                 style?.className ?? "bg-muted/60 text-muted-foreground",
-                isToday(day) && "ring-2 ring-inset ring-lime-500"
+                isToday(day) && "ring-2 ring-inset ring-brand"
               )}
             >
               {format(day, "d")}

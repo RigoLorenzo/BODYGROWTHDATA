@@ -112,4 +112,6 @@ export interface WeeklyGoalSummary {
   reached: boolean;
   weeksInARow: number;
   suggestedSessions: number;
+  /** false: nessuno storico, il suggerimento è il valore di partenza (3) */
+  suggestionFromHistory: boolean;
 }

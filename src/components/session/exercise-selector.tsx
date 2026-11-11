@@ -182,7 +182,7 @@ export function ExerciseSelector({ onSelect, onClose }: Props) {
                     )}
                     <div className="flex flex-wrap gap-1 mt-1">
                       {exercise.equipment?.slice(0, 2).map((eq: string) => (
-                        <span key={eq} className="text-[10px] text-muted-foreground">{getEquipmentLabel(eq)}</span>
+                        <span key={eq} className="text-[11px] text-muted-foreground">{getEquipmentLabel(eq)}</span>
                       ))}
                     </div>
                   </div>
@@ -190,7 +190,7 @@ export function ExerciseSelector({ onSelect, onClose }: Props) {
                     {exercise.muscleGroups?.slice(0, 2).map((m: string) => (
                       <span
                         key={m}
-                        className="text-[10px] px-1.5 py-0.5 rounded-full"
+                        className="text-[11px] px-1.5 py-0.5 rounded-full"
                         style={{ background: `${getMuscleColor(m)}20`, color: getMuscleColor(m) }}
                       >
                         {getMuscleLabel(m)}

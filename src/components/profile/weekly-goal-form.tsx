@@ -3,10 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import type { WeeklyGoalSummary } from "@/lib/weekly-goal";
+import { PrimaryAction } from "@/components/ui/primary-action";
 
 const SESSION_CHOICES = [1, 2, 3, 4, 5, 6, 7];
 const KM_CHOICES = [10, 15, 20, 25, 30, 40, 50];
@@ -31,11 +31,23 @@ function Chip({ selected, onClick, children }: { selected: boolean; onClick: () 
   );
 }
 
-/** Obiettivo settimanale: sedute (o come il piano) e, per corsa e ibrido, km */
-export function WeeklyGoalForm({ initial }: { initial: WeeklyGoalSummary }) {
+/**
+ * Obiettivo settimanale: sedute (o come il piano) e, per corsa e ibrido, km.
+ * Con `propose` (benvenuto) parte già dal valore suggerito, se non c'è un piano.
+ */
+export function WeeklyGoalForm({
+  initial,
+  next = "/dashboard",
+  propose = false,
+}: {
+  initial: WeeklyGoalSummary;
+  next?: string;
+  propose?: boolean;
+}) {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [sessions, setSessions] = useState<Choice>(initial.chosen.sessions);
+  const proposed = propose && initial.chosen.sessions == null && !initial.planFrequency ? initial.suggestedSessions : null;
+  const [sessions, setSessions] = useState<Choice>(initial.chosen.sessions ?? proposed);
   const [km, setKm] = useState<Choice>(initial.runsCount ? initial.chosen.km : null);
   const [saving, setSaving] = useState(false);
   const showKm = initial.runsCount;
@@ -55,7 +67,7 @@ export function WeeklyGoalForm({ initial }: { initial: WeeklyGoalSummary }) {
       if (!res.ok) throw new Error();
       await queryClient.invalidateQueries({ queryKey: ["analytics", "overview"] });
       toast({ title: "Obiettivo salvato" });
-      router.push("/dashboard");
+      router.push(next);
     } catch {
       toast({ title: "Non salvato", description: "Controlla la connessione e riprova.", variant: "destructive" });
       setSaving(false);
@@ -68,8 +80,17 @@ export function WeeklyGoalForm({ initial }: { initial: WeeklyGoalSummary }) {
         <div>
           <h2 className="font-semibold">Allenamenti a settimana</h2>
           <p className="text-sm text-muted-foreground">
-            {initial.runsCount ? "Contano palestra e corse." : "Contano le sedute in palestra."} Nelle ultime settimane ne hai
-            fatti in media <span className="font-semibold text-foreground">{initial.suggestedSessions}</span>.
+            {initial.runsCount ? "Contano palestra e corse." : "Contano le sedute in palestra."}{" "}
+            {initial.suggestionFromHistory ? (
+              <>
+                Nelle ultime settimane ne hai fatti in media{" "}
+                <span className="font-semibold text-foreground">{initial.suggestedSessions}</span>.
+              </>
+            ) : (
+              <>
+                Per iniziare ne bastano <span className="font-semibold text-foreground">{initial.suggestedSessions}</span>.
+              </>
+            )}
           </p>
         </div>
         <div role="radiogroup" aria-label="Allenamenti a settimana" className="flex flex-wrap gap-2">
@@ -120,15 +141,9 @@ export function WeeklyGoalForm({ initial }: { initial: WeeklyGoalSummary }) {
         <p className="text-sm text-muted-foreground">Scegli un numero per vedere ogni settimana a che punto sei.</p>
       )}
 
-      <button
-        type="button"
-        onClick={save}
-        disabled={saving}
-        className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-foreground font-semibold text-background disabled:opacity-50 active:scale-[0.98]"
-      >
-        {saving && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
+      <PrimaryAction onClick={save} loading={saving}>
         Salva obiettivo
-      </button>
+      </PrimaryAction>
     </div>
   );
 }

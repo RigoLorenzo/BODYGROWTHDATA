@@ -6,6 +6,7 @@ import { ArrowRight } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import type { TrainingStyle } from "@/lib/training-style";
 import { TrainingStylePicker, saveTrainingStyle } from "./training-style-picker";
+import { PrimaryAction } from "@/components/ui/primary-action";
 
 /** Benvenuto: si sceglie lo stile, poi si entra nell'app (o si torna all'invito) */
 export function WelcomeStyle({ name, next = "/dashboard" }: { name: string | null; next?: string }) {
@@ -41,14 +42,9 @@ export function WelcomeStyle({ name, next = "/dashboard" }: { name: string | nul
       </div>
 
       <div className="fixed inset-x-0 bottom-0 border-t border-border/60 bg-background px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3">
-        <button
-          type="button"
-          onClick={save}
-          disabled={!style || saving}
-          className="mx-auto flex h-14 w-full max-w-xl items-center justify-center gap-2 rounded-2xl bg-foreground font-display text-xl font-bold uppercase tracking-wide text-background active:scale-[0.98] disabled:opacity-40"
-        >
+        <PrimaryAction onClick={save} disabled={!style} loading={saving} className="mx-auto max-w-xl">
           {saving ? "Salvataggio…" : "Continua"} {!saving && <ArrowRight className="h-5 w-5" aria-hidden />}
-        </button>
+        </PrimaryAction>
       </div>
     </div>
   );

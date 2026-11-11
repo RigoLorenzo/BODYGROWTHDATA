@@ -7,7 +7,7 @@ import { formatHours } from "./format";
 /** Come si mostra ogni tipo di attività: palestra, corsa, bici e altro */
 export const KIND_STYLE: Record<ActivityItem["kind"], { icon: LucideIcon; label: string; tile: string; dot: string }> = {
   gym: { icon: Dumbbell, label: "Palestra", tile: "bg-foreground/10", dot: "bg-foreground" },
-  run: { icon: Footprints, label: "Corsa", tile: "bg-lime-500/15 text-lime-700 dark:text-lime-400", dot: "bg-lime-500" },
+  run: { icon: Footprints, label: "Corsa", tile: "bg-run/15 text-run-strong", dot: "bg-run" },
   cardio: { icon: Bike, label: "Bici e altro", tile: "bg-sky-500/15 text-sky-700 dark:text-sky-400", dot: "bg-sky-500" },
 };
 
