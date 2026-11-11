@@ -120,18 +120,21 @@ export function CoachChat({ initialThreadId }: { initialThreadId: string | null 
           <DialogHeader>
             <DialogTitle>Conversazioni</DialogTitle>
           </DialogHeader>
+          {chat.streaming && <p className="text-sm text-muted-foreground">Attendi che il Coach finisca di rispondere.</p>}
           {threads.data?.length ? (
             <ul className="space-y-1">
               {threads.data.map((t) => (
                 <li key={t.id}>
                   <button
                     type="button"
+                    // Durante una risposta non si cambia conversazione: gli eventi finirebbero nell'altra
+                    disabled={chat.streaming}
                     onClick={() => {
                       selectThread(t.id);
                       setHistoryOpen(false);
                     }}
                     className={cn(
-                      "flex min-h-12 w-full flex-col items-start justify-center rounded-2xl px-3 py-2 text-left active:bg-muted",
+                      "flex min-h-12 w-full flex-col items-start justify-center rounded-2xl px-3 py-2 text-left active:bg-muted disabled:opacity-50",
                       t.id === threadId && "bg-muted"
                     )}
                   >

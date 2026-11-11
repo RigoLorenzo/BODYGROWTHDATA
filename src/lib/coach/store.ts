@@ -22,6 +22,28 @@ export async function openThread(userId: string, threadId: string | null, firstT
   return thread.id;
 }
 
+/** Un turno rimasto bloccato (es. funzione interrotta) si considera finito dopo questo tempo */
+const TURN_TIMEOUT_MS = 6 * 60_000;
+
+/**
+ * Prende il turno della conversazione: false se un'altra risposta è ancora in
+ * corso (es. da un'altra scheda). L'aggiornamento condizionale è atomico.
+ */
+export async function claimTurn(threadId: string, now: Date): Promise<boolean> {
+  const result = await prisma.coachThread.updateMany({
+    where: {
+      id: threadId,
+      OR: [{ turnStartedAt: null }, { turnStartedAt: { lt: new Date(now.getTime() - TURN_TIMEOUT_MS) } }],
+    },
+    data: { turnStartedAt: now },
+  });
+  return result.count === 1;
+}
+
+export async function releaseTurn(threadId: string) {
+  await prisma.coachThread.updateMany({ where: { id: threadId }, data: { turnStartedAt: null } });
+}
+
 export async function loadStoredMessages(threadId: string) {
   return prisma.coachMessage.findMany({
     where: { threadId },

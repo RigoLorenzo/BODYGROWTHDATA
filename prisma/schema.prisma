@@ -843,11 +843,13 @@ model SleepSession {
 
 /// Una conversazione con il Coach
 model CoachThread {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   userId        String
   title         String?
-  lastMessageAt DateTime @default(now())
-  createdAt     DateTime @default(now())
+  lastMessageAt DateTime  @default(now())
+  /// Inizio del turno in corso: un solo turno alla volta per conversazione
+  turnStartedAt DateTime?
+  createdAt     DateTime  @default(now())
 
   user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   messages  CoachMessage[]

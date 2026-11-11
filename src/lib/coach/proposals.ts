@@ -88,9 +88,17 @@ export class ProposalAlreadyHandledError extends Error {}
 export async function applyProposal(userId: string, proposalId: string): Promise<{ programId: string }> {
   return prisma.$transaction(
     async (tx) => {
-      const proposal = await tx.coachProposal.findFirst({ where: { id: proposalId, userId } });
-      if (!proposal) throw new ProposalNotFoundError();
-      if (proposal.status !== "pending") throw new ProposalAlreadyHandledError();
+      // Passaggio atomico pending → applied: con due richieste insieme solo una lo ottiene
+      // (l'update blocca la riga e l'altra rilegge lo stato già cambiato)
+      const claimed = await tx.coachProposal.updateMany({
+        where: { id: proposalId, userId, status: "pending" },
+        data: { status: "applied", appliedAt: new Date() },
+      });
+      if (claimed.count === 0) {
+        const exists = await tx.coachProposal.count({ where: { id: proposalId, userId } });
+        throw exists ? new ProposalAlreadyHandledError() : new ProposalNotFoundError();
+      }
+      const proposal = await tx.coachProposal.findFirstOrThrow({ where: { id: proposalId, userId } });
 
       const input = programInputSchema.parse((proposal.payload as unknown as StoredPayload).program);
       await assertExercisesUsable(tx, userId, input);
@@ -101,10 +109,7 @@ export async function applyProposal(userId: string, proposalId: string): Promise
         update: { programId: program.id, currentDay: 0, currentWeek: 1, startedAt: new Date(), completedAt: null },
         create: { userId, programId: program.id },
       });
-      await tx.coachProposal.update({
-        where: { id: proposal.id },
-        data: { status: "applied", programId: program.id, appliedAt: new Date() },
-      });
+      await tx.coachProposal.update({ where: { id: proposal.id }, data: { programId: program.id } });
       return { programId: program.id };
     },
     { timeout: 20_000 }

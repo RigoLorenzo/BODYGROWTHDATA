@@ -7,7 +7,7 @@ import { isCoachConfigured } from "@/lib/coach/access";
 import { dailyMessageLimit } from "@/lib/coach/config";
 import { coachUser } from "@/lib/coach/guard";
 import { coachTurn } from "@/lib/coach/loop";
-import { openThread, ThreadNotFoundError, userMessagesToday } from "@/lib/coach/store";
+import { claimTurn, openThread, releaseTurn, ThreadNotFoundError, userMessagesToday } from "@/lib/coach/store";
 import type { CoachEvent } from "@/lib/coach/types";
 
 const bodySchema = z.object({
@@ -40,10 +40,19 @@ export async function POST(req: Request) {
     if (error instanceof ThreadNotFoundError) return NextResponse.json({ error: "Conversazione non trovata" }, { status: 404 });
     throw error;
   }
+  if (!(await claimTurn(threadId, now))) {
+    return NextResponse.json({ error: "Il Coach sta ancora rispondendo in questa conversazione. Attendi la fine." }, { status: 409 });
+  }
 
   const encoder = new TextEncoder();
-  const send = (controller: ReadableStreamDefaultController, event: CoachEvent) =>
-    controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+  // Se l'utente chiude la pagina il turno continua lo stesso: la risposta viene salvata intera
+  const send = (controller: ReadableStreamDefaultController, event: CoachEvent) => {
+    try {
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+    } catch {
+      // stream già chiuso dal browser
+    }
+  };
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -54,7 +63,12 @@ export async function POST(req: Request) {
         console.error("coach turn", error);
         send(controller, { type: "error", message: errorMessage(error) });
       } finally {
-        controller.close();
+        await releaseTurn(threadId).catch((error) => console.error("coach release turn", error));
+        try {
+          controller.close();
+        } catch {
+          // già chiuso
+        }
       }
     },
   });
