@@ -1,6 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { ProgressRing } from "@/components/ui/progress-ring";
+import { goalText } from "@/lib/weekly-goal";
+import type { AnalyticsOverview } from "@/types";
 import { motion, useReducedMotion, type Variants } from "framer-motion";
 import { CalendarDays, ChevronDown, Share2, Trophy, Watch, X } from "lucide-react";
 import type { Prisma } from "@prisma/client";
@@ -81,6 +85,34 @@ function NewRecords({ stats }: { stats: WorkoutShareStats }) {
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+/** Dopo la seduta: a che punto è la settimana (letto di nuovo, include la seduta appena salvata) */
+function WeekGoalLine() {
+  const { data } = useQuery<AnalyticsOverview>({
+    queryKey: ["analytics", "overview"],
+    queryFn: async () => {
+      const res = await fetch("/api/analytics?type=overview");
+      if (!res.ok) throw new Error("overview");
+      return res.json();
+    },
+    staleTime: 0,
+  });
+  const goal = data?.goal;
+  if (!goal || goal.items.length === 0) return null;
+  return (
+    <div className="flex items-center gap-3 rounded-2xl bg-white/5 p-3 ring-1 ring-white/10">
+      <ProgressRing ratio={Math.min(...goal.items.map((i) => i.ratio))} size={40} stroke={4} label="Obiettivo della settimana" />
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-zinc-50">
+          {goal.reached ? "Obiettivo della settimana raggiunto!" : goal.items.map(goalText).join(" · ")}
+        </p>
+        <p className="text-xs text-zinc-400">
+          {goal.weeksInARow > 1 ? `${goal.weeksInARow} settimane di fila` : goal.reached ? "Continua così" : "Questa settimana"}
+        </p>
+      </div>
     </div>
   );
 }
@@ -243,6 +275,11 @@ export function WorkoutSummaryCard({ workout, dayName, celebrate = false, onClos
       {celebrate && stats.records.length > 0 && (
         <motion.div variants={item} className="mt-5">
           <NewRecords stats={stats} />
+        </motion.div>
+      )}
+      {celebrate && (
+        <motion.div variants={item} className="mt-3">
+          <WeekGoalLine />
         </motion.div>
       )}
       <motion.div variants={item} className="mt-6">

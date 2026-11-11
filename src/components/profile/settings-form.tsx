@@ -13,6 +13,7 @@ import {
   RefreshCw,
   Smartphone,
   Sun,
+  Target,
   Trash2,
   UserRound,
   Watch,
@@ -125,6 +126,7 @@ export function SettingsForm({ user, trainingStyle }: Props) {
           title="Stile di allenamento"
           hint={trainingStyle ? `${STYLE_INFO[trainingStyle].name} · ${STYLE_INFO[trainingStyle].goal}` : "Non ancora scelto"}
         />
+        <Row href="/profile/settings/obiettivo" icon={Target} title="Obiettivo settimanale" hint="Allenamenti e km a settimana" />
       </Group>
 
       <Group title="Dispositivi">

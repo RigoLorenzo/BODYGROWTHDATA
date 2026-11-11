@@ -12,6 +12,7 @@ import { cn, formatVolume } from "@/lib/utils";
 import { DayLegend, DayMark, describeDay, type DayParts } from "@/components/analytics/frequency";
 import type { AnalyticsOverview } from "@/types";
 import { FITNESS_PATH, RUN_HOME } from "@/lib/routes";
+import { WeekGoal } from "./week-goal";
 
 interface Props {
   initialOverview?: AnalyticsOverview;
@@ -64,10 +65,13 @@ export function WeekCard({ initialOverview, initialDays }: Props) {
   };
 
   // Le "sedute" sono quelle del piano in palestra; le corse si contano a parte
-  const workouts = overview?.thisWeek.gymWorkouts ?? overview?.thisWeek.workouts ?? 0;
+  // Con un obiettivo di sedute si conta come l'obiettivo (corsa e ibrido includono le corse)
+  const goalSessions = overview?.goal?.items.find((i) => i.kind === "sessions");
+  const workouts = goalSessions?.done ?? overview?.thisWeek.gymWorkouts ?? overview?.thisWeek.workouts ?? 0;
   const runs = overview?.thisWeek.runs ?? 0;
   const runDistance = overview?.thisWeek.runDistance ?? 0;
-  const target = plan?.program.frequency;
+  // Obiettivo di sedute: quello scelto o la frequenza del piano (lo calcola il server)
+  const target = overview?.goal?.sessions ?? plan?.program.frequency;
 
   return (
     <section className="rounded-3xl border border-border/60 bg-card p-5">
@@ -104,6 +108,8 @@ export function WeekCard({ initialOverview, initialDays }: Props) {
       </div>
 
       <DayLegend days={days.map(dayInfo)} className="mt-3 justify-center" />
+
+      <WeekGoal goal={overview?.goal} />
 
       <div className="mt-5 grid grid-cols-3 divide-x divide-border/60 border-t border-border/60 pt-4">
         <Metric label="Sedute">

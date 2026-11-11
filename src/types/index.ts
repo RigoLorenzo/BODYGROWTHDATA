@@ -37,6 +37,8 @@ export interface AnalyticsOverview {
   volumeChange: number;
   streak: number;
   longestStreak: number;
+  /** obiettivo settimanale: avanzamento e settimane di fila */
+  goal?: import("@/lib/weekly-goal").WeeklyGoalSummary;
 }
 
 export interface HeatmapData {
