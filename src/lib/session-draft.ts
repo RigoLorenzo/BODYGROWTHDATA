@@ -11,6 +11,7 @@ const draftSetSchema = z.object({
   rpe: num.min(1).max(10).nullish(),
   completed: z.boolean(),
   prefilled: z.boolean().optional(),
+  completedAt: z.string().max(40).optional(),
 });
 
 const draftExerciseSchema = z.object({
@@ -44,7 +45,7 @@ export const draftFromSession = (session: ActiveSession): SessionDraft => ({
   programDayName: session.programDayName,
   exercises: session.exercises.map((ex) => ({
     ...ex,
-    sets: ex.sets.map(({ setNumber, type, weight, reps, rpe, completed, prefilled }) => ({
+    sets: ex.sets.map(({ setNumber, type, weight, reps, rpe, completed, prefilled, completedAt }) => ({
       setNumber,
       type,
       weight,
@@ -52,6 +53,7 @@ export const draftFromSession = (session: ActiveSession): SessionDraft => ({
       rpe,
       completed,
       prefilled,
+      completedAt,
     })),
   })),
 });

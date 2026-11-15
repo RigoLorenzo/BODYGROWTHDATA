@@ -111,7 +111,11 @@ export async function POST(req: Request, { params }: Params) {
       }
     }
 
-    await finalizeSession(sessionId, session.user.id, { restSeconds: totalRestSeconds });
+    await finalizeSession(sessionId, session.user.id, {
+      restSeconds: totalRestSeconds,
+      endedAt: typeof body.endedAt === "string" ? body.endedAt.slice(0, 40) : null,
+      estimate: body.estimate === true,
+    });
 
     // La bozza non serve più: l'allenamento ora è nelle tabelle definitive
     await prisma.workoutSession.update({ where: { id: sessionId }, data: { draft: Prisma.DbNull } });

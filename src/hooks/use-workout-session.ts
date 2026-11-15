@@ -154,7 +154,11 @@ export function useWorkoutSession() {
   });
 
   const completeMutation = useMutation({
-    mutationFn: async (sessionId: string) => {
+    /**
+     * `endedAt`: chiusura a un orario passato (allenamento dimenticato aperto);
+     * senza, l'allenamento finisce adesso.
+     */
+    mutationFn: async ({ sessionId, endedAt, estimate }: { sessionId: string; endedAt?: string; estimate?: boolean }) => {
       // Registra le serie compilate ma non spuntate: chiudere l'allenamento non
       // deve far perdere quello che hai inserito.
       const store = useSessionStore.getState();
@@ -189,7 +193,7 @@ export function useWorkoutSession() {
       const res = await fetch(`/api/sessions/${sessionId}/complete`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ exercises }),
+        body: JSON.stringify({ exercises, ...(endedAt ? { endedAt } : {}), ...(estimate ? { estimate: true } : {}) }),
       });
       if (!res.ok) throw new Error("Failed to complete session");
       return res.json();

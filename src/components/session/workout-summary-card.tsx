@@ -1,14 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ProgressRing } from "@/components/ui/progress-ring";
 import { goalText } from "@/lib/weekly-goal";
 import type { AnalyticsOverview } from "@/types";
 import { motion, useReducedMotion, type Variants } from "framer-motion";
-import { CalendarDays, ChevronDown, Share2, Trophy, Watch, X } from "lucide-react";
+import { AlertTriangle, CalendarDays, ChevronDown, Share2, Trophy, Watch, X } from "lucide-react";
 import type { Prisma } from "@prisma/client";
-import { cn } from "@/lib/utils";
+import { cn, formatDuration } from "@/lib/utils";
+import { toast } from "@/hooks/use-toast";
+import { isAbnormalDuration } from "@/lib/session-duration";
 import { splitDayName } from "@/lib/plan-format";
 import {
   buildWorkoutShareStats,
@@ -154,6 +156,61 @@ function PreviousLine({ workout, stats }: { workout: WorkoutDetail; stats: Worko
   );
 }
 
+/**
+ * Durata oltre 4 ore: quasi certamente l'allenamento è rimasto aperto.
+ * Si propone la durata tipica delle tue sedute e la si applica con un tocco.
+ */
+function DurationFix({ workout, onFixed }: { workout: WorkoutDetail; onFixed: (seconds: number) => void }) {
+  const queryClient = useQueryClient();
+  const [saving, setSaving] = useState(false);
+  const { data } = useQuery<{ abnormal: boolean; estimate: number | null }>({
+    queryKey: ["session", workout.id, "duration"],
+    queryFn: async () => {
+      const res = await fetch(`/api/sessions/${workout.id}/duration`);
+      if (!res.ok) throw new Error("duration");
+      return res.json();
+    },
+    staleTime: 60 * 1000,
+  });
+  if (!data?.abnormal || !data.estimate) return null;
+  const estimate = data.estimate;
+
+  const apply = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/sessions/${workout.id}/duration`, { method: "POST" });
+      if (!res.ok) throw new Error();
+      onFixed(estimate);
+      queryClient.setQueryData(["session", workout.id, "duration"], { abnormal: false, estimate: null });
+      queryClient.invalidateQueries({ queryKey: ["sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["analytics"] });
+      toast({ title: "Durata corretta", description: `Ora risulta ${formatDuration(estimate)}.` });
+    } catch {
+      toast({ title: "Non corretta", description: "Controlla la connessione e riprova.", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-3 rounded-2xl bg-amber-400/10 p-3 ring-1 ring-amber-400/30">
+      <AlertTriangle className="h-5 w-5 shrink-0 text-amber-300" aria-hidden />
+      <p className="min-w-0 flex-1 text-sm text-zinc-200">
+        Sembra un allenamento rimasto aperto. Durata tipica delle tue sedute:{" "}
+        <span className="font-semibold text-zinc-50">{formatDuration(estimate)}</span>.
+      </p>
+      <button
+        type="button"
+        onClick={apply}
+        disabled={saving}
+        className="flex min-h-11 shrink-0 items-center rounded-xl bg-zinc-50 px-3 text-sm font-semibold text-zinc-950 active:scale-[0.98] disabled:opacity-60"
+      >
+        {saving ? "…" : "Correggi"}
+      </button>
+    </div>
+  );
+}
+
 function TopSetLine({ stats }: { stats: WorkoutShareStats }) {
   if (!stats.topSet) return null;
   return (
@@ -253,7 +310,17 @@ const item: Variants = {
 export function WorkoutSummaryCard({ workout, dayName, celebrate = false, onClose }: Props) {
   const [shareOpen, setShareOpen] = useState(false);
   const reduce = useReducedMotion();
-  const stats = useMemo(() => buildWorkoutShareStats(workout), [workout]);
+  // Durata corretta qui (allenamento rimasto aperto): si aggiorna senza ricaricare
+  const [fixedDuration, setFixedDuration] = useState<number | null>(null);
+  const shown = useMemo(
+    () =>
+      fixedDuration == null
+        ? workout
+        : { ...workout, duration: fixedDuration, endedAt: new Date(new Date(workout.startedAt).getTime() + fixedDuration * 1000) },
+    [workout, fixedDuration]
+  );
+  const stats = useMemo(() => buildWorkoutShareStats(shown), [shown]);
+  const durationAbnormal = !workout.source && fixedDuration == null && isAbnormalDuration(stats.durationSeconds);
 
   const started = new Date(workout.startedAt);
   const day = dayName ? splitDayName(dayName, 0) : null;
@@ -321,6 +388,11 @@ export function WorkoutSummaryCard({ workout, dayName, celebrate = false, onClos
       <motion.div variants={item} className="mt-6">
         <Metrics stats={stats} />
       </motion.div>
+      {durationAbnormal && (
+        <motion.div variants={item} className="mt-3">
+          <DurationFix workout={workout} onFixed={setFixedDuration} />
+        </motion.div>
+      )}
       {workout.programDayId && (
         <motion.div variants={item} className="mt-4">
           <PreviousLine workout={workout} stats={stats} />

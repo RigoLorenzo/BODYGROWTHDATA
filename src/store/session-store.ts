@@ -144,7 +144,7 @@ export const useSessionStore = create<SessionState>()(
         completeSet: (exerciseId, setIndex) =>
           update((session) =>
             mapExercise(session, exerciseId, (ex) => {
-              const done = { ...ex.sets[setIndex], completed: true, prefilled: false };
+              const done = { ...ex.sets[setIndex], completed: true, prefilled: false, completedAt: new Date().toISOString() };
               // Le serie successive ancora da fare ripartono dai valori appena fatti,
               // così non si riscrive tutto ogni volta. Vale anche per quelle
               // precompilate dallo storico; quelle toccate a mano restano come sono.
@@ -166,7 +166,7 @@ export const useSessionStore = create<SessionState>()(
             mapExercise(session, exerciseId, (ex) =>
               // I valori restano come proposta: a fine allenamento non vengono
               // registrati finché non la spunti di nuovo o li modifichi.
-              mapSet(ex, setIndex, (s) => ({ ...s, completed: false, prefilled: true }))
+              mapSet(ex, setIndex, (s) => ({ ...s, completed: false, prefilled: true, completedAt: undefined }))
             )
           ),
 
@@ -179,7 +179,9 @@ export const useSessionStore = create<SessionState>()(
           update((session) =>
             mapExercise(session, exerciseId, (ex) => ({
               ...ex,
-              sets: ex.sets.map((s) => (isFilledUnconfirmed(s) ? { ...s, completed: true } : s)),
+              sets: ex.sets.map((s) =>
+                isFilledUnconfirmed(s) ? { ...s, completed: true, completedAt: s.completedAt ?? new Date().toISOString() } : s
+              ),
             }))
           ),
 

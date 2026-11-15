@@ -92,6 +92,8 @@ export interface ActiveSet {
   rpe?: number;
   tempo?: string;
   completed: boolean;
+  /** Quando è stata spuntata (ISO): serve a capire se l'allenamento è stato dimenticato aperto */
+  completedAt?: string;
 }
 
 /** Esercizio programmato in un giorno del piano */
