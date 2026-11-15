@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { KIND_STYLE } from "@/components/analytics/activity-kind";
+import { isAbnormalDuration } from "@/lib/session-duration";
 import { cn, formatVolume, formatWorkoutDuration, getMuscleColor, getMuscleLabel } from "@/lib/utils";
 import { ChevronRight, Star } from "lucide-react";
 import { format } from "date-fns";
@@ -88,7 +89,10 @@ function summary(w: WorkoutItem) {
   if (isImportedCardio(w)) {
     return { value: w.distance ? `${formatKm(w.distance)} km` : formatMinutes(w.duration), meta: w.distance ? formatMinutes(w.duration) : "Attività" };
   }
-  const duration = w.endedAt ? formatWorkoutDuration(new Date(w.startedAt), new Date(w.endedAt)) : null;
+  const wall = w.endedAt ? (new Date(w.endedAt).getTime() - new Date(w.startedAt).getTime()) / 1000 : null;
+  // Allenamento rimasto aperto: si segnala, lo si corregge dal dettaglio
+  const duration =
+    wall == null ? null : `${formatWorkoutDuration(new Date(w.startedAt), new Date(w.endedAt!))}${isAbnormalDuration(wall) ? " ⚠ da correggere" : ""}`;
   return {
     value: formatVolume(w.totalVolume),
     meta: [`${w.exercises?.length ?? 0} esercizi`, `${w.totalSets} serie`, duration].filter(Boolean).join(" · "),

@@ -158,7 +158,7 @@ export function ActiveWorkoutView({ session, onCompleted }: Props) {
       return;
     }
     try {
-      const data = await completeWorkout(session.id);
+      const data = await completeWorkout({ sessionId: session.id });
       dismissAllToasts();
       onCompleted(data as CompletedWorkout);
     } catch {

@@ -4,11 +4,19 @@ import { prisma } from "./prisma";
 import { calculateSessionVolume } from "./volume-calculator";
 import { checkAndSavePersonalRecords } from "./pr-detector";
 import { updateUserStreak } from "./streak-calculator";
+import { isAbnormalDuration, resolveEndedAt } from "./session-duration";
+import { estimateSessionDuration } from "./session-duration-server";
 
 export async function finalizeSession(
   sessionId: string,
   userId: string,
-  opts: { restSeconds?: number } = {}
+  opts: {
+    restSeconds?: number;
+    /** Fine scelta dall'utente (ISO), es. "chiudi dopo l'ultima serie"; validata tra inizio e adesso */
+    endedAt?: string | null;
+    /** Allenamento dimenticato aperto senza orari delle serie: durata tipica delle tue sedute */
+    estimate?: boolean;
+  } = {}
 ) {
   const session = await prisma.workoutSession.findUnique({
     where: { id: sessionId, userId },
@@ -38,9 +46,15 @@ export async function finalizeSession(
     0
   );
 
-  const duration = session.endedAt
-    ? Math.floor((session.endedAt.getTime() - session.startedAt.getTime()) / 1000)
-    : Math.floor((Date.now() - session.startedAt.getTime()) / 1000);
+  // Già chiuso (nuovo invio): resta la fine salvata. Altrimenti quella scelta o adesso.
+  let endedAt = session.endedAt ?? resolveEndedAt(session.startedAt, new Date(), opts.endedAt);
+  let duration = Math.floor((endedAt.getTime() - session.startedAt.getTime()) / 1000);
+  // Rete di sicurezza: oltre 4 ore senza una fine scelta è un allenamento
+  // dimenticato aperto. Vale la durata tipica delle tue sedute.
+  if (!session.endedAt && !opts.endedAt && (opts.estimate || isAbnormalDuration(duration))) {
+    duration = Math.min(duration, await estimateSessionDuration(userId, session));
+    endedAt = new Date(session.startedAt.getTime() + duration * 1000);
+  }
 
   // Tempo di recupero cronometrato durante la sessione: il resto della durata
   // è tempo di lavoro effettivo.
@@ -51,7 +65,7 @@ export async function finalizeSession(
     where: { id: sessionId },
     data: {
       status: "COMPLETED",
-      endedAt: new Date(),
+      endedAt,
       duration,
       totalVolume,
       totalSets,
