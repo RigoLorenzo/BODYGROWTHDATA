@@ -5,6 +5,7 @@ import { useSessionStore } from "@/store/session-store";
 import { ArrowDown, ArrowUp, Check, Minus, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { LoggedSet } from "@/lib/progression";
+import { setDelta, type SetDeltaKind } from "@/lib/set-delta";
 import type { ActiveSet } from "@/types";
 
 interface Props {
@@ -41,31 +42,43 @@ const stepButton =
 const numberInput =
   "w-full min-w-0 text-center text-base font-semibold bg-muted/40 rounded-lg h-9 tabular-nums border-0 outline-none focus:ring-1 focus:ring-primary disabled:bg-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
 
-/** "Scorsa 80 kg × 8" con la differenza di peso rispetto a oggi */
-function PreviousHint({ previous, weight }: { previous: LoggedSet; weight?: number }) {
+const DELTA_UNIT: Record<SetDeltaKind, { unit: string; more: string; less: string }> = {
+  volume: { unit: " kg vol.", more: " di volume in più", less: " di volume in meno" },
+  reps: { unit: " rip.", more: " ripetizioni in più", less: " ripetizioni in meno" },
+  weight: { unit: " kg", more: " in più", less: " in meno" },
+};
+
+/**
+ * "Scorsa 80 kg × 8" con la differenza rispetto a oggi: il volume (peso × ripetizioni)
+ * se ci sono entrambi, così meno peso con più ripetizioni non sembra un calo.
+ */
+function PreviousHint({ previous, weight, reps }: { previous: LoggedSet; weight?: number; reps?: number }) {
   if (previous.weight == null && previous.reps == null) return null;
-  const delta = previous.weight != null && weight != null ? Math.round((weight - previous.weight) * 100) / 100 : 0;
+  const delta = setDelta(previous, { weight, reps });
   const label = [previous.weight != null ? `${formatWeight(previous.weight)} kg` : null, previous.reps != null ? `× ${previous.reps}` : null]
     .filter(Boolean)
     .join(" ");
+  const unit = delta ? DELTA_UNIT[delta.kind] : null;
 
   return (
-    <p className="col-start-2 col-span-2 -mt-0.5 flex items-center justify-center gap-1.5 text-[11px] leading-tight text-muted-foreground tabular-nums">
+    <p className="col-start-2 col-span-2 -mt-0.5 flex flex-wrap items-center justify-center gap-x-1.5 text-[11px] leading-tight text-muted-foreground tabular-nums">
       <span>
         Scorsa <span className="font-semibold text-foreground/80">{label}</span>
       </span>
-      {delta < 0 && (
-        <span className="inline-flex items-center font-semibold text-amber-600 dark:text-amber-400">
+      {delta && unit && delta.diff < 0 && (
+        <span className="inline-flex items-center whitespace-nowrap font-semibold text-amber-600 dark:text-amber-400">
           <ArrowDown className="h-3 w-3" aria-hidden />
-          {formatWeight(-delta)} kg
-          <span className="sr-only"> in meno</span>
+          {formatWeight(-delta.diff)}
+          {unit.unit}
+          <span className="sr-only">{unit.less}</span>
         </span>
       )}
-      {delta > 0 && (
-        <span className="inline-flex items-center font-semibold text-success">
+      {delta && unit && delta.diff > 0 && (
+        <span className="inline-flex items-center whitespace-nowrap font-semibold text-success">
           <ArrowUp className="h-3 w-3" aria-hidden />
-          {formatWeight(delta)} kg
-          <span className="sr-only"> in più</span>
+          {formatWeight(delta.diff)}
+          {unit.unit}
+          <span className="sr-only">{unit.more}</span>
         </span>
       )}
     </p>
@@ -206,7 +219,7 @@ function SetRowComponent({ exerciseId, set, index, previous, onRemove, label }: 
         )}
       </div>
 
-      {previous && <PreviousHint previous={previous} weight={set.weight} />}
+      {previous && <PreviousHint previous={previous} weight={set.weight} reps={set.reps} />}
     </div>
   );
 }
